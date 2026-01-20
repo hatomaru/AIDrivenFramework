@@ -1,9 +1,10 @@
 # AIDrivenFramework
 UnityでローカルLLMをUXや権利に配慮し、安心して扱うためのセットアップ＆実行フレームワーク
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/AISetup/AssetResources/Frame/Bg.png" width="800">
 
+[![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
 ## 概要
-**AIDrivenFramework** は、Unity プロジェクト上で
-ローカル LLM（例：llama.cpp）を安全に統合するための実験的フレームワークです。
+**AIDrivenFramework** は、Unity プロジェクト上で、ローカル LLM（例：llama.cpp）を安全に統合するための実験的フレームワークです。
 
 ### 特徴
 
