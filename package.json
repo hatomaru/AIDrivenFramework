@@ -1,0 +1,11 @@
+{
+  "name": "com.hatomaru.ai.framework",
+  "version": "1.0.0",
+  "displayName": "AIDrivenFramework",
+  "description": "Framework for safely integrating local LLMs into Unity games.",
+  "unity": "6000.2",
+  "author": {
+    "name": "hatomaru",
+    "url": "https://github.com/hatomaru"
+  }
+}
