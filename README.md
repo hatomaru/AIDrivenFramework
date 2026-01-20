@@ -2,6 +2,12 @@
 
 A setup and execution framework for safely working with local LLMs in Unity, with careful consideration for UX and licensing.
 
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/AISetup/AssetResources/Frame/Bg.png" width="800">
+
+[![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
+
+[日本語版READMEはこちら](README_ja.md)
+
 ## Overview
 
 **AIDrivenFramework** is an experimental framework for safely integrating local LLMs (e.g., llama.cpp) into Unity projects.
