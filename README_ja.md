@@ -1,10 +1,10 @@
 # AIDrivenFramework
 UnityでローカルLLMをUXや権利に配慮し、安心して扱うためのセットアップ＆実行フレームワーク
-<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/AISetup/AssetResources/Frame/Bg.png" width="800">
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">
 
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
 ## 概要
-**AIDrivenFramework** は、Unity プロジェクト上で、ローカル LLM（例：llama.cpp）を安全に統合するための実験的フレームワークです。
+**AIDrivenFramework** は、Unity プロジェクト上で、ローカル LLM（例：llama.cpp）を安全に統合するための**実験的フレームワーク**です。
 
 ### 特徴
 
@@ -15,23 +15,77 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 - モデルの再配布を行わないように配慮した設計
 - Unityと自然に統合可能
 
+## 動作環境
+- **Unity 2022.3 LTS** 以上推奨
+- **OS**: Windows 10/11 (64bit)
+※MacOSは動作検証を行っていません。
+- **推奨スペック**: VRAM 8GB以上 / RAM 16GB以上（使用するモデルに依存します）
+
+## インストール
+
+### Package Manager (Git URL)
+Unityの Package Manager を開き、`+` ボタン内の`Add package from git URL...` を選択して以下を入力してください：
+
+```text
+https://github.com/hatomaru/AIDrivenFramework.git?path=/Assets/AIDrivenFramework
+```
+
+## 前提パッケージ
+本フレームワークの動作には以下のパッケージが必要です。これらを Unity Package Manager 等からプロジェクトに導入してください。
+
+-[UniTask](https://github.com/Cysharp/UniTask) (非同期処理)
+
+-[LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / 演出制御)
+
+-[StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (セットアップ時のファイル選択)
+
+
+## セットアップ
+導入後、以下の手順で初期設定を行います。
+
+**1.モデルの準備**
+
+Hugging Face 等から .gguf 形式のモデルファイルとLlama.cppをご自身でダウンロードしてください。 （本フレームワークにはモデルファイルとLlama.cppは同梱されていません）
+
+**2.セットアップウィザードの実行**
+
+Unityエディタで任意のシーンを開いて実行してください
+
+開くとローカルLLMの環境構築が出来ているのかを自動で判断し、出来ていない場合はセットアップ画面(AIDrivenSetup)が開きます。
+
+ダウンロードしたLlama.cppと.ggufモデルファイルを選択し、初期設定を完了させてください。これが完了すると、初期設定が済んだ状態になります。
+
+また、ビルド上でも動作するので、ユーザーも同様の手順で設定できます。
 
 ## 基本的な使い方
 > [!IMPORTANT]
 > ### 前提
-> **AIDrivenSetup** が完了していること
+> **上記のセットアップ** が完了していること
 > (モデルの取得・配置・確認が済んでいる状態)
 
-最小コード例
+AI呼び出しの最小コード例
 ```
-using AIDrivn;
+using AIDrivenFW;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
 
-string response = await GenAI.Generate(
-    "こんにちは",
-    ct: cancellationToken
-);
+public class AIDriven_SmallCode : MonoBehaviour
+{
+    void Start()
+    {
+        TestCode().Forget();
+    }
 
-Debug.Log("Response: " + response);
+    async UniTask TestCode()
+    {
+        string response = await GenAI.Generate(
+            "こんにちは",
+            ct: destroyCancellationToken
+        );
+
+        Debug.Log("Response: " + response);
+    }
+}
 ```
 
 これだけで、内部では以下の処理が**自動的**に行われます。
@@ -42,19 +96,12 @@ Debug.Log("Response: " + response);
 - 生成結果の返却
 
 > [!CAUTION]
-> ## 注意事項
-> 本フレームワークは **実験的（Experimental）**です
+> ### 注意事項
+> 本フレームワークは実験的(Experimental)です。
+> 
 > API・構造は今後変更される可能性があります
-> 商用利用の可否は、使用する LLM 実行環境・モデルのライセンスに依存します
-
-## 前提パッケージ
-本フレームワークは以下のパッケージを前提としています。
-
-- UniTask（非同期処理）
-- LitMotion（UI / 演出制御）
-- StandaloneFileBrowser (AIセットアップ時のファイル読み込み画面)
-
-これらは Unity Package Manager から導入してください。
+> 
+> 商用利用の可否は、使用する LLM 実行環境・モデルのライセンスに依存します。
 
 
 ## ライセンス
@@ -80,9 +127,8 @@ M+ FONTS は M+ FONTS PROJECT により配布されている
 詳細なライセンス条件については、
 フォントディレクトリに同梱されている LICENSE_J.txt および LICENSE_E.txt を参照してください。
 
-
 ## 設計思想
-AIDrivenFrameworkは **「ライブラリ」ではなく「体験を保証するフレームワーク」**として設計されています。
+AIDrivenFrameworkは「ライブラリ」ではなく「**体験を保証するフレームワーク**」として設計されています。
 
 ### なぜプロセス管理を隠蔽するのか
 LLM 実行では、以下のようなミスが起きがちです。
@@ -94,19 +140,17 @@ AIDrivenFrameworkではこれらの**順序ミス**を、APIレベルで起き�
 
 ## モデルについて
 > [!CAUTION]
-> 本フレームワークは LLM モデルファイルを同梱・配布しません
+> 本フレームワークは LLM モデルファイル及びLlama.cppを同梱・配布しません。
+> 
 > モデルは 各ユーザーが公式配布元から取得してください
+>
 > 本リポジトリでは 取得手順の案内のみを行います
 
-これは、再配布禁止モデルへの配慮とユーザー自身による管理を両立するための設計です。
-
-## Config と Args について
-
-AIDrivenFrameworkでは、設定を以下の2層で扱います。
-### Config（フレームワークが責任を持つ部分）
+## Configについて
+AIDrivenFrameworkでは、設定を以下のように扱います。
+### Configで設定できるもの
 - モデルパス
 - 自動起動 / 自動終了
-- 安全な実行ポリシー
 - Args（上級者向け）
 - config.Args = "--ctx-size 2048 --n-gpu-layers 32 --temp 0.7";
 詳細な制御が必要な場合にLLM 実行時の引数を文字列で指定できます。
@@ -117,12 +161,7 @@ AIDrivenFrameworkでは、設定を以下の2層で扱います。
 - LLM × ゲーム / インタラクティブ表現を試したい方
 - 実験的に使える OSS を探している方
 
-## 開発状況
-✔ プロセス分離
-✔ 自動起動・生成フロー
-✔ Namespace 整理
-⏳ TestMode / ExampleScene（予定）
-
 ### 作者からのメッセージ
 AIDrivenFrameworkは「LLM をゲームに組み込む」前に、「LLM に安心して触れる入口を作りたい」という動機から生まれました。
+
 不具合・改善案・思想の違いを含め、Issue / PR を歓迎します。
