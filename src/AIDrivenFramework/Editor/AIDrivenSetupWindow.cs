@@ -6,10 +6,10 @@ public class AIDrivenSetupWindow : EditorWindow
 {
     // ===== UnityPackage paths =====
     private const string EXAMPLE_PACKAGE =
-        "Packages/AIDrivenFrameWork/Editor/Setup/Packages/AIDriven_Samples.unitypackage";
+        "Packages/AIDrivenFrameWork/Editor/Packages/AIDriven_Samples.unitypackage";
 
     private const string AISetup_PACKAGE =
-        "Packages/AIDrivenFrameWork/Editor/Setup/Packages/AIDriven_AISetup.unitypackage";
+        "Packages/AIDrivenFrameWork/Editor/Packages/AIDriven_AISetup.unitypackage";
 
     // ===== Toggle states =====
     bool exampleSamples = true;

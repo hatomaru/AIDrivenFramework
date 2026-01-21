@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Events;
 
-internal sealed class QuitHookBehaviour : MonoBehaviour
+public class QuitHookBehaviour : MonoBehaviour
 {
     public static UnityAction onProcessKill;
 
