@@ -1,15 +1,18 @@
 using UnityEditor;
 using UnityEngine;
 using System.IO;
+using System.Collections.Generic;
 
 public class AIDrivenSetupWindow : EditorWindow
 {
+    private const string AISETUP_SCENE_PATH = "Assets/AIDrivenFW/AISetup/AIDrivenSetup.unity";
+
     // ===== UnityPackage paths =====
     private const string EXAMPLE_PACKAGE =
-        "Packages/AIDrivenFrameWork/Editor/Packages/AIDriven_Samples.unitypackage";
+        "Packages/com.hatomaru.ai.framework/Editor/Packages/AIDriven_Example.unitypackage";
 
     private const string AISetup_PACKAGE =
-        "Packages/AIDrivenFrameWork/Editor/Packages/AIDriven_AISetup.unitypackage";
+        "Packages/com.hatomaru.ai.framework/Editor/Packages/AIDriven_AISetup.unitypackage";
 
     // ===== Toggle states =====
     bool exampleSamples = true;
@@ -18,6 +21,11 @@ public class AIDrivenSetupWindow : EditorWindow
 
     // ===== UI State =====
     bool setupCompleted = false;
+
+    // ===== Import Queue State =====
+    readonly Queue<string> importQueue = new Queue<string>();
+    bool isImporting = false;
+    bool shouldAddAISetupSceneToBuild = false;
 
     [MenuItem("AIDrivenFramework/Setup")]
     static void Open()
@@ -60,13 +68,96 @@ public class AIDrivenSetupWindow : EditorWindow
     {
         setupCompleted = false;
 
+        importQueue.Clear();
+        shouldAddAISetupSceneToBuild = AISetup;
+
         if (exampleSamples)
-            ImportUnityPackage(EXAMPLE_PACKAGE);
+            importQueue.Enqueue(EXAMPLE_PACKAGE);
 
         if (AISetup)
-            ImportUnityPackage(AISetup_PACKAGE);
+            importQueue.Enqueue(AISetup_PACKAGE);
 
-        setupCompleted = true;
+        if (importQueue.Count == 0)
+            return;
+
+        StartImportQueue();
+    }
+
+    void StartImportQueue()
+    {
+        if (isImporting)
+            return;
+
+        isImporting = true;
+        EditorApplication.LockReloadAssemblies();
+        AssetDatabase.importPackageCompleted += OnImportPackageCompleted;
+        AssetDatabase.importPackageFailed += OnImportPackageFailed;
+
+        ImportNextFromQueue();
+    }
+
+    void ImportNextFromQueue()
+    {
+        if (importQueue.Count == 0)
+        {
+            EndImportQueue(success: true);
+            return;
+        }
+
+        var path = importQueue.Dequeue();
+        ImportUnityPackage(path);
+    }
+
+    void OnImportPackageCompleted(string packageName)
+    {
+        ImportNextFromQueue();
+    }
+
+    void OnImportPackageFailed(string packageName, string errorMessage)
+    {
+        Debug.LogError($"UnityPackage import failed: {packageName}\n{errorMessage}");
+        EndImportQueue(success: false);
+    }
+
+    void EndImportQueue(bool success)
+    {
+        if (!isImporting)
+            return;
+
+        isImporting = false;
+        EditorApplication.UnlockReloadAssemblies();
+        AssetDatabase.importPackageCompleted -= OnImportPackageCompleted;
+        AssetDatabase.importPackageFailed -= OnImportPackageFailed;
+
+        if (success && shouldAddAISetupSceneToBuild)
+            AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
+
+        setupCompleted = success;
+        Repaint();
+    }
+
+    static void AddSceneToBuildSettingsIfNeeded(string sceneAssetPath)
+    {
+        if (string.IsNullOrWhiteSpace(sceneAssetPath))
+            return;
+
+        if (!File.Exists(sceneAssetPath))
+        {
+            Debug.LogError($"Scene not found: {sceneAssetPath}");
+            return;
+        }
+
+        var scenes = EditorBuildSettings.scenes;
+        for (int i = 0; i < scenes.Length; i++)
+        {
+            if (string.Equals(scenes[i].path, sceneAssetPath, System.StringComparison.Ordinal))
+                return;
+        }
+
+        var newScenes = new EditorBuildSettingsScene[scenes.Length + 1];
+        scenes.CopyTo(newScenes, 0);
+        newScenes[newScenes.Length - 1] = new EditorBuildSettingsScene(sceneAssetPath, true);
+        EditorBuildSettings.scenes = newScenes;
     }
 
     void ImportUnityPackage(string path)
@@ -74,6 +165,7 @@ public class AIDrivenSetupWindow : EditorWindow
         if (!File.Exists(path))
         {
             Debug.LogError($"UnityPackage not found: {path}");
+            EndImportQueue(success: false);
             return;
         }
 
