@@ -11,13 +11,6 @@
     "runtime",
     "tool"
   ],
-  "samples": [
-  {
-    "displayName": "Example Scene",
-    "description": "Example scene for AIDrivenFramework",
-    "path": "Sample/Example"
-  }
-  ],
   "dependencies": {
     "com.cysharp.unitask": "2.5.10", 
     "com.annulusgames.lit-motion": "2.0.1" 

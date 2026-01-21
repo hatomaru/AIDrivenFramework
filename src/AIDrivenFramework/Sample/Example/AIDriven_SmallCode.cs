@@ -1,16 +1,21 @@
+using AIDrivenFW;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 public class AIDriven_SmallCode : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        TestCode().Forget();
     }
 
-    // Update is called once per frame
-    void Update()
+    async UniTask TestCode()
     {
-        
+        string response = await GenAI.Generate(
+            "Hello",
+            ct: destroyCancellationToken
+        );
+
+        Debug.Log("Response: " + response);
     }
 }
