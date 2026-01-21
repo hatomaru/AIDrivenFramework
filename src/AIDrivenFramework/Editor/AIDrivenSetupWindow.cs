@@ -7,6 +7,8 @@ public class AIDrivenSetupWindow : EditorWindow
 {
     private const string AISETUP_SCENE_PATH = "Assets/AIDrivenFW/AISetup/AIDrivenSetup.unity";
 
+    private const string TEMP_IMPORT_DIR = "Assets/AIDrivenFramework/TempPackages";
+
     // ===== UnityPackage paths =====
     private const string EXAMPLE_PACKAGE =
         "Packages/com.hatomaru.ai.framework/Editor/Packages/AIDriven_Example.unitypackage";
@@ -26,6 +28,8 @@ public class AIDrivenSetupWindow : EditorWindow
     readonly Queue<string> importQueue = new Queue<string>();
     bool isImporting = false;
     bool shouldAddAISetupSceneToBuild = false;
+
+    string currentImportedTempPath;
 
     [MenuItem("AIDrivenFramework/Setup")]
     static void Open()
@@ -110,11 +114,13 @@ public class AIDrivenSetupWindow : EditorWindow
 
     void OnImportPackageCompleted(string packageName)
     {
+        CleanupTempPackage();
         ImportNextFromQueue();
     }
 
     void OnImportPackageFailed(string packageName, string errorMessage)
     {
+        CleanupTempPackage();
         Debug.LogError($"UnityPackage import failed: {packageName}\n{errorMessage}");
         EndImportQueue(success: false);
     }
@@ -125,9 +131,10 @@ public class AIDrivenSetupWindow : EditorWindow
             return;
 
         isImporting = false;
-        EditorApplication.UnlockReloadAssemblies();
+        CleanupTempPackage();
         AssetDatabase.importPackageCompleted -= OnImportPackageCompleted;
         AssetDatabase.importPackageFailed -= OnImportPackageFailed;
+        EditorApplication.UnlockReloadAssemblies();
 
         if (success && shouldAddAISetupSceneToBuild)
             AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
@@ -169,8 +176,50 @@ public class AIDrivenSetupWindow : EditorWindow
             return;
         }
 
+        // Importing directly from `Packages/` can involve Temp/PackageCache timing issues.
+        // Copy to a stable location under `Assets/` before importing.
+        try
+        {
+            if (!AssetDatabase.IsValidFolder(TEMP_IMPORT_DIR))
+            {
+                Directory.CreateDirectory(TEMP_IMPORT_DIR);
+                AssetDatabase.Refresh();
+            }
+
+            var fileName = Path.GetFileName(path);
+            currentImportedTempPath = Path.Combine(TEMP_IMPORT_DIR, fileName).Replace('\\', '/');
+            File.Copy(path, currentImportedTempPath, true);
+            AssetDatabase.Refresh();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Failed to prepare UnityPackage for import: {path}\n{ex.Message}");
+            EndImportQueue(success: false);
+            return;
+        }
+
         // true = show Import Window (safe / OSS friendly)
-        AssetDatabase.ImportPackage(path, true);
+        AssetDatabase.ImportPackage(currentImportedTempPath, true);
+    }
+
+    void CleanupTempPackage()
+    {
+        if (string.IsNullOrEmpty(currentImportedTempPath))
+            return;
+
+        try
+        {
+            if (File.Exists(currentImportedTempPath))
+                File.Delete(currentImportedTempPath);
+        }
+        catch
+        {
+            // best-effort cleanup
+        }
+        finally
+        {
+            currentImportedTempPath = null;
+        }
     }
 
     void DrawResultMessage()
