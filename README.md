@@ -55,7 +55,7 @@ Please download a `.gguf` format model file and Llama.cpp yourself from sources 
 
 **2. Run the setup wizard**
 
-Open any scene in the Unity Editor and run it.
+Open any scene in the Unity Editor and **enter Play Mode.**
 
 The framework will automatically detect whether the local LLM environment is set up.
 If not, the setup screen (AIDrivenSetup) will open.
