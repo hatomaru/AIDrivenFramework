@@ -15,7 +15,7 @@
   {
     "displayName": "Example Scene",
     "description": "Example scene for AIDrivenFramework",
-    "path": "~Sample/Example"
+    "path": "Sample/Example"
   }
   ],
   "dependencies": {
