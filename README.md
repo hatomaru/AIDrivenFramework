@@ -45,25 +45,44 @@ The following packages are required to use this framework. Please add them to yo
 * [StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (file selection during setup)
 
 ## Setup
+After installation, follow these steps for initial configuration.
 
-After installation, perform the initial setup using the steps below.
+**1. Prepare the Model**
 
-**1. Prepare the model**
+Download the .gguf format model file and [Llama.cpp](https://github.com/ggerganov/llama.cpp/releases) yourself from sources like Hugging Face. (This framework does not include the model file or Llama.cpp.)
 
-Please download a `.gguf` format model file and [Llama.cpp](https://github.com/ggerganov/llama.cpp/releases) yourself from sources such as Hugging Face.
-(This framework does not include model files or Llama.cpp.)
+**2. Run the Setup Wizard**
 
-**2. Run the setup wizard**
+Open any scene in the Unity Editor and press **Play**.
 
-Open any scene in the Unity Editor and **enter Play Mode.**
+Upon opening, the system automatically checks if the local LLM environment is configured. If not, the setup screen (AIDrivenSetup) will open.
 
-The framework will automatically detect whether the local LLM environment is set up.
-If not, the setup screen (AIDrivenSetup) will open.
+Select the downloaded Llama.cpp and .gguf model files to complete the initial setup. Once finished, the framework will be ready for use.
 
-Select the downloaded Llama.cpp and `.gguf` model file, and complete the initial configuration.
-Once finished, the environment will be ready for use.
+This setup also works during builds, allowing users to configure it using the same steps.
 
-This setup also works in builds, allowing end users to configure it in the same way.
+### Options
+**1. Open the Setup Window**
+
+From the Unity menu, select:
+```
+AIDrivenFramework > Setup
+```
+**2. Select and Install Desired Items**
+
+In the Setup window, you can select any of the following optional components:
+
+- AISetup (AI Setup)
+- Example Scene (Sample Scene)
+
+Check the boxes for the required items and press **“Install Selected”**.
+※An Import dialog will appear. Review the contents before proceeding with the import.
+
+※We recommend checking “AISetup” and “Example Scene” first.
+
+**3. Setup Complete! indicates success**
+
+Once the import finishes, “Setup Complete!” will appear at the bottom of the window.
 
 ## Basic Usage
 
