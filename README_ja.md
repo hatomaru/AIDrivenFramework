@@ -27,7 +27,7 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 Unityの Package Manager を開き、`+` ボタン内の`Add package from git URL...` を選択して以下を入力してください：
 
 ```text
-https://github.com/hatomaru/AIDrivenFramework.git?path=/Assets/AIDrivenFramework
+https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
 
 ## 前提パッケージ

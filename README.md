@@ -33,7 +33,7 @@ A setup and execution framework for safely working with local LLMs in Unity, wit
 Open Unity’s Package Manager, select `Add package from git URL...` from the `+` button, and enter the following:
 
 ```text
-https://github.com/hatomaru/AIDrivenFramework.git?path=/Assets/AIDrivenFramework
+https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
 
 ## Required Packages
