@@ -50,7 +50,7 @@ After installation, perform the initial setup using the steps below.
 
 **1. Prepare the model**
 
-Please download a `.gguf` format model file and Llama.cpp yourself from sources such as Hugging Face.
+Please download a `.gguf` format model file and [Llama.cpp](https://github.com/ggerganov/llama.cpp/releases) yourself from sources such as Hugging Face.
 (This framework does not include model files or Llama.cpp.)
 
 **2. Run the setup wizard**
