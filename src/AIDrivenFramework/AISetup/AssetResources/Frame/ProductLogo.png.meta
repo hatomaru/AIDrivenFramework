@@ -1,0 +1,1118 @@
+fileFormatVersion: 2
+guid: c1b686627d4b02245a591c7cadae3dc5
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -1782193742132459422
+    second: ProductLogo_0
+  - first:
+      213: -7412727817773132485
+    second: ProductLogo_1
+  - first:
+      213: 2516587828790339994
+    second: ProductLogo_2
+  - first:
+      213: 5919221363992809081
+    second: ProductLogo_3
+  - first:
+      213: 6771158321246053498
+    second: ProductLogo_4
+  - first:
+      213: -6818026623573850187
+    second: ProductLogo_5
+  - first:
+      213: 3508679268972766356
+    second: ProductLogo_6
+  - first:
+      213: 7231482156358621280
+    second: ProductLogo_7
+  - first:
+      213: -819925548880191006
+    second: ProductLogo_8
+  - first:
+      213: -5530462674918063795
+    second: ProductLogo_9
+  - first:
+      213: 612284833117518084
+    second: ProductLogo_10
+  - first:
+      213: 3208034597841813301
+    second: ProductLogo_11
+  - first:
+      213: -4532309443710026572
+    second: ProductLogo_12
+  - first:
+      213: -6307748493408882728
+    second: ProductLogo_13
+  - first:
+      213: 2207561767908770922
+    second: ProductLogo_14
+  - first:
+      213: -6057797855322795935
+    second: ProductLogo_15
+  - first:
+      213: 3840926317470262838
+    second: ProductLogo_16
+  - first:
+      213: -2442104629085860270
+    second: ProductLogo_17
+  - first:
+      213: 7119889221057397830
+    second: ProductLogo_18
+  - first:
+      213: 1494137001500339272
+    second: ProductLogo_19
+  - first:
+      213: 4913229644765518961
+    second: ProductLogo_20
+  - first:
+      213: -6112878377053377074
+    second: ProductLogo_21
+  - first:
+      213: -163613335526344794
+    second: ProductLogo_22
+  - first:
+      213: -2498570034591562234
+    second: ProductLogo_23
+  - first:
+      213: 1273309421565237488
+    second: ProductLogo_24
+  - first:
+      213: 2447921609533464699
+    second: ProductLogo_25
+  - first:
+      213: 1008053231023616879
+    second: ProductLogo_26
+  - first:
+      213: 8769832240403243206
+    second: ProductLogo_27
+  - first:
+      213: 3234394564247939774
+    second: ProductLogo_28
+  - first:
+      213: 3908388725730445889
+    second: ProductLogo_29
+  - first:
+      213: -5866273919256352919
+    second: ProductLogo_30
+  - first:
+      213: -1899513671169550398
+    second: ProductLogo_31
+  - first:
+      213: -1169202782577402909
+    second: ProductLogo_32
+  - first:
+      213: 4823918469299057219
+    second: ProductLogo_33
+  - first:
+      213: 5315646362532503153
+    second: ProductLogo_34
+  - first:
+      213: 8115713612065787568
+    second: ProductLogo_35
+  - first:
+      213: -5064604520352488443
+    second: ProductLogo_36
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 1
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: iOS
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: ProductLogo_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 20
+        width: 1172
+        height: 1172
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2684547eb306447e0800000000000000
+      internalID: -1782193742132459422
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_1
+      rect:
+        serializedVersion: 2
+        x: 1611
+        y: 725
+        width: 215
+        height: 274
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b35d9f4f253b02990800000000000000
+      internalID: -7412727817773132485
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_2
+      rect:
+        serializedVersion: 2
+        x: 1888
+        y: 725
+        width: 23
+        height: 274
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a99ae1dfb47bce220800000000000000
+      internalID: 2516587828790339994
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_3
+      rect:
+        serializedVersion: 2
+        x: 1994
+        y: 725
+        width: 195
+        height: 274
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 97ec1bb187c452250800000000000000
+      internalID: 5919221363992809081
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_4
+      rect:
+        serializedVersion: 2
+        x: 2424
+        y: 965
+        width: 22
+        height: 41
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a742dc73e9cf7fd50800000000000000
+      internalID: 6771158321246053498
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_5
+      rect:
+        serializedVersion: 2
+        x: 2239
+        y: 725
+        width: 114
+        height: 196
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5b789b8c8e08161a0800000000000000
+      internalID: -6818026623573850187
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_6
+      rect:
+        serializedVersion: 2
+        x: 2424
+        y: 725
+        width: 22
+        height: 196
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 49426e1943551b030800000000000000
+      internalID: 3508679268972766356
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_7
+      rect:
+        serializedVersion: 2
+        x: 2511
+        y: 725
+        width: 169
+        height: 196
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 068d45905b26b5460800000000000000
+      internalID: 7231482156358621280
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_8
+      rect:
+        serializedVersion: 2
+        x: 2708
+        y: 721
+        width: 163
+        height: 204
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2e1aab4be0a0f94f0800000000000000
+      internalID: -819925548880191006
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_9
+      rect:
+        serializedVersion: 2
+        x: 2923
+        y: 725
+        width: 151
+        height: 200
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d41c3f1bf79df33b0800000000000000
+      internalID: -5530462674918063795
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_10
+      rect:
+        serializedVersion: 2
+        x: 1631
+        y: 293
+        width: 153
+        height: 274
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 409345bcfc54f7800800000000000000
+      internalID: 612284833117518084
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_11
+      rect:
+        serializedVersion: 2
+        x: 1838
+        y: 293
+        width: 114
+        height: 196
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 53f3687487a358c20800000000000000
+      internalID: 3208034597841813301
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_12
+      rect:
+        serializedVersion: 2
+        x: 1986
+        y: 289
+        width: 151
+        height: 204
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4bcf38bf2900a11c0800000000000000
+      internalID: -4532309443710026572
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_13
+      rect:
+        serializedVersion: 2
+        x: 2198
+        y: 293
+        width: 237
+        height: 200
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8dfabd54a206678a0800000000000000
+      internalID: -6307748493408882728
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_14
+      rect:
+        serializedVersion: 2
+        x: 2482
+        y: 289
+        width: 163
+        height: 204
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: a648fe35bb5d2ae10800000000000000
+      internalID: 2207561767908770922
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_15
+      rect:
+        serializedVersion: 2
+        x: 2666
+        y: 293
+        width: 290
+        height: 274
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1609c5832f06eeba0800000000000000
+      internalID: -6057797855322795935
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_16
+      rect:
+        serializedVersion: 2
+        x: 2975
+        y: 289
+        width: 176
+        height: 204
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 636a349b226bd4530800000000000000
+      internalID: 3840926317470262838
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_17
+      rect:
+        serializedVersion: 2
+        x: 3201
+        y: 293
+        width: 114
+        height: 196
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 25e000757c6eb1ed0800000000000000
+      internalID: -2442104629085860270
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_18
+      rect:
+        serializedVersion: 2
+        x: 3371
+        y: 293
+        width: 146
+        height: 281
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6444245168deec260800000000000000
+      internalID: 7119889221057397830
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_19
+      rect:
+        serializedVersion: 2
+        x: 1616
+        y: 39
+        width: 70
+        height: 89
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 84ce134cfad3cb410800000000000000
+      internalID: 1494137001500339272
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_20
+      rect:
+        serializedVersion: 2
+        x: 1703
+        y: 39
+        width: 9
+        height: 89
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 17cda2c945c4f2440800000000000000
+      internalID: 4913229644765518961
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_21
+      rect:
+        serializedVersion: 2
+        x: 1731
+        y: 39
+        width: 83
+        height: 89
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ecd2194e081ba2ba0800000000000000
+      internalID: -6112878377053377074
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_22
+      rect:
+        serializedVersion: 2
+        x: 1823
+        y: 37
+        width: 57
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6a77f67c98ababdf0800000000000000
+      internalID: -163613335526344794
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_23
+      rect:
+        serializedVersion: 2
+        x: 1891
+        y: 37
+        width: 55
+        height: 93
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6060cb1aacb435dd0800000000000000
+      internalID: -2498570034591562234
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_24
+      rect:
+        serializedVersion: 2
+        x: 1960
+        y: 37
+        width: 53
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0f8dd813c24bba110800000000000000
+      internalID: 1273309421565237488
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_25
+      rect:
+        serializedVersion: 2
+        x: 2033
+        y: 39
+        width: 9
+        height: 91
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b70ae36fbb3c8f120800000000000000
+      internalID: 2447921609533464699
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_26
+      rect:
+        serializedVersion: 2
+        x: 2094
+        y: 39
+        width: 94
+        height: 89
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f63f8dd92135dfd00800000000000000
+      internalID: 1008053231023616879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_27
+      rect:
+        serializedVersion: 2
+        x: 2192
+        y: 37
+        width: 57
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6c0e00545f3b4b970800000000000000
+      internalID: 8769832240403243206
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_28
+      rect:
+        serializedVersion: 2
+        x: 2263
+        y: 39
+        width: 38
+        height: 64
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ebae37938b0e2ec20800000000000000
+      internalID: 3234394564247939774
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_29
+      rect:
+        serializedVersion: 2
+        x: 2317
+        y: 39
+        width: 48
+        height: 91
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 14a0e49a6d26d3630800000000000000
+      internalID: 3908388725730445889
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_30
+      rect:
+        serializedVersion: 2
+        x: 2373
+        y: 37
+        width: 46
+        height: 86
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 967269783fec69ea0800000000000000
+      internalID: -5866273919256352919
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_31
+      rect:
+        serializedVersion: 2
+        x: 2437
+        y: 39
+        width: 50
+        height: 91
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2c7d0ff416293a5e0800000000000000
+      internalID: -1899513671169550398
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_32
+      rect:
+        serializedVersion: 2
+        x: 2505
+        y: 39
+        width: 38
+        height: 64
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3eb5312934826cfe0800000000000000
+      internalID: -1169202782577402909
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_33
+      rect:
+        serializedVersion: 2
+        x: 2552
+        y: 37
+        width: 57
+        height: 67
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 34234042a4002f240800000000000000
+      internalID: 4823918469299057219
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_34
+      rect:
+        serializedVersion: 2
+        x: 2622
+        y: 37
+        width: 50
+        height: 66
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 17ed8560438f4c940800000000000000
+      internalID: 5315646362532503153
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_35
+      rect:
+        serializedVersion: 2
+        x: 2683
+        y: 11
+        width: 55
+        height: 93
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0becbf1088ec0a070800000000000000
+      internalID: 8115713612065787568
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ProductLogo_36
+      rect:
+        serializedVersion: 2
+        x: 2751
+        y: 39
+        width: 50
+        height: 91
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5046d8ca509e6b9b0800000000000000
+      internalID: -5064604520352488443
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 5e97eb03825dee720800000000000000
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      ProductLogo_0: -1782193742132459422
+      ProductLogo_1: -7412727817773132485
+      ProductLogo_10: 612284833117518084
+      ProductLogo_11: 3208034597841813301
+      ProductLogo_12: -4532309443710026572
+      ProductLogo_13: -6307748493408882728
+      ProductLogo_14: 2207561767908770922
+      ProductLogo_15: -6057797855322795935
+      ProductLogo_16: 3840926317470262838
+      ProductLogo_17: -2442104629085860270
+      ProductLogo_18: 7119889221057397830
+      ProductLogo_19: 1494137001500339272
+      ProductLogo_2: 2516587828790339994
+      ProductLogo_20: 4913229644765518961
+      ProductLogo_21: -6112878377053377074
+      ProductLogo_22: -163613335526344794
+      ProductLogo_23: -2498570034591562234
+      ProductLogo_24: 1273309421565237488
+      ProductLogo_25: 2447921609533464699
+      ProductLogo_26: 1008053231023616879
+      ProductLogo_27: 8769832240403243206
+      ProductLogo_28: 3234394564247939774
+      ProductLogo_29: 3908388725730445889
+      ProductLogo_3: 5919221363992809081
+      ProductLogo_30: -5866273919256352919
+      ProductLogo_31: -1899513671169550398
+      ProductLogo_32: -1169202782577402909
+      ProductLogo_33: 4823918469299057219
+      ProductLogo_34: 5315646362532503153
+      ProductLogo_35: 8115713612065787568
+      ProductLogo_36: -5064604520352488443
+      ProductLogo_4: 6771158321246053498
+      ProductLogo_5: -6818026623573850187
+      ProductLogo_6: 3508679268972766356
+      ProductLogo_7: 7231482156358621280
+      ProductLogo_8: -819925548880191006
+      ProductLogo_9: -5530462674918063795
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
