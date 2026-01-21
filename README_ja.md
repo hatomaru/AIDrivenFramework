@@ -45,7 +45,7 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=/Assets/AIDrivenFramework
 
 **1.モデルの準備**
 
-Hugging Face 等から .gguf 形式のモデルファイルとLlama.cppをご自身でダウンロードしてください。 （本フレームワークにはモデルファイルとLlama.cppは同梱されていません）
+Hugging Face 等から .gguf 形式のモデルファイルと[Llama.cpp](https://github.com/ggerganov/llama.cpp/releases)をご自身でダウンロードしてください。 （本フレームワークにはモデルファイルとLlama.cppは同梱されていません）
 
 **2.セットアップウィザードの実行**
 
