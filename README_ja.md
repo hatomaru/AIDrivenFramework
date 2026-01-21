@@ -8,7 +8,7 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 
 ### 特徴
 
-- 1行のプログラムでllama.cppを触れる
+- 1行のプログラムでllama.cppを扱える
 - プロセス未起動時は自動で起動・初期化
 - モデル未ロード時は自動でロード
 - 標準出力ノイズを吸収し、生成結果のみを返却
@@ -33,11 +33,11 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=/Assets/AIDrivenFramework
 ## 前提パッケージ
 本フレームワークの動作には以下のパッケージが必要です。これらを Unity Package Manager 等からプロジェクトに導入してください。
 
--[UniTask](https://github.com/Cysharp/UniTask) (非同期処理)
+- [UniTask](https://github.com/Cysharp/UniTask) (非同期処理)
 
--[LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / 演出制御)
+- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / 演出制御)
 
--[StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (セットアップ時のファイル選択)
+- [StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (セットアップ時のファイル選択)
 
 
 ## セットアップ
@@ -45,11 +45,11 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=/Assets/AIDrivenFramework
 
 **1.モデルの準備**
 
-Hugging Face 等から .gguf 形式のモデルファイルとLlama.cppをご自身でダウンロードしてください。 （本フレームワークにはモデルファイルとLlama.cppは同梱されていません）
+Hugging Face 等から .gguf 形式のモデルファイルと[Llama.cpp](https://github.com/ggerganov/llama.cpp/releases)をご自身でダウンロードしてください。 （本フレームワークにはモデルファイルとLlama.cppは同梱されていません）
 
 **2.セットアップウィザードの実行**
 
-Unityエディタで任意のシーンを開いて実行してください
+Unityエディタで任意のシーンを開いて**再生**してください
 
 開くとローカルLLMの環境構築が出来ているのかを自動で判断し、出来ていない場合はセットアップ画面(AIDrivenSetup)が開きます。
 

@@ -50,12 +50,12 @@ After installation, perform the initial setup using the steps below.
 
 **1. Prepare the model**
 
-Please download a `.gguf` format model file and Llama.cpp yourself from sources such as Hugging Face.
+Please download a `.gguf` format model file and [Llama.cpp](https://github.com/ggerganov/llama.cpp/releases) yourself from sources such as Hugging Face.
 (This framework does not include model files or Llama.cpp.)
 
 **2. Run the setup wizard**
 
-Open any scene in the Unity Editor and run it.
+Open any scene in the Unity Editor and **enter Play Mode.**
 
 The framework will automatically detect whether the local LLM environment is set up.
 If not, the setup screen (AIDrivenSetup) will open.
