@@ -5,13 +5,11 @@ using UnityEngine;
 /// AI設定クラス
 /// </summary>
 [CreateAssetMenu(fileName = "GenAIConfig", menuName = "AIDrivenFrameWork/GenAIConfig")]
-public class GenAIConfig
+public class GenAIConfig : ScriptableObject
 {
     public string ModelName = AIDrivenConfig.autoDetect;
     public string sysPrompt = "";
     public string arguments = AIDrivenConfig.autoDetect;
-    public bool AutoStartProcess = true;
-    public bool AutoKillProcess = true;
 
     public GenAIConfig()
     {
