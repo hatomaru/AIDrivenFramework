@@ -22,7 +22,6 @@ public class RequestFile : MonoBehaviour
         foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
         {
             string f = file;
-            Debug.Log($"Found file: {f}");
             files.Add(f);
         }
     }
