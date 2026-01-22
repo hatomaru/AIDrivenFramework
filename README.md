@@ -189,7 +189,6 @@ AIDrivenFramework handles configuration as follows.
 ### Configurable items
 
 * Model path
-* Automatic startup / shutdown
 * Args (for advanced users)
 * `config.Args = "--ctx-size 2048 --n-gpu-layers 32 --temp 0.7";`
 
