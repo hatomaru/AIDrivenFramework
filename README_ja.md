@@ -173,7 +173,6 @@ AIDrivenFrameworkではこれらの**順序ミス**を、APIレベルで起き�
 AIDrivenFrameworkでは、設定を以下のように扱います。
 ### Configで設定できるもの
 - モデルパス
-- 自動起動 / 自動終了
 - Args（上級者向け）
 - config.Args = "--ctx-size 2048 --n-gpu-layers 32 --temp 0.7";
 詳細な制御が必要な場合にLLM 実行時の引数を文字列で指定できます。
