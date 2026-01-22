@@ -42,28 +42,29 @@ namespace AIDrivenFW
         /// AIプロセスのコンストラクタ、プロセスを開始する
         /// </summary>
         /// <param name="psi">プロセス情報</param>
-        public AIProcess(ProcessStartInfo psi = null)
+        public AIProcess(GenAIConfig genAIConfig = null)
         {
-            if (psi == null)
+            if (genAIConfig == null)
             {
-                // コマンド引数
-                string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" --gpu-layers 150 --batch-size 16 --prio 2 -cnv";
-                // プロセスの生成
-                psi = new ProcessStartInfo
-                {
-                    FileName = AISoftwareRepository.GetLlamaExecutablePath(),    // 呼び出しファイル名
-                    Arguments = args,
-                    WorkingDirectory = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath),
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    // 書き出し関係
-                    RedirectStandardInput = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    StandardOutputEncoding = Encoding.UTF8,
-                    StandardErrorEncoding = Encoding.UTF8
-                };
+                genAIConfig = new GenAIConfig();
             }
+            // コマンド引数
+            string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
+            // プロセスの生成
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = AISoftwareRepository.GetLlamaExecutablePath(),    // 呼び出しファイル名
+                Arguments = args,
+                WorkingDirectory = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                // 書き出し関係
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            };
             state = AIState.Prepare;
             Boot(psi);
         }
@@ -93,8 +94,11 @@ namespace AIDrivenFW
             persistentProc.BeginOutputReadLine();
             persistentProc.BeginErrorReadLine();
 
-            procStdin = persistentProc.StandardInput;
-            procStdin.AutoFlush = true;
+            // 標準入力ストリームを取得
+            procStdin = new StreamWriter(persistentProc.StandardInput.BaseStream, new UTF8Encoding(false))
+            {
+                AutoFlush = true
+            };
             state = AIState.Running;
         }
 
@@ -173,7 +177,7 @@ namespace AIDrivenFW
         }
 
         /// <summary>
-        /// 標準出力を受け取り、マーカーを検出する
+        /// 標準出力を受け取る
         /// </summary>
         private void OnOutputDataReceived(object sender, DataReceivedEventArgs e)
         {
@@ -182,7 +186,10 @@ namespace AIDrivenFW
             lock (_outputLock)
             {
                 outputBuilder.AppendLine(e.Data);
-                UnityEngine.Debug.Log($"[llama stdout] {e.Data}");
+                if (AIDrivenConfig.isDeepDebug)
+                {
+                    UnityEngine.Debug.Log($"[llama stdout] {e.Data}");
+                }
             }
         }
 
@@ -197,7 +204,10 @@ namespace AIDrivenFW
             {
                 errorBuilder.AppendLine(e.Data);
             }
-            UnityEngine.Debug.Log($"[llama stderr] {e.Data}");
+            if (AIDrivenConfig.isDeepDebug)
+            {
+                UnityEngine.Debug.Log($"[llama stderr] {e.Data}");
+            }
         }
     }
 
@@ -211,10 +221,15 @@ namespace AIDrivenFW
         /// <summary>
         /// 実際の生成部分
         /// </summary>
-        public static async UniTask<string> Generate(string input, string sysPrompt = "", IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, AIProcess attachProcess = null)
+        public static async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, AIProcess attachProcess = null)
         {
+            // 設定の初期化
+            if (genAIConfig == null)
+            {
+                genAIConfig = new GenAIConfig();
+            }
             // プロンプト準備
-            string systemPrompt = "";
+            string systemPrompt = genAIConfig.sysPrompt;
 
             try
             {
@@ -226,7 +241,7 @@ namespace AIDrivenFW
                 // プロセスを準備
                 if (process == null || !process.IsProcessAlive())
                 {
-                    process = new AIProcess();
+                    process = new AIProcess(genAIConfig);
                     await LoadModel(ct, ModelRepository.GetModelExecutablePath());
                 }
                 generationComplete = false;
@@ -242,9 +257,11 @@ namespace AIDrivenFW
                 string fullPrompt = string.IsNullOrEmpty(systemPrompt)
                     ? input
                     : $"{systemPrompt}\n\n{input}";
-
-                // 標準入力にプロンプトを送信
-                UnityEngine.Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");
+                if (AIDrivenConfig.isDeepDebug)
+                {
+                    // 標準入力にプロンプトを送信
+                    UnityEngine.Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");
+                }
                 // 標準入力に書き込む
                 process.SendStdin(fullPrompt);
 
@@ -263,7 +280,10 @@ namespace AIDrivenFW
 
                     if (complete)
                     {
-                        UnityEngine.Debug.Log("Detect generation completion");
+                        if (AIDrivenConfig.isDeepDebug)
+                        {
+                            UnityEngine.Debug.Log("Detect generation completion");
+                        }
                         break;
                     }
 
@@ -334,13 +354,18 @@ namespace AIDrivenFW
             }
         }
 
+        /// <summary>
+        /// モデルを読み込む
+        /// </summary>
         public async static UniTask LoadModel(CancellationToken ct, string modelPath)
         {
-            UnityEngine.Debug.Log("Starting new process...");
+            if (AIDrivenConfig.isDeepDebug)
+            {
+                UnityEngine.Debug.Log("Starting new process...");
 
-            // モデルロード完了を待機 ("> " プロンプトが表示されるまで)
-            UnityEngine.Debug.Log("Model Loading...");
-
+                // モデルロード完了を待機 ("> " プロンプトが表示されるまで)
+                UnityEngine.Debug.Log("Model Loading...");
+            }
             int timeoutMs = 120000; // 2分
             int elapsedMs = 0;
             // タイムアウトまで待機
@@ -355,8 +380,11 @@ namespace AIDrivenFW
                     // 特定の開始時コマンドを取得するまで待機
                     if (output.Contains("available commands:"))
                     {
-                        UnityEngine.Debug.Log("ModelLoad Complete");
-                        return;
+                        if (AIDrivenConfig.isDeepDebug)
+                        {
+                            UnityEngine.Debug.Log("ModelLoad Complete");
+                        }
+                            return;
                     }
                 }
 
@@ -365,6 +393,18 @@ namespace AIDrivenFW
             }
 
             throw new TimeoutException("Model loading timed out");
+        }
+
+        /// <summary>
+        /// 返答がエラーかどうか確認する
+        /// </summary>
+        public static bool isResponseError(string response)
+        {
+            if (response.Contains("Exception") || response.Contains("issue"))
+            {
+                return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -386,8 +426,6 @@ namespace AIDrivenFW
                 return "";
 
             string s = raw.Replace("\r\n", "\n");
-            s = RemovePromptEcho(s, systemPrompt);
-            s = RemovePromptEcho(s, userPrompt);
 
             // ロール文の削除
             s = Regex.Replace(s, @"(^|\n)\s*(system|user|assistant)\s*[:：]?\s*", "$1", RegexOptions.IgnoreCase);
@@ -458,26 +496,6 @@ namespace AIDrivenFW
         }
 
         /// <summary>
-        /// プロンプトの繰り返しを取り除く
-        /// </summary>
-        /// <param name="source"></param>
-        /// <param name="prompt"></param>
-        /// <returns></returns>
-        private static string RemovePromptEcho(string source, string prompt)
-        {
-            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(prompt))
-                return source;
-
-            string normalizedPrompt = prompt?.Replace("\r\n", "\n").Trim('\r');
-            if (string.IsNullOrEmpty(normalizedPrompt))
-                return source;
-
-            string result = RemoveFirstOccurrence(source, "> " + normalizedPrompt);
-            result = RemoveFirstOccurrence(result, normalizedPrompt);
-            return result;
-        }
-
-        /// <summary>
         /// コマンド入力受付部分を取り除く
         /// </summary>
         /// <param name="source"></param>
@@ -500,12 +518,19 @@ namespace AIDrivenFW
     /// </summary>
     public class ModelRepository
     {
-        public static string GetModelExecutablePath()
+        public static string GetModelExecutablePath(GenAIConfig genAIConfig = null)
         {
             // モデルファイルの拡張子確認
             RequestFile requestFile = new RequestFile();
             requestFile.Reload();
-            return requestFile.Contains(".gguf");
+            if (genAIConfig != null && genAIConfig.ModelName != AIDrivenConfig.autoDetect)
+            {
+                return requestFile.Contains(genAIConfig.ModelName);
+            }
+            else
+            {
+                return requestFile.Contains(".gguf");
+            }
         }
     }
 
@@ -517,7 +542,7 @@ namespace AIDrivenFW
         public static string GetLlamaExecutablePath()
         {
             string llamaDir = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath);
-            return Path.Combine(llamaDir, "llama-cli.exe");
+            return Path.Combine(llamaDir, AIDrivenConfig.aiSoftwareFileName);
         }
     }
 
@@ -534,16 +559,18 @@ namespace AIDrivenFW
         {
             RequestFile requestFile = new RequestFile();
             // AIソフトウェアの実行ファイル確認
-            string result = AISoftwareRepository.GetLlamaExecutablePath();
-            if (result == "null")
+            if (AIDrivenConfig.isDeepDebug)
             {
-                string llamaDir = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath);
-                UnityEngine.Debug.LogError($"❌ 実行ファイルが見つかりません: {llamaDir}");
-                return false;
+                UnityEngine.Debug.Log("Checking AI Software...");
             }
+            string result = AISoftwareRepository.GetLlamaExecutablePath();
+            if (result == "null"){return false;}
             // モデルファイルの拡張子確認
-            result = ModelRepository.GetModelExecutablePath();
-            UnityEngine.Debug.Log("Model file check (.gguf): " + result);
+            if (AIDrivenConfig.isDeepDebug)
+            {
+                UnityEngine.Debug.Log("Checking Model File...");
+            }
+                result = ModelRepository.GetModelExecutablePath();
             if (result == "null") { return false; }
             return true;
         }
