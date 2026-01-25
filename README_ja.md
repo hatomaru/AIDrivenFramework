@@ -6,6 +6,8 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 ## 概要
 **AIDrivenFramework** は、Unity プロジェクト上で、ローカル LLM（例：llama.cpp）を安全に統合するための**実験的フレームワーク**です。
 
+[AIDrivenFramework 紹介動画](https://www.youtube.com/watch?v=wY0qtORbh7w)
+
 ### 特徴
 
 - 1行のプログラムでllama.cppを扱える
