@@ -213,6 +213,7 @@ namespace AIDrivenFW
 
     public class GenAI
     {
+        private static readonly SemaphoreSlim _generateLock = new(1, 1);
         private static AIProcess process = null;
         private static bool generationComplete = false;
         private static readonly object _outputLock = new object();
@@ -230,7 +231,8 @@ namespace AIDrivenFW
             }
             // プロンプト準備
             string systemPrompt = genAIConfig.sysPrompt;
-
+            // ロック中は待機
+            await _generateLock.WaitAsync(ct);
             try
             {
                 //  プロセスをアタッチ
@@ -351,6 +353,11 @@ namespace AIDrivenFW
             {
                 UnityEngine.Debug.LogError($"❌ Exception occurred: {ex.Message}");
                 return $"❌ Exception occurred: {ex.Message}";
+            }
+            finally
+            {
+                // ロックを解放
+                _generateLock.Release();
             }
         }
 
