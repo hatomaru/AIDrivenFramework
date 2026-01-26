@@ -6,6 +6,8 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 ## 概要
 **AIDrivenFramework** は、Unity プロジェクト上で、ローカル LLM（例：llama.cpp）を安全に統合するための**実験的フレームワーク**です。
 
+[AIDrivenFramework 紹介動画](https://www.youtube.com/watch?v=wY0qtORbh7w)
+
 ### 特徴
 
 - 1行のプログラムでllama.cppを扱える
@@ -173,7 +175,6 @@ AIDrivenFrameworkではこれらの**順序ミス**を、APIレベルで起き�
 AIDrivenFrameworkでは、設定を以下のように扱います。
 ### Configで設定できるもの
 - モデルパス
-- 自動起動 / 自動終了
 - Args（上級者向け）
 - config.Args = "--ctx-size 2048 --n-gpu-layers 32 --temp 0.7";
 詳細な制御が必要な場合にLLM 実行時の引数を文字列で指定できます。

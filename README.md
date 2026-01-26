@@ -10,6 +10,8 @@ A setup and execution framework for safely working with local LLMs in Unity, wit
 
 **AIDrivenFramework** is an **experimental framework** for safely integrating local LLMs (e.g., llama.cpp) into Unity projects.
 
+[AIDrivenFramework Introduction video](https://www.youtube.com/watch?v=ftBtk96FqPY)
+
 ### Features
 
 * Interact with llama.cpp using a single line of code
@@ -189,7 +191,6 @@ AIDrivenFramework handles configuration as follows.
 ### Configurable items
 
 * Model path
-* Automatic startup / shutdown
 * Args (for advanced users)
 * `config.Args = "--ctx-size 2048 --n-gpu-layers 32 --temp 0.7";`
 
