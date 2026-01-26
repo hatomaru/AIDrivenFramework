@@ -521,7 +521,7 @@ namespace AIDrivenFW
         public static string GetModelExecutablePath(GenAIConfig genAIConfig = null)
         {
             // モデルファイルの拡張子確認
-            RequestFile requestFile = new RequestFile();
+            AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
             requestFile.Reload();
             if (genAIConfig != null && genAIConfig.ModelName != AIDrivenConfig.autoDetect)
             {
@@ -557,7 +557,7 @@ namespace AIDrivenFW
         /// <returns>ローカルLLM環境の準備が整っているか</returns>
         public static bool IsPrepared()
         {
-            RequestFile requestFile = new RequestFile();
+            AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
             // AIソフトウェアの実行ファイル確認
             if (AIDrivenConfig.isDeepDebug)
             {
