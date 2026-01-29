@@ -25,7 +25,7 @@ public class AIDrivenConfig : MonoBehaviour
     public const bool isDeepDebug = false;
     // Auto Detect Constant
     public const string autoDetect = "Auto";
-    public const string defaultArguments = "--gpu-layers 80 --batch-size 16 --prio 2 -cnv";
+    public const string defaultArguments = "--gpu-layers 80 --batch-size 16 --prio 2 --keep 0 -cnv";
     // File Paths
     public static readonly string baseFilePath = "AIDrivenFreameWork/";
     public static readonly string aiSoftwareFileName = "llama-cli.exe";
