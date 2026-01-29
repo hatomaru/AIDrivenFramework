@@ -25,10 +25,12 @@ namespace AIDrivenFW
             Stopped
         }
 
-        private static AIState state = AIState.Idle;
+        private AIState state = AIState.Idle;
+        // AI設定クラス
+        public GenAIConfig aiConfig { get; private set; } = null;
         // 占有ロック
-        private static readonly object _lock = new object();
-        private static readonly object _outputLock = new object();
+        private readonly object _lock = new object();
+        private readonly object _outputLock = new object();
         // 出力を受け取るビルダー
         public StringBuilder outputBuilder { get; private set; } = new StringBuilder();
         public StringBuilder errorBuilder { get; private set; } = new StringBuilder();
@@ -48,6 +50,7 @@ namespace AIDrivenFW
             {
                 genAIConfig = new GenAIConfig();
             }
+            aiConfig = genAIConfig;
             // コマンド引数
             string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
             // プロセスの生成
@@ -119,7 +122,7 @@ namespace AIDrivenFW
         {
             lock (_lock)
             {
-                return persistentProc != null && !persistentProc.HasExited && state <= AIState.Running;
+                return persistentProc != null && !persistentProc.HasExited && state >= AIState.Running;
             }
         }
 
@@ -172,7 +175,6 @@ namespace AIDrivenFW
 
                 persistentProc = null;
                 procStdin = null;
-                isProcReady = false;
             }
         }
 
@@ -214,15 +216,25 @@ namespace AIDrivenFW
     public class GenAI
     {
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
-        private static AIProcess process = null;
+        public static AIProcess process = null;
         private static bool generationComplete = false;
         private static readonly object _outputLock = new object();
         const int checkIntervalMs = 500; // 確認の間隔
 
         /// <summary>
+        /// AIプロセスをアタッチする
+        /// </summary>
+        /// <param name="target">対象プロセス</param>
+        public static async UniTask AttachProcess(AIProcess target, CancellationToken ct = default)
+        {
+            process = target;
+            await LoadModel(ct, ModelRepository.GetModelExecutablePath());
+        }
+
+        /// <summary>
         /// 実際の生成部分
         /// </summary>
-        public static async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, AIProcess attachProcess = null)
+        public static async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
         {
             // 設定の初期化
             if (genAIConfig == null)
@@ -235,16 +247,17 @@ namespace AIDrivenFW
             await _generateLock.WaitAsync(ct);
             try
             {
-                //  プロセスをアタッチ
-                if (attachProcess != null)
-                {
-                    process = attachProcess;
-                }
+
                 // プロセスを準備
-                if (process == null || !process.IsProcessAlive())
+                if (process == null || !process.IsProcessAlive() || process.aiConfig.arguments != genAIConfig.arguments)
                 {
-                    process = new AIProcess(genAIConfig);
-                    await LoadModel(ct, ModelRepository.GetModelExecutablePath());
+                    // プロセスが存在する場合は終了する
+                    if (process != null && process.IsProcessAlive())
+                    {
+                        UnityEngine.Debug.Log((process.aiConfig != genAIConfig) + " " + !process.IsProcessAlive());
+                        process.KillProcess();
+                    }
+                    await AttachProcess(new AIProcess(genAIConfig));
                 }
                 generationComplete = false;
                 // 出力バッファをクリアして生成開始位置をマーク
@@ -391,7 +404,7 @@ namespace AIDrivenFW
                         {
                             UnityEngine.Debug.Log("ModelLoad Complete");
                         }
-                            return;
+                        return;
                     }
                 }
 
@@ -571,13 +584,13 @@ namespace AIDrivenFW
                 UnityEngine.Debug.Log("Checking AI Software...");
             }
             string result = AISoftwareRepository.GetLlamaExecutablePath();
-            if (result == "null"){return false;}
+            if (result == "null") { return false; }
             // モデルファイルの拡張子確認
             if (AIDrivenConfig.isDeepDebug)
             {
                 UnityEngine.Debug.Log("Checking Model File...");
             }
-                result = ModelRepository.GetModelExecutablePath();
+            result = ModelRepository.GetModelExecutablePath();
             if (result == "null") { return false; }
             return true;
         }
