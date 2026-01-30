@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace AIDrivenFW
@@ -575,7 +576,7 @@ namespace AIDrivenFW
         /// ローカルLLM環境の準備が整っているか確認
         /// </summary>
         /// <returns>ローカルLLM環境の準備が整っているか</returns>
-        public static bool IsPrepared()
+        public static async UniTask<bool> IsPrepared(CancellationToken token)
         {
             AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
             // AIソフトウェアの実行ファイル確認
@@ -592,6 +593,12 @@ namespace AIDrivenFW
             }
             result = ModelRepository.GetModelExecutablePath();
             if (result == "null") { return false; }
+            string response = await GenAI.Generate("こんにちは", ct: token);
+            UnityEngine.Debug.Log("Test Response: " + response);
+            if (GenAI.isResponseError(response))
+            {
+                return false;
+            }
             return true;
         }
     }
