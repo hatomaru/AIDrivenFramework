@@ -139,8 +139,51 @@ public class AIDrivenSetupWindow : EditorWindow
         if (success && shouldAddAISetupSceneToBuild)
             AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
 
+        // Remove the temporary import directory (parent of TEMP_IMPORT_DIR) after successful setup
+        if (success)
+            RemoveTempImportDirectory();
+
         setupCompleted = success;
         Repaint();
+    }
+
+    void RemoveTempImportDirectory()
+    {
+        try
+        {
+            var parentDir = Path.GetDirectoryName(TEMP_IMPORT_DIR.TrimEnd('/', '\\'));
+            if (string.IsNullOrEmpty(parentDir))
+                return;
+
+            // Prefer AssetDatabase deletion so Unity updates its meta/asset database correctly
+            if (AssetDatabase.IsValidFolder(parentDir))
+            {
+                if (!AssetDatabase.DeleteAsset(parentDir))
+                {
+                    // Fallback to file system deletion if AssetDatabase.DeleteAsset failed
+                    var absPath = Path.Combine(Directory.GetCurrentDirectory(), parentDir);
+                    if (Directory.Exists(absPath))
+                        Directory.Delete(absPath, true);
+                    AssetDatabase.Refresh();
+                }
+                else
+                {
+                    AssetDatabase.Refresh();
+                }
+            }
+            else if (Directory.Exists(parentDir))
+            {
+                // If it's not recognized as a Unity folder but exists on disk, remove it
+                var absPath = Path.Combine(Directory.GetCurrentDirectory(), parentDir);
+                if (Directory.Exists(absPath))
+                    Directory.Delete(absPath, true);
+                AssetDatabase.Refresh();
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"Failed to remove temp import directory '{TEMP_IMPORT_DIR}': {ex.Message}");
+        }
     }
 
     static void AddSceneToBuildSettingsIfNeeded(string sceneAssetPath)
