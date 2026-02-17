@@ -12,11 +12,22 @@ namespace AIDrivenFW.API
 {
     public class GenAI
     {
+        private static IAIExecutor executor;
+
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
         public static AIProcess process = null;
         private static bool generationComplete = false;
         private static readonly object _outputLock = new object();
         const int checkIntervalMs = 500; // 確認の間隔
+
+        /// <summary>
+        /// AI実行クラスをセットする
+        /// </summary>
+        /// <param name="aiExecutor">変更先のAI実行クラス</param>
+        public static void SetExecutor(IAIExecutor aiExecutor)
+        {
+            executor = aiExecutor;
+        }
 
         /// <summary>
         /// AIプロセスをアタッチする
@@ -229,11 +240,7 @@ namespace AIDrivenFW.API
         /// </summary>
         public static void OnOutputMarkerReceived(object sender, DataReceivedEventArgs e)
         {
-            // 生成完了マーカーを検出
-            if (e.Data.Contains("[ Prompt:") && e.Data.Contains("Generation:"))
-            {
-                generationComplete = true;
-            }
+
         }
 
         /// 生成された出力を整える関数類

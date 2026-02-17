@@ -37,6 +37,7 @@ namespace AIDrivenFW.API
         public StringBuilder errorBuilder { get; private set; } = new StringBuilder();
         private static bool isProcReady = false;       // プロセスを使用できるのか
         private static StreamWriter procStdin = null;  // 標準入力
+        // 出力イベント
         public static event Action<string> onPartialOutput;
 
         public static Process persistentProc { get; private set; } = null;  // 常駐プロセス
@@ -189,6 +190,7 @@ namespace AIDrivenFW.API
             lock (_outputLock)
             {
                 outputBuilder.AppendLine(e.Data);
+                onPartialOutput.Invoke(e.Data);
                 if (AIDrivenConfig.isDeepDebug)
                 {
                     UnityEngine.Debug.Log($"[llama stdout] {e.Data}");
