@@ -1,11 +1,7 @@
-using Cysharp.Threading.Tasks;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace AIDrivenFW.API
@@ -40,7 +36,7 @@ namespace AIDrivenFW.API
         // 出力イベント
         public static event Action<string> onPartialOutput;
 
-        public static Process persistentProc { get; private set; } = null;  // 常駐プロセス
+        public Process persistentProc { get; private set; } = null;  // 常駐プロセス
 
         /// <summary>
         /// AIプロセスのコンストラクタ、プロセスを開始する
@@ -91,7 +87,6 @@ namespace AIDrivenFW.API
             }
             // レシーブ設定 (マーカー判定)
             persistentProc.OutputDataReceived += OnOutputDataReceived;
-            persistentProc.OutputDataReceived += GenAI.OnOutputMarkerReceived;
             persistentProc.ErrorDataReceived += OnErrorDataReceived;
             QuitHookBehaviour.onProcessKill += KillProcess;
             // プロセスを開始
@@ -105,6 +100,11 @@ namespace AIDrivenFW.API
                 AutoFlush = true
             };
             state = AIState.Running;
+        }
+
+        public void RegisterOutputListener(Action<string> listener)
+        {
+            onPartialOutput += listener;
         }
 
         /// <summary>

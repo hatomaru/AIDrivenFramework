@@ -13,7 +13,8 @@ namespace AIDrivenFW.API
         /// <summary>
         /// プロセスを起動する
         /// </summary>
-        UniTask StartProcessAsync(CancellationToken ct);
+        /// <param name="genAIConfig">LLMの設定</param>
+        UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null);
         /// <summary>
         /// プロセスが準備できるまで待機する
         /// </summary>
@@ -22,11 +23,31 @@ namespace AIDrivenFW.API
         /// プロセスに入力を送る
         /// </summary>
         /// <param name="input">入力</param>
-        UniTask SendAsync(string input, CancellationToken ct);
+        UniTask SendPromptAsync(string input, CancellationToken ct);
         /// <summary>
         /// プロセスからの出力を受け取る
         /// </summary>
         /// <returns>出力</returns>
         UniTask<string> ReceiveAsync(CancellationToken ct);
+        /// <summary>
+        /// 生成が完了したかをプロセスの出力から判断する
+        /// </summary>
+        /// <returns>出力マーカーが存在するか</returns>
+        UniTask<bool> CheckOutput(CancellationToken token);
+        /// <summary>
+        /// プロセスが生きているか確認する
+        /// </summary>
+        /// <returns>プロセスの生存情報</returns>
+        bool IsProcessAlive();
+        /// <summary>
+        /// プロセスを強制終了する
+        /// </summary>
+        void KillProcess();
+        /// <summary>
+        /// プロセスからの出力を解析して、必要な情報を抽出する
+        /// </summary>
+        /// <param name="raw">プロセスからの出力</param>
+        /// <returns>抽出した出力</returns>
+        string ExtractAssistantOutput(string raw);
     }
 }
