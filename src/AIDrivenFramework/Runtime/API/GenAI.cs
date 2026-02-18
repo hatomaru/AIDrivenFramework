@@ -18,7 +18,7 @@ namespace AIDrivenFW.API
         /// AI実行クラスをセットする
         /// </summary>
         /// <param name="aiExecutor">変更先のAI実行クラス</param>
-        public static void SetExecutor(IAIExecutor aiExecutor)
+        public void SetExecutor(IAIExecutor aiExecutor)
         {
             executor = aiExecutor;
         }
@@ -26,7 +26,7 @@ namespace AIDrivenFW.API
         /// <summary>
         /// 実際の生成部分
         /// </summary>
-        public static async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
         {
             // 設定の初期化
             if (genAIConfig == null)
@@ -70,13 +70,13 @@ namespace AIDrivenFW.API
                 var cts = new CancellationTokenSource();
                 // プロンプトを送信して生成開始
                 var mainTask = executor.GenerateAsync(fullPrompt, cts.Token);
-                var loadingTask = LoadingAsync(ct, progress, timeoutMs);
+                var loadingTask = LoadingAsync(cts.Token, progress, timeoutMs);
+                Debug.Log("Generation completed, waiting for loading task to finish...");
                 // 生成完了を待機
-                await UniTask.WhenAny(mainTask);
+                await mainTask;
                 // ロードィングタスクをキャンセル
                 cts.Cancel();
-                await loadingTask;
-
+                Debug.Log("Loading task finished, finalizing output...");
 
                 // 少し待って出力を確定
                 await UniTask.Delay(100, cancellationToken: ct);
@@ -125,7 +125,7 @@ namespace AIDrivenFW.API
         /// </summary>
         /// <param name="progress">プログレス</param>
         /// <param name="timeoutMs">タイムアウトまでの秒数</param>
-        public static async UniTask LoadingAsync(CancellationToken ct, IProgress<float> progress = null,float timeoutMs = 120000)
+        private async UniTask LoadingAsync(CancellationToken ct, IProgress<float> progress = null,float timeoutMs = 120000)
         {
             // 生成完了を待機
             int elapsedMs = 0;
@@ -133,17 +133,6 @@ namespace AIDrivenFW.API
             while (elapsedMs < timeoutMs)
             {
                 ct.ThrowIfCancellationRequested();
-
-                bool complete = await executor.CheckOutput(ct);
-                // 生成が完了したかチェック
-                if (complete)
-                {
-                    if (AIDrivenConfig.isDeepDebug)
-                    {
-                        UnityEngine.Debug.Log("Detect generation completion");
-                    }
-                    break;
-                }
 
                 // プロセスが終了していないかチェック
                 if (!executor.IsProcessAlive())

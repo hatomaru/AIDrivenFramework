@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using UnityEngine;
 
 namespace AIDrivenFW.API
@@ -33,6 +34,8 @@ namespace AIDrivenFW.API
         public StringBuilder errorBuilder { get; private set; } = new StringBuilder();
         private static bool isProcReady = false;       // プロセスを使用できるのか
         private static StreamWriter procStdin = null;  // 標準入力
+        private Thread _stdoutThread = null;           // stdout 読み取りスレッド
+        private volatile bool _stopReading = false;    // 読み取り停止フラグ
         // 出力イベント
         public static event Action<string> onPartialOutput;
 
@@ -66,6 +69,7 @@ namespace AIDrivenFW.API
                 StandardOutputEncoding = Encoding.UTF8,
                 StandardErrorEncoding = Encoding.UTF8
             };
+            UnityEngine.Debug.Log($"{psi.FileName} {psi.Arguments}");
             state = AIState.Prepare;
             Boot(psi);
         }
@@ -86,13 +90,20 @@ namespace AIDrivenFW.API
                 errorBuilder.Clear();
             }
             // レシーブ設定 (マーカー判定)
-            persistentProc.OutputDataReceived += OnOutputDataReceived;
             persistentProc.ErrorDataReceived += OnErrorDataReceived;
-            QuitHookBehaviour.onProcessKill += KillProcess;
+            Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
-            persistentProc.BeginOutputReadLine();
             persistentProc.BeginErrorReadLine();
+
+            // stdout を BaseStream から直接読み取るスレッドを起動
+            _stopReading = false;
+            _stdoutThread = new Thread(ReadStdoutLoop)
+            {
+                IsBackground = true,
+                Name = "AIProcess_StdoutReader"
+            };
+            _stdoutThread.Start();
 
             // 標準入力ストリームを取得
             procStdin = new StreamWriter(persistentProc.StandardInput.BaseStream, new UTF8Encoding(false))
@@ -172,6 +183,9 @@ namespace AIDrivenFW.API
                     UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
                 }
 
+                // stdout 読み取りスレッドを停止
+                _stopReading = true;
+
                 try { procStdin?.Dispose(); } catch { }
                 try { persistentProc?.Dispose(); } catch { }
 
@@ -181,20 +195,59 @@ namespace AIDrivenFW.API
         }
 
         /// <summary>
-        /// 標準出力を受け取る
+        /// stdout BaseStream を直接読み取るループ（別スレッドで実行）
         /// </summary>
-        private void OnOutputDataReceived(object sender, DataReceivedEventArgs e)
+        private void ReadStdoutLoop()
         {
-            if (string.IsNullOrEmpty(e.Data)) return;
-
-            lock (_outputLock)
+            try
             {
-                outputBuilder.AppendLine(e.Data);
-                onPartialOutput.Invoke(e.Data);
-                if (AIDrivenConfig.isDeepDebug)
+                var reader = new StreamReader(
+                    persistentProc.StandardOutput.BaseStream,
+                    new UTF8Encoding(false));
+
+                var lineBuffer = new StringBuilder();
+                int ch;
+                while (!_stopReading && (ch = reader.Read()) != -1)
                 {
-                    UnityEngine.Debug.Log($"[llama stdout] {e.Data}");
+                    if (ch == '\n')
+                    {
+                        // 行末の \r を除去
+                        if (lineBuffer.Length > 0 && lineBuffer[lineBuffer.Length - 1] == '\r')
+                            lineBuffer.Length--;
+
+                        string line = lineBuffer.ToString();
+                        lineBuffer.Clear();
+
+                        lock (_outputLock)
+                        {
+                            outputBuilder.AppendLine(line);
+                            onPartialOutput?.Invoke(line);
+                            if (AIDrivenConfig.isDeepDebug)
+                            {
+                                UnityEngine.Debug.Log($"[llama stdout] {line}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lineBuffer.Append((char)ch);
+                    }
                 }
+
+                // ストリーム終端にバッファが残っている場合も処理
+                if (lineBuffer.Length > 0)
+                {
+                    string line = lineBuffer.ToString();
+                    lock (_outputLock)
+                    {
+                        outputBuilder.AppendLine(line);
+                        onPartialOutput?.Invoke(line);
+                    }
+                }
+            }
+            catch (Exception ex) when (!_stopReading)
+            {
+                UnityEngine.Debug.LogError($"[AIProcess] stdout 読み取りエラー: {ex.Message}");
             }
         }
 
@@ -203,7 +256,7 @@ namespace AIDrivenFW.API
         /// </summary>
         private void OnErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
-            if (string.IsNullOrEmpty(e.Data)) return;
+            //if (string.IsNullOrEmpty(e.Data)) return;
 
             lock (_outputLock)
             {

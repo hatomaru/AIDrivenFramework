@@ -1,6 +1,7 @@
 ﻿using AIDrivenFW.API;
 using Cysharp.Threading.Tasks;
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -12,6 +13,10 @@ internal class LlamaProcessExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null)
     {
+        if (AIDrivenConfig.isDeepDebug)
+        {
+            UnityEngine.Debug.Log("Starting new process...");
+        }
         aiProcess = new AIProcess(genAIConfig);
         await UniTask.WaitUntil(() => aiProcess.IsProcessAlive(), cancellationToken: ct);
 
@@ -30,8 +35,6 @@ internal class LlamaProcessExecutor : IAIExecutor
         // ここでモデルのロードが完了するまで待機する処理を実装  
         if (AIDrivenConfig.isDeepDebug)
         {
-            UnityEngine.Debug.Log("Starting new process...");
-
             // モデルロード完了を待機 ("> " プロンプトが表示されるまで)  
             UnityEngine.Debug.Log("Model Loading...");
         }
@@ -43,6 +46,7 @@ internal class LlamaProcessExecutor : IAIExecutor
             ct.ThrowIfCancellationRequested();
 
             string output = await ReceiveAsync(ct);
+            //UnityEngine.Debug.Log(output);
             // "available commands:" が表示されたらモデルロード完了  
             // 特定の開始時コマンドを取得するまで待機  
             if (output.Contains("available commands:"))
@@ -85,6 +89,7 @@ internal class LlamaProcessExecutor : IAIExecutor
     public async UniTask<bool> CheckOutput(CancellationToken token)
     {
         string output = await ReceiveAsync(CancellationToken.None);
+        UnityEngine.Debug.Log($"Checking output for completion: {OnOutputMarkerReceived(output)}");
         return OnOutputMarkerReceived(output);
     }
 
