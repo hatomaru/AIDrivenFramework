@@ -37,9 +37,12 @@ namespace AIDrivenFW.API
             string systemPrompt = genAIConfig.sysPrompt;
             // ロック中は待機
             await _generateLock.WaitAsync(ct);
+            if (executor == null)
+            {
+                throw new InvalidOperationException("AI Executor is not set. Please set an executor before calling Generate.");
+            }
             try
             {
-
                 // プロセスを準備
                 //if (process == null || !process.IsProcessAlive() || process.aiConfig.arguments != genAIConfig.arguments) この条件式を後で実装するのでコメントアウト
                 bool needRestart = false;
