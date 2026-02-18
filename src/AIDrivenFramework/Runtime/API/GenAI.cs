@@ -170,5 +170,17 @@ namespace AIDrivenFW.API
             }
             await UniTask.CompletedTask;
         }
+
+        /// <summary>
+        /// 出力がエラーかどうか確認する
+        /// </summary>
+        public static bool isResponseError(string response)
+        {
+            if (response.Contains("Exception") || response.Contains("issue"))
+            {
+                return true;
+            }
+            return false;
+        }
     }
 }
