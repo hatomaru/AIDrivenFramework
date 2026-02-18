@@ -61,16 +61,17 @@ internal class LlamaProcessExecutor : IAIExecutor
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask SendPromptAsync(string input, CancellationToken ct)
+    public async UniTask GenerateAsync(string input, CancellationToken ct)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
             UnityEngine.Debug.LogWarning("AIProcess is not initialized. Call StartProcessAsync first.");
             await StartProcessAsync(ct, null);
         }
-        // ここでプロセスに入力を送る処理を実装  
+        // プロセスに入力を送る処理  
         aiProcess.SendStdin(input);
-        await UniTask.CompletedTask;
+        // 生成完了を待機
+        await UniTask.WaitUntil(() => CheckOutput(ct).GetAwaiter().GetResult());
     }
 
     public UniTask<string> ReceiveAsync(CancellationToken ct)

@@ -66,50 +66,17 @@ namespace AIDrivenFW.API
                     // 標準入力にプロンプトを送信
                     UnityEngine.Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");
                 }
-                // 標準入力に書き込む
-                await UniTask.RunOnThreadPool(() => executor.SendPromptAsync(fullPrompt, ct));
 
+                var cts = new CancellationTokenSource();
+                // プロンプトを送信して生成開始
+                var mainTask = executor.GenerateAsync(fullPrompt, cts.Token);
+                var loadingTask = LoadingAsync(ct, progress, timeoutMs);
                 // 生成完了を待機
-                int elapsedMs = 0;
+                await UniTask.WhenAny(mainTask);
+                // ロードィングタスクをキャンセル
+                cts.Cancel();
+                await loadingTask;
 
-                while (elapsedMs < timeoutMs)
-                {
-                    ct.ThrowIfCancellationRequested();
-
-                    bool complete = await executor.CheckOutput(ct);
-                    // 生成が完了したかチェック
-                    if (complete)
-                    {
-                        if (AIDrivenConfig.isDeepDebug)
-                        {
-                            UnityEngine.Debug.Log("Detect generation completion");
-                        }
-                        break;
-                    }
-
-                    // プロセスが終了していないかチェック
-                    if (!executor.IsProcessAlive())
-                    {
-                        UnityEngine.Debug.LogWarning("The process has unexpectedly terminated.");
-                        break;
-                    }
-
-                    await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
-                    elapsedMs += checkIntervalMs;
-
-                    // 部分出力をコールバック
-                    string currentOutput;
-                    currentOutput = await executor.ReceiveAsync(ct);
-                    // 現在の暫定進捗を更新
-                    progress?.Report(Mathf.Clamp01((float)elapsedMs / timeoutMs) * 100f);
-                }
-
-                // タイムアウト時の処理（プロセスをキルする）
-                if (elapsedMs >= timeoutMs)
-                {
-                    UnityEngine.Debug.LogWarning("Generation timed out. Restarting the process.");
-                    executor.KillProcess();
-                }
 
                 // 少し待って出力を確定
                 await UniTask.Delay(100, cancellationToken: ct);
@@ -151,6 +118,57 @@ namespace AIDrivenFW.API
                 // ロックを解放
                 _generateLock.Release();
             }
+        }
+
+        /// <summary>
+        /// 生成完了を待機する。タイムアウトも設定可能で、タイムアウトした場合はプロセスをキルする
+        /// </summary>
+        /// <param name="progress">プログレス</param>
+        /// <param name="timeoutMs">タイムアウトまでの秒数</param>
+        public static async UniTask LoadingAsync(CancellationToken ct, IProgress<float> progress = null,float timeoutMs = 120000)
+        {
+            // 生成完了を待機
+            int elapsedMs = 0;
+
+            while (elapsedMs < timeoutMs)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                bool complete = await executor.CheckOutput(ct);
+                // 生成が完了したかチェック
+                if (complete)
+                {
+                    if (AIDrivenConfig.isDeepDebug)
+                    {
+                        UnityEngine.Debug.Log("Detect generation completion");
+                    }
+                    break;
+                }
+
+                // プロセスが終了していないかチェック
+                if (!executor.IsProcessAlive())
+                {
+                    UnityEngine.Debug.LogWarning("The process has unexpectedly terminated.");
+                    break;
+                }
+
+                await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
+                elapsedMs += checkIntervalMs;
+
+                // 部分出力をコールバック
+                string currentOutput;
+                currentOutput = await executor.ReceiveAsync(ct);
+                // 現在の暫定進捗を更新
+                progress?.Report(Mathf.Clamp01((float)elapsedMs / timeoutMs) * 100f);
+            }
+
+            // タイムアウト時の処理（プロセスをキルする）
+            if (elapsedMs >= timeoutMs)
+            {
+                UnityEngine.Debug.LogWarning("Generation timed out. Restarting the process.");
+                executor.KillProcess();
+            }
+            await UniTask.CompletedTask;
         }
     }
 }

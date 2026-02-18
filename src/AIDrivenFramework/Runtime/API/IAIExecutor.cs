@@ -20,10 +20,10 @@ namespace AIDrivenFW.API
         /// </summary>
         UniTask WaitUntilReadyAsync(CancellationToken ct);
         /// <summary>
-        /// プロセスに入力を送る
+        /// プロセスに入力を送り生成を開始する
         /// </summary>
         /// <param name="input">入力</param>
-        UniTask SendPromptAsync(string input, CancellationToken ct);
+        UniTask GenerateAsync(string input, CancellationToken ct);
         /// <summary>
         /// プロセスからの出力を受け取る
         /// </summary>
