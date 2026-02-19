@@ -174,5 +174,10 @@ namespace AIDrivenFW.API
             }
             return false;
         }
+
+        public string IsFoundAISoftware()
+        {
+            return executor.IsFoundAISoftware();
+        }
     }
 }
