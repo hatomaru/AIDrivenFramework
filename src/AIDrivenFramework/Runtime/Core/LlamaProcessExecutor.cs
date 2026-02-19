@@ -1,4 +1,4 @@
-﻿using AIDrivenFW.Core;
+using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Diagnostics;
@@ -107,7 +107,6 @@ public class LlamaProcessExecutor : IAIExecutor
     public async UniTask<bool> CheckOutput(CancellationToken token)
     {
         string output = await ReceiveAsync(CancellationToken.None);
-        UnityEngine.Debug.Log($"Checking output for completion: {OnOutputMarkerReceived(output)}");
         return OnOutputMarkerReceived(output);
     }
 

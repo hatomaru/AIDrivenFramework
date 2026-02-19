@@ -5,34 +5,34 @@ using System.Threading;
 namespace AIDrivenFW.API
 {
     /// <summary>
-    /// ƒtƒŒ[ƒ€ƒ[ƒNã‚Åƒtƒ@ƒCƒ‹‚ğŠÇ—‚·‚éƒNƒ‰ƒX
+    /// ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¯ãƒ¼ã‚¯ä¸Šã§ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ç®¡ç†ã™ã‚‹ã‚¯ãƒ©ã‚¹
     /// </summary>
     public static class FileManager
     {
         /// <summary>
-        /// ƒ[ƒJƒ‹LLMŠÂ‹«‚Ì€”õ‚ª®‚Á‚Ä‚¢‚é‚©Šm”F
+        /// ãƒ­ãƒ¼ã‚«ãƒ«LLMç’°å¢ƒã®æº–å‚™ãŒæ•´ã£ã¦ã„ã‚‹ã‹ç¢ºèª
         /// </summary>
-        /// <returns>ƒ[ƒJƒ‹LLMŠÂ‹«‚Ì€”õ‚ª®‚Á‚Ä‚¢‚é‚©</returns>
+        /// <returns>ãƒ­ãƒ¼ã‚«ãƒ«LLMç’°å¢ƒã®æº–å‚™ãŒæ•´ã£ã¦ã„ã‚‹ã‹</returns>
         public static async UniTask<bool> IsPrepared(CancellationToken token)
         {
-            // ƒfƒtƒHƒ‹ƒgAIƒGƒOƒ[ƒLƒ…[ƒ^‚ğƒZƒbƒg‚·‚é
+            // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆAIã‚¨ã‚°ã‚¼ã‚­ãƒ¥ãƒ¼ã‚¿ã‚’ã‚»ãƒƒãƒˆã™ã‚‹
             GenAI testAI = new GenAI();
             AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
-            // AIƒ\ƒtƒgƒEƒFƒA‚ÌÀsƒtƒ@ƒCƒ‹Šm”F
+            // AIã‚½ãƒ•ãƒˆã‚¦ã‚§ã‚¢ã®å®Ÿè¡Œãƒ•ã‚¡ã‚¤ãƒ«ç¢ºèª
             if (AIDrivenConfig.isDeepDebug)
             {
                 UnityEngine.Debug.Log("Checking AI Software...");
             }
             string result = testAI.IsFoundAISoftware();
             if (result == "null") { return false; }
-            // ƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹‚ÌŠg’£qŠm”F
+            // ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã®æ‹¡å¼µå­ç¢ºèª
             if (AIDrivenConfig.isDeepDebug)
             {
                 UnityEngine.Debug.Log("Checking Model File...");
             }
             result = ModelRepository.GetModelExecutablePath();
             if (result == "null") { return false; }
-            string response = await testAI.Generate("‚±‚ñ‚É‚¿‚Í", ct: token);
+            string response = await testAI.Generate("ã“ã‚“ã«ã¡ã¯", ct: token);
             UnityEngine.Debug.Log("Test Response: " + response);
             testAI.KillProcess();
             if (GenAI.isResponseError(response))

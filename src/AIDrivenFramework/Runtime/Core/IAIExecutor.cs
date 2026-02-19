@@ -10,53 +10,53 @@ namespace AIDrivenFW.Core
     public interface IAIExecutor
     {
         /// <summary>
-        /// ƒvƒƒZƒX‚ð‹N“®‚·‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ã‚’èµ·å‹•ã™ã‚‹
         /// </summary>
-        /// <param name="genAIConfig">LLM‚ÌÝ’è</param>
+        /// <param name="genAIConfig">LLMã®è¨­å®š</param>
         UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null);
         /// <summary>
-        /// ƒvƒƒZƒX‚ª€”õ‚Å‚«‚é‚Ü‚Å‘Ò‹@‚·‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ãŒæº–å‚™ã§ãã‚‹ã¾ã§å¾…æ©Ÿã™ã‚‹
         /// </summary>
         UniTask WaitUntilReadyAsync(CancellationToken ct);
         /// <summary>
-        /// ƒvƒƒZƒX‚É“ü—Í‚ð‘—‚è¶¬‚ðŠJŽn‚·‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ã«å…¥åŠ›ã‚’é€ã‚Šç”Ÿæˆã‚’é–‹å§‹ã™ã‚‹
         /// </summary>
-        /// <param name="input">“ü—Í</param>
+        /// <param name="input">å…¥åŠ›</param>
         UniTask GenerateAsync(string input, CancellationToken ct);
         /// <summary>
-        /// ƒvƒƒZƒX‚©‚ç‚Ìo—Í‚ðŽó‚¯Žæ‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ã‹ã‚‰ã®å‡ºåŠ›ã‚’å—ã‘å–ã‚‹
         /// </summary>
-        /// <returns>o—Í</returns>
+        /// <returns>å‡ºåŠ›</returns>
         UniTask<string> ReceiveAsync(CancellationToken ct);
         /// <summary>
-        /// ¶¬‚ªŠ®—¹‚µ‚½‚©‚ðƒvƒƒZƒX‚Ìo—Í‚©‚ç”»’f‚·‚é
+        /// ç”ŸæˆãŒå®Œäº†ã—ãŸã‹ã‚’ãƒ—ãƒ­ã‚»ã‚¹ã®å‡ºåŠ›ã‹ã‚‰åˆ¤æ–­ã™ã‚‹
         /// </summary>
-        /// <returns>o—Íƒ}[ƒJ[‚ª‘¶Ý‚·‚é‚©</returns>
+        /// <returns>å‡ºåŠ›ãƒžãƒ¼ã‚«ãƒ¼ãŒå­˜åœ¨ã™ã‚‹ã‹</returns>
         UniTask<bool> CheckOutput(CancellationToken token);
         /// <summary>
-        /// ƒvƒƒZƒX‚ª¶‚«‚Ä‚¢‚é‚©Šm”F‚·‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ãŒç”Ÿãã¦ã„ã‚‹ã‹ç¢ºèªã™ã‚‹
         /// </summary>
-        /// <returns>ƒvƒƒZƒX‚Ì¶‘¶î•ñ</returns>
+        /// <returns>ãƒ—ãƒ­ã‚»ã‚¹ã®ç”Ÿå­˜æƒ…å ±</returns>
         bool IsProcessAlive();
         /// <summary>
-        /// ƒvƒƒZƒX‚ð‹­§I—¹‚·‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ã‚’å¼·åˆ¶çµ‚äº†ã™ã‚‹
         /// </summary>
         void KillProcess();
         /// <summary>
-        /// AIƒ\ƒtƒgƒEƒFƒA‚ª‘¶Ý‚·‚é‚©Šm”F‚µƒtƒ@ƒCƒ‹ƒpƒX‚ð•Ô‚·
+        /// AIã‚½ãƒ•ãƒˆã‚¦ã‚§ã‚¢ãŒå­˜åœ¨ã™ã‚‹ã‹ç¢ºèªã—ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã‚’è¿”ã™
         /// </summary>
-        /// <returns>AIƒ\ƒtƒgƒEƒFƒA‚Ìƒtƒ@ƒCƒ‹ƒpƒX</returns>
+        /// <returns>AIã‚½ãƒ•ãƒˆã‚¦ã‚§ã‚¢ã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹</returns>
         string IsFoundAISoftware();
         /// <summary>
-        /// ƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹‚ª‘¶Ý‚·‚é‚©Šm”F‚µƒtƒ@ƒCƒ‹ƒpƒX‚ð•Ô‚·
+        /// ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã™ã‚‹ã‹ç¢ºèªã—ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹ã‚’è¿”ã™
         /// </summary>
-        /// <returns>ƒ‚ƒfƒ‹ƒtƒ@ƒCƒ‹‚Ìƒtƒ@ƒCƒ‹ƒpƒX</returns>
+        /// <returns>ãƒ¢ãƒ‡ãƒ«ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ‘ã‚¹</returns>
         string IsFoundModelFile();
         /// <summary>
-        /// ƒvƒƒZƒX‚©‚ç‚Ìo—Í‚ð‰ðÍ‚µ‚ÄA•K—v‚Èî•ñ‚ð’Šo‚·‚é
+        /// ãƒ—ãƒ­ã‚»ã‚¹ã‹ã‚‰ã®å‡ºåŠ›ã‚’è§£æžã—ã¦ã€å¿…è¦ãªæƒ…å ±ã‚’æŠ½å‡ºã™ã‚‹
         /// </summary>
-        /// <param name="raw">ƒvƒƒZƒX‚©‚ç‚Ìo—Í</param>
-        /// <returns>’Šo‚µ‚½o—Í</returns>
+        /// <param name="raw">ãƒ—ãƒ­ã‚»ã‚¹ã‹ã‚‰ã®å‡ºåŠ›</param>
+        /// <returns>æŠ½å‡ºã—ãŸå‡ºåŠ›</returns>
         string ExtractAssistantOutput(string raw);
     }
 }
