@@ -1,4 +1,3 @@
-using AIDrivenFW;
 using UnityEngine;
 
 /// <summary>
@@ -7,7 +6,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "GenAIConfig", menuName = "AIDrivenFrameWork/GenAIConfig")]
 public class GenAIConfig : ScriptableObject
 {
-    public string ModelName = AIDrivenConfig.autoDetect;
+    public string aiSoftwarePath = "";
+    public string modelFilePath = AIDrivenConfig.autoDetect;
     public string sysPrompt = "";
     public string arguments = AIDrivenConfig.autoDetect;
 
@@ -22,7 +22,7 @@ public class GenAIConfig : ScriptableObject
 
 public class AIDrivenConfig : MonoBehaviour
 {
-    public const bool isDeepDebug = false;
+    public const bool isDeepDebug = true;
     // Auto Detect Constant
     public const string autoDetect = "Auto";
     public const string defaultArguments = "--gpu-layers 80 --batch-size 16 --prio 2 --keep 0 -cnv";
