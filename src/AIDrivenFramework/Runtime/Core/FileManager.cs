@@ -35,6 +35,7 @@ namespace AIDrivenFW.Core
             if (result == "null") { return false; }
             string response = await testAI.Generate("‚±‚ñ‚É‚¿‚Í", ct: token);
             UnityEngine.Debug.Log("Test Response: " + response);
+            testAI.KillProcess();
             if (GenAI.isResponseError(response))
             {
                 return false;

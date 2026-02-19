@@ -165,6 +165,14 @@ namespace AIDrivenFW.API
         }
 
         /// <summary>
+        /// プロセスを強制終了する
+        /// </summary>
+        public void KillProcess()
+        {
+            executor.KillProcess();
+        }
+
+        /// <summary>
         /// 出力がエラーかどうか確認する
         /// </summary>
         public static bool isResponseError(string response)

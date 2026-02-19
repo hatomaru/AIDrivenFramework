@@ -30,6 +30,7 @@ namespace AIDrivenFW.Core
         private readonly object _lock = new object();
         private readonly object _outputLock = new object();
         // 出力を受け取るビルダー
+        StreamReader reader = null;  // stdout 読み取り用
         StringBuilder outputBuilder = new StringBuilder();
         StringBuilder errorBuilder = new StringBuilder();
         private StreamWriter procStdin = null;  // 標準入力
@@ -187,7 +188,6 @@ namespace AIDrivenFW.Core
             lock (_lock)
             {
                 state = AIState.Stopped;
-                Application.quitting -= KillProcess;
                 try
                 {
                     if (!persistentProc.HasExited)
@@ -203,9 +203,10 @@ namespace AIDrivenFW.Core
 
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
-                
+                try { reader?.Dispose(); } catch { }
                 try { procStdin?.Dispose(); } catch { }
                 try { persistentProc?.Dispose(); } catch { }
+                Application.quitting -= KillProcess;
 
                 persistentProc = null;
                 procStdin = null;
@@ -219,7 +220,7 @@ namespace AIDrivenFW.Core
         {
             try
             {
-                var reader = new StreamReader(
+                reader = new StreamReader(
                     persistentProc.StandardOutput.BaseStream,
                     new UTF8Encoding(false));
 
