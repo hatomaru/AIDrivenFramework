@@ -169,7 +169,7 @@ namespace AIDrivenFW.API
             lock (_lock)
             {
                 state = AIState.Stopped;
-                QuitHookBehaviour.onProcessKill -= KillProcess;
+                Application.quitting -= KillProcess;
                 try
                 {
                     if (!persistentProc.HasExited)
