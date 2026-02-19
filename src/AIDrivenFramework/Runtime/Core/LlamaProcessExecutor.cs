@@ -125,6 +125,41 @@ public class LlamaProcessExecutor : IAIExecutor
         aiProcess.KillProcess();
     }
 
+    public bool OnOutputMarkerReceived(string output)
+    {
+        if (output != null && output.Contains("[ Prompt:") && output.Contains("Generation:"))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    public string IsFoundAISoftware()
+    {
+        string llamaDir = AISoftwarePath;
+        if (File.Exists(llamaDir))
+        {
+            return llamaDir;
+        }
+        else
+        {
+            return "null";
+        }
+    }
+
+    public string IsFoundModelFile()
+    {
+        string modelPath = ModelRepository.GetModelExecutablePath();
+        if (ModelRepository.GetModelExecutablePath() != "null")
+        {
+            return ModelRepository.GetModelExecutablePath();
+        }
+        else
+        {
+            return "null";
+        }
+    }
+
     public string ExtractAssistantOutput(string raw)
     {
         // ここで出力から必要な情報を抽出する処理を実装  
@@ -199,40 +234,5 @@ public class LlamaProcessExecutor : IAIExecutor
             line.StartsWith("available commands") || line == "-")
             return true;
         return false;
-    }
-
-    public bool OnOutputMarkerReceived(string output)
-    {
-        if (output != null && output.Contains("[ Prompt:") && output.Contains("Generation:"))
-        {
-            return true;
-        }
-        return false;
-    }
-
-    public string IsFoundAISoftware()
-    {
-        string llamaDir = AISoftwarePath;
-        if(File.Exists(llamaDir))
-        {
-            return llamaDir;
-        }
-        else
-        {
-            return "null";
-        }
-    }
-
-    public string IsFoundModelFile()
-    {
-        string modelPath = ModelRepository.GetModelExecutablePath();
-        if (ModelRepository.GetModelExecutablePath() != "null")
-        {
-            return ModelRepository.GetModelExecutablePath();
-        }
-        else
-        {
-            return "null";
-        }
     }
 }
