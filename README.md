@@ -7,6 +7,7 @@ A setup & execution framework for safely handling local LLMs in Unity with consi
 > The introduction video is being updated to reflect the latest design.
 > A refreshed version will be available next weekend.
 
+[日本語版READMEはこちら](README_ja.md)
 ## 🚀 Quick Start  
 [Installation](#installation)
  
