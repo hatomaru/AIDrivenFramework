@@ -16,9 +16,8 @@ namespace AIDrivenFW.Core
         /// <returns>ローカルLLM環境の準備が整っているか</returns>
         public static async UniTask<bool> IsPrepared(CancellationToken token)
         {
-            GenAI testAI = new GenAI();
             // デフォルトAIエグゼキュータをセットする
-            testAI.SetExecutor(ExecutorFactory.CreateDefault());
+            GenAI testAI = new GenAI(ExecutorFactory.CreateDefault());
             AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
             // AIソフトウェアの実行ファイル確認
             if (AIDrivenConfig.isDeepDebug)

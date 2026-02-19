@@ -8,11 +8,17 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-internal class LlamaProcessExecutor : IAIExecutor
+public class LlamaProcessExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
     const int checkIntervalMs = 500; // 確認の間隔  
-    readonly string AISoftwarePath = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath, "llama-cli.exe");
+    string AISoftwarePath = "";
+
+    public LlamaProcessExecutor()
+    {
+        AISoftwarePath = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath, "llama-cli.exe");
+    }
+
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null)
     {
         if (AIDrivenConfig.isDeepDebug)
@@ -83,18 +89,20 @@ internal class LlamaProcessExecutor : IAIExecutor
             UnityEngine.Debug.LogWarning("AIProcess is not initialized. Call StartProcessAsync first.");
             await StartProcessAsync(ct, null);
         }
+        aiProcess.ClearOutputBuffer();
         // プロセスに入力を送る処理  
         aiProcess.SendStdin(input);
         // 生成完了を待機
-        await UniTask.WaitUntil(() => CheckOutput(ct).GetAwaiter().GetResult());
+        while(!await CheckOutput(ct))
+        {
+            await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
+        }
     }
 
     public UniTask<string> ReceiveAsync(CancellationToken ct)
     {
         // ここでプロセスからの出力を受け取る処理を実装  
-        return aiProcess.outputBuilder.ToString() != string.Empty
-            ? UniTask.FromResult(aiProcess.outputBuilder.ToString())
-            : UniTask.FromResult(string.Empty);
+        return UniTask.FromResult(aiProcess.GetOutputSnapshot());
     }
 
     public async UniTask<bool> CheckOutput(CancellationToken token)

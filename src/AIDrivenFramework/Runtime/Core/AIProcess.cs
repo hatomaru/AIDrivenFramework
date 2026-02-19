@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using UnityEngine;
 
-namespace AIDrivenFW.API
+namespace AIDrivenFW.Core
 {
     /// <summary>
     /// AIソフトウェアのプロセスを管理するクラス
@@ -30,14 +30,13 @@ namespace AIDrivenFW.API
         private readonly object _lock = new object();
         private readonly object _outputLock = new object();
         // 出力を受け取るビルダー
-        public StringBuilder outputBuilder { get; private set; } = new StringBuilder();
-        public StringBuilder errorBuilder { get; private set; } = new StringBuilder();
-        private static bool isProcReady = false;       // プロセスを使用できるのか
-        private static StreamWriter procStdin = null;  // 標準入力
+        StringBuilder outputBuilder = new StringBuilder();
+        StringBuilder errorBuilder = new StringBuilder();
+        private StreamWriter procStdin = null;  // 標準入力
         private Thread _stdoutThread = null;           // stdout 読み取りスレッド
         private volatile bool _stopReading = false;    // 読み取り停止フラグ
         // 出力イベント
-        public static event Action<string> onPartialOutput;
+        public event Action<string> onPartialOutput;
 
         public Process persistentProc { get; private set; } = null;  // 常駐プロセス
 
@@ -109,6 +108,27 @@ namespace AIDrivenFW.API
                 AutoFlush = true
             };
             state = AIState.Running;
+        }
+
+        public void ClearOutputBuffer()
+        {
+            lock (_outputLock)
+            {
+                outputBuilder.Clear();
+                errorBuilder.Clear();
+            }
+        }
+
+        /// <summary>
+        /// 現在の出力をスナップショットとして取得する
+        /// </summary>
+        /// <returns>現在の出力</returns>
+        public string GetOutputSnapshot()
+        {
+            lock (_outputLock)
+            {
+                return outputBuilder.ToString();
+            }
         }
 
         public void RegisterOutputListener(Action<string> listener)
@@ -183,7 +203,7 @@ namespace AIDrivenFW.API
 
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
-
+                
                 try { procStdin?.Dispose(); } catch { }
                 try { persistentProc?.Dispose(); } catch { }
 

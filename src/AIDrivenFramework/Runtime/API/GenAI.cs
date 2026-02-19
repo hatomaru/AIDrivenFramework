@@ -14,6 +14,11 @@ namespace AIDrivenFW.API
         private static bool generationComplete = false;
         const int checkIntervalMs = 500; // 確認の間隔  
 
+        public GenAI(IAIExecutor aiExecutor)
+        {
+            SetExecutor(aiExecutor);
+        }
+
         /// <summary>
         /// AI実行クラスをセットする
         /// </summary>
@@ -55,10 +60,6 @@ namespace AIDrivenFW.API
                     await executor.StartProcessAsync(ct, genAIConfig);
                 }
                 generationComplete = false;
-                // 出力バッファをクリアして生成開始位置をマーク
-                string outputBeforeGeneration;
-                outputBeforeGeneration = await executor.ReceiveAsync(ct);
-                generationComplete = false;
 
                 // システムプロンプトとユーザー入力を結合
                 string fullPrompt = string.IsNullOrEmpty(systemPrompt)
@@ -88,7 +89,7 @@ namespace AIDrivenFW.API
                 string fullOutput;
                 fullOutput = await executor.ReceiveAsync(ct);
 
-                string generatedOutput = fullOutput[outputBeforeGeneration.Length..];
+                string generatedOutput = fullOutput;
                 string result = executor.ExtractAssistantOutput(generatedOutput);
 
                 if (string.IsNullOrWhiteSpace(result))
