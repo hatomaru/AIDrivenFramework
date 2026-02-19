@@ -7,7 +7,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "GenAIConfig", menuName = "AIDrivenFrameWork/GenAIConfig")]
 public class GenAIConfig : ScriptableObject
 {
-    public string ModelName = AIDrivenConfig.autoDetect;
+    public string aiSoftwarePath = "";
+    public string modelFilePath = AIDrivenConfig.autoDetect;
     public string sysPrompt = "";
     public string arguments = AIDrivenConfig.autoDetect;
 

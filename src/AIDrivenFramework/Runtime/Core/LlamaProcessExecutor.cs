@@ -2,6 +2,7 @@
 using Cysharp.Threading.Tasks;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -17,6 +18,12 @@ internal class LlamaProcessExecutor : IAIExecutor
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
+        string llamaDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath, "llama-cli.exe");
+        if(genAIConfig == null)
+        {
+            genAIConfig = new GenAIConfig();
+        }
+        genAIConfig.aiSoftwarePath = llamaDir;
         aiProcess = new AIProcess(genAIConfig);
         await UniTask.WaitUntil(() => aiProcess.IsProcessAlive(), cancellationToken: ct);
 
