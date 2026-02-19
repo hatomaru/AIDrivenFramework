@@ -52,13 +52,11 @@ namespace AIDrivenFW.API
                 genAIConfig = new GenAIConfig();
             }
             aiConfig = genAIConfig;
-            // コマンド引数
-            string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
             // プロセスの生成
             ProcessStartInfo psi = new ProcessStartInfo
             {
-                FileName = AISoftwareRepository.GetLlamaExecutablePath(),    // 呼び出しファイル名
-                Arguments = args,
+                FileName = aiConfig.aiSoftwarePath,    // 呼び出しファイル名
+                Arguments = aiConfig.arguments,
                 WorkingDirectory = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath),
                 UseShellExecute = false,
                 CreateNoWindow = true,
