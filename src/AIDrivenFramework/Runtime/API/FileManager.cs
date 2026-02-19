@@ -16,7 +16,7 @@ namespace AIDrivenFW.API
         public static async UniTask<bool> IsPrepared(CancellationToken token)
         {
             // デフォルトAIエグゼキュータをセットする
-            GenAI testAI = new GenAI(ExecutorFactory.CreateDefault());
+            GenAI testAI = new GenAI();
             AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
             // AIソフトウェアの実行ファイル確認
             if (AIDrivenConfig.isDeepDebug)
