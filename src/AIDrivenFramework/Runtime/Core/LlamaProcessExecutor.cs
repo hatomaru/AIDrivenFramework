@@ -1,4 +1,5 @@
 ﻿using AIDrivenFW.API;
+using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Diagnostics;
@@ -11,19 +12,22 @@ internal class LlamaProcessExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
     const int checkIntervalMs = 500; // 確認の間隔  
-
+    readonly string AISoftwarePath = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath, "llama-cli.exe");
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null)
     {
         if (AIDrivenConfig.isDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
-        string llamaDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath, "llama-cli.exe");
-        if(genAIConfig == null)
+        string llamaDir = AISoftwarePath;
+        if (genAIConfig == null)
         {
             genAIConfig = new GenAIConfig();
         }
         genAIConfig.aiSoftwarePath = llamaDir;
+        // コマンド引数
+        string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
+        genAIConfig.arguments = args;
         aiProcess = new AIProcess(genAIConfig);
         await UniTask.WaitUntil(() => aiProcess.IsProcessAlive(), cancellationToken: ct);
 
@@ -197,5 +201,31 @@ internal class LlamaProcessExecutor : IAIExecutor
             return true;
         }
         return false;
+    }
+
+    public string IsFoundAISoftware()
+    {
+        string llamaDir = AISoftwarePath;
+        if(File.Exists(llamaDir))
+        {
+            return llamaDir;
+        }
+        else
+        {
+            return "null";
+        }
+    }
+
+    public string IsFoundModelFile()
+    {
+        string modelPath = ModelRepository.GetModelExecutablePath();
+        if (ModelRepository.GetModelExecutablePath() != "null")
+        {
+            return ModelRepository.GetModelExecutablePath();
+        }
+        else
+        {
+            return "null";
+        }
     }
 }

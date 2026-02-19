@@ -44,6 +44,16 @@ namespace AIDrivenFW.API
         /// </summary>
         void KillProcess();
         /// <summary>
+        /// AIソフトウェアが存在するか確認しファイルパスを返す
+        /// </summary>
+        /// <returns>AIソフトウェアのファイルパス</returns>
+        string IsFoundAISoftware();
+        /// <summary>
+        /// モデルファイルが存在するか確認しファイルパスを返す
+        /// </summary>
+        /// <returns>モデルファイルのファイルパス</returns>
+        string IsFoundModelFile();
+        /// <summary>
         /// プロセスからの出力を解析して、必要な情報を抽出する
         /// </summary>
         /// <param name="raw">プロセスからの出力</param>
