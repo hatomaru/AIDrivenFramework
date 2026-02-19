@@ -1,4 +1,3 @@
-using AIDrivenFW.API;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Diagnostics;
@@ -6,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 
-namespace AIDrivenFW.API
+namespace AIDrivenFW.Core
 {
     public interface IAIExecutor
     {

@@ -1,9 +1,8 @@
-using AIDrivenFW;
-using AIDrivenFW.API;
+using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 
-namespace AIDrivenFW.Core
+namespace AIDrivenFW.API
 {
     /// <summary>
     /// フレームワーク上でファイルを管理するクラス

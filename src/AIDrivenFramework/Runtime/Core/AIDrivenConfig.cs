@@ -1,4 +1,3 @@
-using AIDrivenFW.API;
 using UnityEngine;
 
 /// <summary>
@@ -23,7 +22,7 @@ public class GenAIConfig : ScriptableObject
 
 public class AIDrivenConfig : MonoBehaviour
 {
-    public const bool isDeepDebug = false;
+    public const bool isDeepDebug = true;
     // Auto Detect Constant
     public const string autoDetect = "Auto";
     public const string defaultArguments = "--gpu-layers 80 --batch-size 16 --prio 2 --keep 0 -cnv";
