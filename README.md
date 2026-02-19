@@ -2,7 +2,11 @@
 A setup & execution framework for safely handling local LLMs in Unity with consideration for UX and licensing  
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">  
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
- 
+> [!IMPORTANT]
+> The framework has recently evolved with a cleaner API and improved executor architecture.
+> The introduction video is being updated to reflect the latest design.
+> A refreshed version will be available next weekend.
+
 ## 🚀 Quick Start  
 [Installation](#installation)
  
