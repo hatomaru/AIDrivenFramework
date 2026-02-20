@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using System.Threading;
 using System;
 using UnityEngine;
@@ -35,8 +35,7 @@ namespace AIDrivenFW.Core
             }
             try
             {
-                // プロセスを準備
-                //if (process == null || !process.IsProcessAlive() || process.aiConfig.arguments != genAIConfig.arguments) この条件式を後で実装するのでコメントアウト
+                // プロセスを準備              
                 bool needRestart = false;
                 if (!executor.IsProcessAlive())
                 {
