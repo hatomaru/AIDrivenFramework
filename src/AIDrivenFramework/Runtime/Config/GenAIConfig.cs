@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace AIFW.Config
+namespace AIDrivenFW.Config
 {
     /// <summary>
     /// AI設定クラス
