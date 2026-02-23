@@ -3,13 +3,13 @@ using AIFW.Config;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Threading;
-using UnityEngine;
 
 namespace AIDrivenFW.API
 {
     public class GenAI
     {
         private static IAIExecutor executor;
+        GenAICore core;
 
         public GenAI(IAIExecutor aiExecutor = null)
         {
@@ -30,8 +30,11 @@ namespace AIDrivenFW.API
         /// </summary>
         public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
         {
-           var core = new GenAICore(executor);
-           return await core.GenerateAsync(input, genAIConfig, progress, ct, timeoutMs);
+            if (core == null)
+            {
+                core = new GenAICore(executor);
+            }
+            return await core.GenerateAsync(input, genAIConfig, progress, ct, timeoutMs);
         }
 
         /// <summary>
