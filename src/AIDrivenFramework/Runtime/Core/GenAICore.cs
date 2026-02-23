@@ -2,6 +2,7 @@ using Cysharp.Threading.Tasks;
 using System.Threading;
 using System;
 using UnityEngine;
+using AIFW.Config;
 
 namespace AIDrivenFW.Core
 {

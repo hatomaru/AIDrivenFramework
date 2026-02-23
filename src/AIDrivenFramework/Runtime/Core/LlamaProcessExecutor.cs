@@ -1,4 +1,5 @@
 using AIDrivenFW.Core;
+using AIFW.Config;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Diagnostics;
@@ -32,6 +33,7 @@ public class LlamaProcessExecutor : IAIExecutor
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
         string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
+        UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
         genAIConfig.arguments = args;
         aiProcess = new AIProcess(genAIConfig);
         await UniTask.WaitUntil(() => aiProcess.IsProcessAlive(), cancellationToken: ct);
@@ -121,7 +123,7 @@ public class LlamaProcessExecutor : IAIExecutor
 
     public void KillProcess()
     {
-        aiProcess.KillProcess();
+        aiProcess?.KillProcess();
     }
 
     public bool OnOutputMarkerReceived(string output)
