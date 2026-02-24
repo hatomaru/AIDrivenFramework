@@ -14,16 +14,22 @@ namespace AIDrivenFW.Core
         /// プロセスを起動する
         /// </summary>
         /// <param name="genAIConfig">LLMの設定</param>
-        UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null);
+        /// <param name="progress">進捗報告用のIProgressインスタンス</param>
+        /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
+        UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000);
         /// <summary>
         /// プロセスが準備できるまで待機する
         /// </summary>
-        UniTask WaitUntilReadyAsync(CancellationToken ct);
+        /// <param name="progress">進捗報告用のIProgressインスタンス</param>
+        /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
+        UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000);
         /// <summary>
         /// プロセスに入力を送り生成を開始する
         /// </summary>
         /// <param name="input">入力</param>
-        UniTask GenerateAsync(string input, CancellationToken ct);
+        /// <param name="progress">進捗報告用のIProgressインスタンス</param>
+        /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
+        UniTask GenerateAsync(string input, CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000);
         /// <summary>
         /// プロセスからの出力を受け取る
         /// </summary>

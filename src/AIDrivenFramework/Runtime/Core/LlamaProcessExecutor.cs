@@ -19,7 +19,7 @@ public class LlamaProcessExecutor : IAIExecutor
         AISoftwarePath = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath, "llama-cli.exe");
     }
 
-    public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null)
+    public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (AIDrivenConfig.isDeepDebug)
         {
@@ -38,17 +38,17 @@ public class LlamaProcessExecutor : IAIExecutor
         aiProcess = new AIProcess(genAIConfig);
         await UniTask.WaitUntil(() => aiProcess.IsProcessAlive(), cancellationToken: ct);
 
-        await WaitUntilReadyAsync(ct);
+        await WaitUntilReadyAsync(ct,progress,timeoutMs);
         await UniTask.CompletedTask;
     }
 
-    public async UniTask WaitUntilReadyAsync(CancellationToken ct)
+    public async UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         // ここでプロセスが準備できるまで待機する処理を実装  
-        await WaitModelLoadAsync(ct);
+        await WaitModelLoadAsync(ct,progress,timeoutMs);
     }
 
-    private async UniTask WaitModelLoadAsync(CancellationToken ct)
+    private async UniTask WaitModelLoadAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         // ここでモデルのロードが完了するまで待機する処理を実装  
         if (AIDrivenConfig.isDeepDebug)
@@ -56,7 +56,6 @@ public class LlamaProcessExecutor : IAIExecutor
             // モデルロード完了を待機 ("> " プロンプトが表示されるまで)  
             UnityEngine.Debug.Log("Model Loading...");
         }
-        int timeoutMs = 120000; // 2分  
         int elapsedMs = 0;
         // タイムアウトまで待機  
         while (elapsedMs < timeoutMs)
@@ -83,7 +82,7 @@ public class LlamaProcessExecutor : IAIExecutor
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask GenerateAsync(string input, CancellationToken ct)
+    public async UniTask GenerateAsync(string input, CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
