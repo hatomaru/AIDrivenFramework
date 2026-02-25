@@ -3,28 +3,28 @@
   "version": "2.1.1",
   "unity": "6000.0",
   "displayName": "AIDrivenFramework",
-  "description": "A setup and execution framework for safely working with local LLMs in Unity",
+  "description": "A modular framework for safely integrating local LLMs into Unity projects.",
   "keywords": [
-      "AI",
-      "LLM",
-      "local-llm",
-      "llama.cpp",
-      "unity-ai",
-      "generative-ai",
-      "npc",
-      "chatbot",
-      "runtime",
-      "tool"
+    "unity",
+    "llm",
+    "local-llm",
+    "llama-cpp",
+    "generative-ai",
+    "offline-ai",
+    "modular",
+    "framework",
+    "npc",
+    "chatbot"
   ],
   "dependencies": {
-    "com.cysharp.unitask": "2.5.10", 
-    "com.annulusgames.lit-motion": "2.0.1" 
+    "com.cysharp.unitask": "2.5.10",
+    "com.annulusgames.lit-motion": "2.0.1"
   },
   "repository": {
-  "type": "git",
-  "url": "https://github.com/hatomaru/AIDrivenFramework.git"
-},
-"documentationUrl": "https://github.com/hatomaru/AIDrivenFramework#readme"
+    "type": "git",
+    "url": "https://github.com/hatomaru/AIDrivenFramework.git"
+  },
+  "documentationUrl": "https://github.com/hatomaru/AIDrivenFramework#readme",
   "license": "MIT",
   "author": {
     "name": "hatomaru",
