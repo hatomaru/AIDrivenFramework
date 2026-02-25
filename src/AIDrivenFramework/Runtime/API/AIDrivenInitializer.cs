@@ -16,10 +16,9 @@ namespace AIDrivenFW.API
         /// ローカルLLMの準備が行えているのかを確認し、必要に応じてAIDrivenSetupシーンをロードして準備を行う。
         /// </summary>
         /// <returns>セットアップが完了したか</returns>
-        public async static UniTask<bool> Initialize()
+        public async static UniTask<bool> Initialize(CancellationToken ct = default)
         {
-            var cts = new CancellationTokenSource();
-            bool isPrepare = await FileManager.IsPrepared(cts.Token);
+            bool isPrepare = await FileManager.IsPrepared(ct);
             UnityEngine.Debug.Log("Preparation Result: " + isPrepare);
             if (!isPrepare)
             {
@@ -31,14 +30,13 @@ namespace AIDrivenFW.API
                 UnityEngine.Debug.Log("Loading AIDrivenSetup scene for preparation...");
                 await SceneManager.LoadSceneAsync(setupSceneName, LoadSceneMode.Additive);
                 // Then wait until the additive setup scene is unloaded
-                await UniTask.WaitUntil(() => !SceneManager.GetSceneByName(setupSceneName).isLoaded, cancellationToken: cts.Token);
+                await UniTask.WaitUntil(() => !SceneManager.GetSceneByName(setupSceneName).isLoaded, cancellationToken: ct);
                 isPrepare = true;
             }
             if (onPreparationFinished != null)
             {
                 onPreparationFinished?.Invoke(isPrepare);
             }
-            cts.Dispose();
             return isPrepare;
         }
     }
