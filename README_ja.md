@@ -32,10 +32,11 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
  
 を内部で管理し、  
 **Unity側からは最小APIのみで扱える設計**になっています。
-> [!IMPORTANT]
+> [!NOTE]
 > フレームワークは最近、よりクリーンなAPIと改良されたExecutorアーキテクチャへと進化しました。
-> 紹介動画は最新の設計を反映するよう更新中です。
-> 更新版は来週の週末に公開予定です。
+
+[紹介動画](https://www.youtube.com/watch?v=ftBtk96FqPY)
+
 ---
  
 ## 🎯 V1 公開API
@@ -45,7 +46,7 @@ V1では、公開APIを最小構成に制限しています。
 ```csharp
 GenAI.Generate(string input, GenAIConfig genAIConfig = null)
 GenAIConfig
-GenAI.IsPrepared()
+AIDrivenInitializer.Initialize();
 ```
  
 それ以外の構造は内部実装です。
@@ -159,7 +160,7 @@ using UnityEngine;
 
 public class AIDriven_SmallCode : MonoBehaviour
 {
-    GenAI genAI = new GenAI();
+    GenAI genAI;
 
     void Start()
     {
@@ -167,9 +168,10 @@ public class AIDriven_SmallCode : MonoBehaviour
     }
 
     async UniTask TestCode()
-    { 
-        // デフォルトAIエグゼキュータをセットする
-        //genAI.SetExecutor(ExecutorFactory.CreateDefault());
+    {
+        // Set the default AI executor
+        genAI = new GenAI();
+
         string response = await genAI.Generate(
             "Hello",
             ct: destroyCancellationToken
@@ -204,10 +206,14 @@ GenAI.SetExecutor(customExecutor);
  
 ## IsPrepared()
  
-ローカルLLM環境が利用可能かを確認できます。
+ローカルLLM環境が利用可能かを確認します。
+未セットアップの場合は、ユーザーが安全に利用開始できるよう、セットアップシーンへ遷移します。
+
+> [!NOTE]
+> 本機能を利用するには 任意コンポーネント **AISetup** の導入が必要です。
  
 ```csharp
-bool ready = GenAI.IsPrepared();
+await AIDrivenInitializer.Initialize();
 ```
  
 ---
@@ -234,20 +240,19 @@ LLM通信部分を差し替えることができます。
 ### 1.IAIExecutor を実装する
  
 ```csharp
+using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
 using System.IO;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
- 
+
 public class CustomExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
- 
+
     public CustomExecutor()
     {
         AISoftwarePath = Path.Combine(
@@ -256,93 +261,91 @@ public class CustomExecutor : IAIExecutor
             "mock-cli.exe"
         );
     }
- 
-    public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null)
+
+    public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        if (config == null)
-            config = new GenAIConfig();
- 
-        config.aiSoftwarePath = AISoftwarePath;
- 
-        aiProcess = new AIProcess(config);
- 
+        if (genAIConfig == null) genAIConfig = new GenAIConfig();
+
+        genAIConfig.aiSoftwarePath = AISoftwarePath;
+        aiProcess = new AIProcess(genAIConfig);
+
         await UniTask.WaitUntil(
             () => aiProcess.IsProcessAlive(),
             cancellationToken: ct
         );
- 
-        await WaitUntilReadyAsync(ct);
+
+        await WaitUntilReadyAsync(ct,progress);
     }
- 
-    public async UniTask WaitUntilReadyAsync(CancellationToken ct)
+
+    public async UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         await WaitModelLoadAsync(ct);
     }
- 
+
     private async UniTask WaitModelLoadAsync(CancellationToken ct)
     {
         int timeoutMs = 120000;
         int elapsedMs = 0;
- 
+
         while (elapsedMs < timeoutMs)
         {
             ct.ThrowIfCancellationRequested();
- 
+
             string output = await ReceiveAsync(ct);
- 
+
             if (output.Contains("available commands:"))
                 return;
- 
+
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
             elapsedMs += checkIntervalMs;
         }
- 
+
         throw new TimeoutException("Model loading timed out");
     }
- 
-    public async UniTask GenerateAsync(string input, CancellationToken ct)
+
+    public async UniTask GenerateAsync(string input, CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         aiProcess.ClearOutputBuffer();
         aiProcess.SendStdin(input);
- 
+
         while (!await CheckOutput(ct))
         {
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
         }
     }
- 
+
     public UniTask<string> ReceiveAsync(CancellationToken ct)
     {
         return UniTask.FromResult("mock response");
     }
- 
+
     public async UniTask<bool> CheckOutput(CancellationToken token)
     {
         string output = await ReceiveAsync(token);
         return true;
     }
- 
+
     public bool IsProcessAlive()
     {
         return aiProcess != null && aiProcess.IsProcessAlive();
     }
- 
+
     public void KillProcess()
     {
         aiProcess?.KillProcess();
     }
- 
+
     public string IsFoundAISoftware()
     {
         return File.Exists(AISoftwarePath) ? AISoftwarePath : "null";
     }
- 
+
     public string IsFoundModelFile()
     {
         string modelPath = ModelRepository.GetModelExecutablePath();
         return modelPath != "null" ? modelPath : "null";
     }
- 
+
     public string ExtractAssistantOutput(string raw)
     {
         return raw;
