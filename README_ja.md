@@ -35,7 +35,7 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 > [!NOTE]
 > フレームワークは最近、よりクリーンなAPIと改良されたExecutorアーキテクチャへと進化しました。
 
-[紹介動画](https://www.youtube.com/watch?v=ftBtk96FqPY)
+[紹介動画](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
 
 ---
  
