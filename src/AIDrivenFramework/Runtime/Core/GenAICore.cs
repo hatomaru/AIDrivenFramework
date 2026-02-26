@@ -6,7 +6,7 @@ using AIDrivenFW.Config;
 
 namespace AIDrivenFW.Core
 {
-    public class GenAICore : MonoBehaviour
+    public class GenAICore
     {
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
         //public static AIProcess process = null;

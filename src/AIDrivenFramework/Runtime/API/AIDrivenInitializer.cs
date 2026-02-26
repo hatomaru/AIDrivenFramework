@@ -1,4 +1,5 @@
 using Cysharp.Threading.Tasks;
+using System;
 using System.Threading;
 using UnityEngine;
 using UnityEngine.Events;
@@ -35,7 +36,26 @@ namespace AIDrivenFW.API
             }
             if (onPreparationFinished != null)
             {
-                onPreparationFinished?.Invoke(isPrepare);
+                // Invoke subscribers safely: remove or skip subscribers whose target UnityEngine.Object has been destroyed
+                var invocationList = onPreparationFinished.GetInvocationList();
+                foreach (var d in invocationList)
+                {
+                    var action = d as UnityAction<bool>;
+                    // If the delegate target is a UnityEngine.Object and has been destroyed, unsubscribe and skip
+                    if (d.Target is UnityEngine.Object unityObj && unityObj == null)
+                    {
+                        try { onPreparationFinished -= action; } catch { }
+                        continue;
+                    }
+                    try
+                    {
+                        action?.Invoke(isPrepare);
+                    }
+                    catch (Exception ex)
+                    {
+                        UnityEngine.Debug.LogError($"Error invoking onPreparationFinished subscriber: {ex.Message}");
+                    }
+                }
             }
             return isPrepare;
         }

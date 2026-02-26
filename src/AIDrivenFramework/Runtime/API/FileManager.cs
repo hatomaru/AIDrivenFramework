@@ -1,6 +1,7 @@
 using AIDrivenFW.Core;
 using AIDrivenFW.Config;
 using Cysharp.Threading.Tasks;
+using System;
 using System.Threading;
 
 namespace AIDrivenFW.API
@@ -33,9 +34,32 @@ namespace AIDrivenFW.API
             }
             result = ModelRepository.GetModelExecutablePath();
             if (result == "null") { return false; }
-            string response = await testAI.Generate("こんにちは", ct: token);
-            UnityEngine.Debug.Log("Test Response: " + response);
-            testAI.KillProcess();
+
+            // 実際にプロセスを起動してテスト生成を行う
+            string response = null;
+            try
+            {
+                response = await testAI.Generate("こんにちは", ct: token);
+                UnityEngine.Debug.Log("Test Response: " + response);
+            }
+            catch (OperationCanceledException)
+            {
+                UnityEngine.Debug.LogWarning("Test generation was canceled.");
+                try { testAI.KillProcess(); } catch { }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // 生成中の例外はログ出力して準備失敗とする
+                UnityEngine.Debug.LogError($"Error during test generation: {ex.Message}");
+                try { testAI.KillProcess(); } catch { }
+                return false;
+            }
+            finally
+            {
+                try { testAI.KillProcess(); } catch { }
+            }
+
             if (GenAI.isResponseError(response))
             {
                 return false;
