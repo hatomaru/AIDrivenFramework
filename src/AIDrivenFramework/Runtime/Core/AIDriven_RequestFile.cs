@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 
-public class AIDriven_RequestFile : MonoBehaviour
+public class AIDriven_RequestFile
 {
     private List<string> files = new List<string>();
 
