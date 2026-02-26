@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.2] - 2026-02-26
+### Added
+- Integration test suite (Initialization / Generate flow / End-to-End)
+### Changed
+- Stability and reliability improvements
+- Minor internal refactoring
+### Notes
+Integration tests require a valid local LLM environment.
+
 ## [2.1.1] - 2026-02-25
 ### Changed
 - Minor improvements and stability fixes
