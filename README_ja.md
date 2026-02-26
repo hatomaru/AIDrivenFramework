@@ -3,8 +3,9 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">
  
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
- 
- ## 🚀 Quick Start
+[![Discord](https://img.shields.io/badge/Discord-CommunityGuild-5865F2?logo=discord&logoColor=white)](https://discord.gg/dfzwqCHSW2)
+
+## 🚀 Quick Start
 [インストール](#インストール)
 ## 目次
 - [概要](#概要)
@@ -38,7 +39,17 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 [紹介動画](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
 
 ---
- 
+## 💬 Community & Support
+
+AIDrivenFW に関する質問やフィードバックは、
+CommunityGuild で受け付けています。
+
+実験の共有や、Unity × Local LLM 開発についてのディスカッションも歓迎です。
+
+https://discord.gg/dfzwqCHSW2
+
+---
+
 ## 🎯 V1 公開API
  
 V1では、公開APIを最小構成に制限しています。

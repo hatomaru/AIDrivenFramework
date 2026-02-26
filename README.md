@@ -2,7 +2,9 @@
 A setup & execution framework for safely handling local LLMs in Unity with consideration for UX and licensing  
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">  
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
-> [!Note]
+[![Discord](https://img.shields.io/badge/Discord-CommunityGuild-5865F2?logo=discord&logoColor=white)](https://discord.gg/dfzwqCHSW2)
+
+> [!NOTE]
 > The framework has recently evolved with a cleaner API and improved executor architecture.
 
 [Introduction video](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
@@ -40,7 +42,17 @@ This framework internally manages:
 It is designed so that **Unity only interacts with a minimal API surface**.
  
 ---
- 
+## 💬 Community & Support
+
+Questions about AIDrivenFW?
+
+Join the CommunityGuild to ask questions, share experiments,
+and discuss Unity × Local LLM development.
+
+👉 [Join the CommunityGuild](https://discord.gg/dfzwqCHSW2)
+
+---
+
 ## 🎯 V1 Public API
  
 In V1, the public API is intentionally limited to a minimal set.
