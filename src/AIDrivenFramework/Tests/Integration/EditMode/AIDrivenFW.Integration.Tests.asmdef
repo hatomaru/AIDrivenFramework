@@ -3,7 +3,11 @@
     "rootNamespace": "",
     "references": [
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "UniTask",
+        "AIFW.API",
+        "AIFW.Core",
+        "AIFW.Config"
     ],
     "includePlatforms": [
         "Editor"
