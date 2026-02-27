@@ -209,8 +209,7 @@ Follow the instructions to complete the configuration.
 Once finished, the environment will be activated.
 
 > [!TIP]
-> This process works not only in the Unity Editor  
-> but also in built applications.  
+> This process works not only in the Unity Editor but also in built applications.  
 > End users can perform the same initial setup process.
 
 ---
