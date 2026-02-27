@@ -19,7 +19,6 @@ Add the package via Unity Package Manager:
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
 
-> [!INFO]
 > See the [Installation](#installation) section below for dependency details.
 
 ---

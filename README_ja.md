@@ -20,7 +20,6 @@ Unity の Package Manager から以下の URL を追加してください。
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
 
-> [!INFO]
 > 依存パッケージの詳細については、下部の [インストール](#インストール) セクションをご確認ください。
 
 ---
