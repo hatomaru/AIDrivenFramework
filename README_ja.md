@@ -232,6 +232,8 @@ AISetup ウィンドウ（ファイル選択UI）を使用する場合のみ、
 
 任意のクラスから、以下のコードを呼び出してください。
 
+### 呼び出し例
+
 ```csharp
 // 例: MonoBehaviour の Start() などで一度だけ呼び出す
 await AIDrivenInitializer.Initialize();
@@ -240,7 +242,7 @@ await AIDrivenInitializer.Initialize();
 このメソッドは以下を自動で行います。
 
 1. ローカルLLM環境が準備済みか確認
-2. 未セットアップの場合、Playモード開始時などに自動で `AIDrivenSetup` シーンを表示（AISetupコンポーネント導入時のみ）  
+2. 未セットアップの場合、 `AIDrivenSetup` シーンを表示（AISetupコンポーネント導入時のみ）  
 
 > [!IMPORTANT]
 > `AIDrivenSetup` シーンを使用するには、任意コンポーネント **AISetup** の導入が必要です。  
@@ -386,6 +388,8 @@ LLM通信部分を差し替えることができます。
  
 ### 1.IAIExecutor を実装する
  
+#### カスタムExecutorの例
+
 ```csharp
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;

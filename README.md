@@ -360,7 +360,7 @@ GenAI.SetExecutor(customExecutor);
  
 Checks whether the local LLM environment is available.
 
-If it is not set up, the user will be redirected to the setup scene so they can safely begin using the system.
+Setup scene auto-launch requires the AISetup optional package to be installed.
 
 > [!NOTE]
 > To use this feature, the optional component AISetup must be installed.
@@ -401,7 +401,9 @@ In AIDrivenFramework, you can replace the LLM communication layer by implementin
 ---
  
 ### 1. Implement IAIExecutor
- 
+
+#### Custom Executor Usage
+
 ```csharp
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
