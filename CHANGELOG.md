@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.3] - 2026-02-27
+### Changed
+- Documentation: Overall review and fixes to README / README_ja.md
+  - Corrected several inaccuracies in installation, dependencies, and usage sections
+  - Improved clarity and consistency across the document
+### Notes
+No code changes
+
 ## [2.1.2] - 2026-02-26
 ### Added
 - Integration test suite (Initialization / Generate flow / End-to-End)
