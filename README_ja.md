@@ -116,7 +116,7 @@ openupm add com.hatomaru.ai.framework
     }
   ],
   "dependencies": {
-    "com.hatomaru.ai.framework": "2.1.1"
+    "com.hatomaru.ai.framework": "2.1.2" // 最新版はPackage Managerで確認してください
   }
 }
 ```
@@ -148,63 +148,98 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 
 ### オプション依存（AISetup使用時のみ）
 
-AISetup ウィンドウ（ファイル選択UI）を使用する場合のみ、
-UnityStandaloneFileBrowser を追加してください。
+AISetup ウィンドウ（ファイル選択UI）を使用する場合のみ、  
+以下の追加パッケージが必要です。
 
- [StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (セットアップ時のファイル選択)
+- **[UnityStandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser)**  
+  （セットアップ時のファイル選択ダイアログ用）
 
-> [!NOTE]
-> UnityStandaloneFileBrowser は AISetup ウィンドウ使用時のみ必要です。
-> コアの実行機能には依存しません。
+> [!NOTE]  
+> このパッケージは自動で解決されません。  
+> AISetupを導入する場合は、以下の方法で手動追加してください：
+> 
+> - Releasesから .unitypackage をダウンロードしてインポート
+
+> [!IMPORTANT]  
+> StandaloneFileBrowser は AISetup ウィンドウ使用時のみ必要です。  
+> コアの生成機能（GenAI.Generate() など）には依存しません。
 
 ---
  
-## セットアップ
- 
-### 1. LLMの準備
- 
-本フレームワークには
- 
-- llama.cpp
-- .ggufモデル
- 
-は同梱されていません。
- 
-各自でHugging Face 等など公式配布元から取得してください。
- 
+# セットアップ
+
+## 1. LLMの準備
+
+本フレームワークには以下は同梱されていません。
+
+- `llama.cpp`
+- `.gguf` モデルファイル
+
+各自で Hugging Face 等の公式配布元から取得してください。
+
 ---
- 
-### 2. Setupウィンドウ実行
- 
-Unityエディタで任意のシーンを開いて**再生**してください
 
-開くとローカルLLMの環境構築が出来ているのかを自動で判断し、出来ていない場合はセットアップ画面(AIDrivenSetup)が開きます。
+## 2. 初期化の実行（推奨）
 
-ダウンロードしたLlama.cppと.ggufモデルファイルを選択し、
-指示に従い設定してください。
+任意のクラスから、以下のコードを呼び出してください。
 
-また、ビルド上でも動作するので、ユーザーも同様の手順で設定できます。
- 
-## オプション
-### 1. Setupウィンドウ実行
- 
-Unityメニュー：
- 
+```csharp
+// 例: MonoBehaviour の Start() などで一度だけ呼び出す
+await AIDrivenInitializer.Initialize();
+```
+
+このメソッドは以下を自動で行います。
+
+1. ローカルLLM環境が準備済みか確認
+2. 未セットアップの場合、Playモード開始時などに自動で `AIDrivenSetup` シーンを表示（AISetupコンポーネント導入時のみ）  
+
+> [!IMPORTANT]
+> `AIDrivenSetup` シーンを使用するには、任意コンポーネント **AISetup** の導入が必要です。  
+> AISetup がインストールされていない場合、自動セットアップは利用できません。
+> 詳細はインストールセクションのオプション依存を参照してください。
+
+セットアップ画面では、ダウンロードした `llama.cpp` 実行ファイルおよび `.gguf` モデルファイルを指定してください。
+
+指示に従って設定を完了させると、環境が有効化されます。
+
+> [!TIP]
+> 本処理はエディタ上だけでなく、ビルド後の実行環境でも動作します。  
+> エンドユーザーも同様の手順で初期設定を行うことが可能です。
+
+---
+
+# オプション
+
+## Setupウィンドウを手動で開く
+
+Unityメニューから直接セットアップウィンドウを開くこともできます。
+
 ```
 AIDrivenFramework > Setup
 ```
- 
-Setup ウインドウでは、以下の 任意コンポーネントを選択できます。
 
-- AISetup（AIセットアップ）
-- Example Scene（サンプルシーン）
+---
 
-必要なものにチェックを入れ、**「Install Selected」** を押してください。
-※ Import ダイアログが表示されます。内容を確認した上で Import を行ってください。
+## 任意コンポーネントのインストール
 
-※ まずは「AISetup」と「Example Scene」にチェックを入れることをおすすめします。
+Setupウィンドウでは、以下のコンポーネントを選択できます。
 
-### 2.Setup Complete! が表示されれば完了
+- **AISetup**（セットアップ機能 + AIDrivenSetupシーン）
+- **Example Scene**（サンプルシーン）
+
+必要な項目にチェックを入れ、  
+**「Install Selected」** を押してください。
+
+Importダイアログが表示されますので、内容を確認のうえ Import を実行してください。
+
+> [!TIP]
+> 初回利用時は **AISetup の導入を強く推奨** します。
+
+---
+
+## Setup Complete! が表示されれば完了
+
+インポート完了後、ウィンドウ下部に **「Setup Complete!」** と表示されます。
 
 インポートが完了すると、ウインドウ下部に「Setup Complete!」と表示されます。
  

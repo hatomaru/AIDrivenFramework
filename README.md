@@ -77,15 +77,15 @@ All other structures are internal implementations.
 - Executor replacement supported (minimal support in V1)
  
 ---
- 
+
 ## System Requirements
- 
+
 - Unity 2022.3 LTS or later  
 - Windows 10/11 (64bit)  
-- Recommended: 16GB+ RAM / 8GB+ VRAM (model dependent)  
- 
-*MacOS not tested*
- 
+- Recommended: 16GB RAM or more / 8GB VRAM or more (depending on the model used)
+
+※ macOS is currently untested.
+
 ---
 
 ## Installation
@@ -120,7 +120,7 @@ Alternatively, add the OpenUPM registry to your `manifest.json`:
     }
   ],
   "dependencies": {
-    "com.hatomaru.ai.framework": "2.1.1"
+    "com.hatomaru.ai.framework": "2.1.3" // Please check the latest version in Package Manager
   }
 }
 ```
@@ -138,7 +138,7 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 The following packages are required for core functionality:
 
 - [UniTask](https://github.com/Cysharp/UniTask) (Asynchronous processing)
-- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README.md) (UI / animation control)
+- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / animation control)
 
 If they are not resolved automatically, add them to your `manifest.json`:
 ```json
@@ -150,72 +150,106 @@ If they are not resolved automatically, add them to your `manifest.json`:
 }
 ```
 
-### Optional Dependency (Only Required When Using AISetup)
+### Optional Dependency (Only When Using AISetup)
 
 If you use the AISetup window (file selection UI),  
-please add UnityStandaloneFileBrowser.
+the following additional package is required:
 
-[StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (File selection during setup)
+- **[UnityStandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser)**  
+  (For file selection dialogs during setup)
 
-> [!NOTE]
-> UnityStandaloneFileBrowser is only required when using the AISetup window.
-> It is not required for core runtime functionality.
+> [!NOTE]  
+> This package is not automatically resolved.  
+> If you use AISetup, please add it manually using the method below:
+> 
+> - Download the `.unitypackage` from Releases and import it.
+
+> [!IMPORTANT]  
+> StandaloneFileBrowser is only required when using the AISetup window.  
+> It is not required for core generation features (such as GenAI.Generate()).
 
 ---
- 
-## Setup
- 
-### 1. Prepare the LLM
- 
-This framework does NOT include:
- 
-- llama.cpp  
-- .gguf models  
- 
-Please obtain them individually from official distribution sources such as Hugging Face.
- 
+
+# Setup
+
+## 1. Prepare Your LLM
+
+The following are not included in this framework:
+
+- `llama.cpp`
+- `.gguf` model files
+
+Please obtain them from official distribution sources such as Hugging Face.
+
 ---
- 
-### 2. Run the Setup Window
- 
-Open any scene in the Unity Editor and press **Play**.
- 
-The framework automatically checks whether the local LLM environment is configured.  
-If it is not configured, the setup window (AIDrivenSetup) will open.
- 
-Select your downloaded `llama.cpp` and `.gguf` model files and follow the instructions.
- 
-This also works in builds, so end users can configure it in the same way.
- 
+
+## 2. Run Initialization (Recommended)
+
+Call the following code from any class:
+
+```csharp
+// Example: Call once in MonoBehaviour Start()
+await AIDrivenInitializer.Initialize();
+```
+
+This method automatically performs the following:
+
+1. Checks whether the local LLM environment is prepared  
+2. If not set up, automatically displays the `AIDrivenSetup` scene when entering Play Mode (only if the AISetup component is installed)
+
+> [!IMPORTANT]
+> To use the `AIDrivenSetup` scene, the optional **AISetup** component must be installed.  
+> If AISetup is not installed, automatic setup will not be available.  
+> Please refer to the Optional Dependency section in Installation for details.
+
+In the setup screen, specify the downloaded `llama.cpp` executable  
+and the `.gguf` model file.
+
+Follow the instructions to complete the configuration.  
+Once finished, the environment will be activated.
+
+> [!TIP]
+> This process works not only in the Unity Editor  
+> but also in built applications.  
+> End users can perform the same initial setup process.
+
 ---
- 
-## Optional
- 
-### 1. Open Setup Window from Menu
- 
-Unity Menu:
- 
+
+# Options
+
+## Manually Open the Setup Window
+
+You can also open the setup window directly from the Unity menu:
+
 ```
 AIDrivenFramework > Setup
 ```
- 
-In the Setup window, you can optionally select:
- 
-- AISetup (AI setup utility)  
-- Example Scene (sample scene)  
- 
-Check the required components and press **“Install Selected”**.
- 
-*An Import dialog will appear. Please review the contents before confirming the import.*
- 
-It is recommended to check both **AISetup** and **Example Scene** initially.
- 
+
 ---
- 
-### 2. Completion
- 
-When the import finishes, “Setup Complete!” will appear at the bottom of the window.
- 
+
+## Installing Optional Components
+
+In the Setup window, you can choose the following components:
+
+- **AISetup** (Setup functionality + AIDrivenSetup scene)
+- **Example Scene** (Sample scene)
+
+Check the items you need,  
+then click **"Install Selected"**.
+
+An Import dialog will appear.  
+Review the contents and proceed with Import.
+
+> [!TIP]
+> For first-time use, installing **AISetup is strongly recommended**.
+
+---
+
+## Setup Complete!
+
+After the import is finished,  
+**"Setup Complete!"** will appear at the bottom of the window.
+
 ---
  
 ## Basic Usage
