@@ -10,8 +10,57 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 
 [紹介動画](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
 
-## 🚀 Quick Start
-[インストール](#インストール)
+## 🚀 クイックスタート  
+
+### 1. インストール（Git URL）
+
+Unity の Package Manager から以下の URL を追加してください。
+
+```
+https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
+```
+
+> [!INFO]
+> 依存パッケージの詳細については、下部の [インストール](#インストール) セクションをご確認ください。
+
+---
+
+### 2. ローカルLLMの準備
+
+以下を別途ダウンロードしてください。
+
+- `llama.cpp`
+- `.gguf` モデルファイル
+
+これらは本フレームワークには含まれていません。
+
+---
+
+### 3. 初期化
+
+ゲームコード内から `Initialize` を呼び出します。
+
+```csharp
+await AIDrivenInitializer.Initialize();
+```
+
+環境が未設定の場合：
+
+- セットアップシーン（`AIDrivenSetup`）が自動で表示されます  
+- 任意コンポーネント **AISetup** の導入が必要です  
+
+---
+
+### 4. テキスト生成
+
+```csharp
+var genAI = new GenAI();
+var result = await genAI.Generate("Hello AI");
+Debug.Log(result);
+```
+
+これで、Unity プロジェクトに安全なローカルLLM統合が可能になります。
+
 ## 目次
 - [概要](#概要)
 - [V1 公開API](#-v1-公開api)

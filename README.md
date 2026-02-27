@@ -11,8 +11,55 @@ A setup & execution framework for safely handling local LLMs in Unity with consi
 
 [日本語版READMEはこちら](README_ja.md)
 ## 🚀 Quick Start  
-[Installation](#installation)
- 
+### 1. Install (Git URL)
+
+Add the package via Unity Package Manager:
+
+```
+https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
+```
+
+> [!INFO]
+> See the [Installation](#installation) section below for dependency details.
+
+---
+
+### 2. Prepare Local LLM
+
+Download separately:
+
+- `llama.cpp`
+- `.gguf` model file
+
+These are not included in the framework.
+
+---
+
+### 3. Initialize
+
+Call Initialize from your game code:
+
+```csharp
+await AIDrivenInitializer.Initialize();
+```
+
+If the environment is not prepared:
+
+- The setup scene (`AIDrivenSetup`) will open automatically  
+- Requires the optional **AISetup** component  
+
+---
+
+### 4. Generate Text
+
+```csharp
+var genAI = new GenAI();
+var result = await genAI.Generate("Hello AI");
+Debug.Log(result);
+```
+
+You are now ready to integrate a local LLM into your Unity project.
+
 ## Table of Contents
  
 - [Overview](#overview)
