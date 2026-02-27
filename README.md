@@ -87,28 +87,80 @@ All other structures are internal implementations.
 *MacOS not tested*
  
 ---
- 
+
 ## Installation
- 
-### Package Manager (Git URL)
- 
-Open Unity’s Package Manager, select `+` → `Add package from git URL...`, and enter:
- 
+
+AIDrivenFramework can be installed via OpenUPM (recommended)  
+or through a Git URL using the Unity Package Manager.
+
+---
+
+### Method 1: OpenUPM (Recommended)
+
+First, install the OpenUPM CLI:
+```bash
+npm install -g openupm-cli
+```
+
+Add the package to your Unity project:
+```bash
+openupm add com.hatomaru.ai.framework
+```
+
+Alternatively, add the OpenUPM registry to your `manifest.json`:
+```json
+{
+  "scopedRegistries": [
+    {
+      "name": "OpenUPM",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.hatomaru"
+      ]
+    }
+  ],
+  "dependencies": {
+    "com.hatomaru.ai.framework": "2.1.1"
+  }
+}
+```
+
+### Method 2: Unity Package Manager (Git URL)
+
+Open Unity’s Package Manager, click the `+` button,  
+select `Add package from git URL...`, and enter the following:
 ```
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
- 
----
- 
-## Dependencies
- 
-The following packages are required for this framework.  
-Please install them via Unity Package Manager.
- 
-- [UniTask](https://github.com/Cysharp/UniTask) (asynchronous processing)  
-- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / animation control)  
-- [StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (file selection during setup)
- 
+
+### 📦 Required Dependencies
+
+The following packages are required for core functionality:
+
+- [UniTask](https://github.com/Cysharp/UniTask) (Asynchronous processing)
+- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README.md) (UI / animation control)
+
+If they are not resolved automatically, add them to your `manifest.json`:
+```json
+{
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.10",
+    "com.annulusgames.lit-motion": "2.0.1"
+  }
+}
+```
+
+### Optional Dependency (Only Required When Using AISetup)
+
+If you use the AISetup window (file selection UI),  
+please add UnityStandaloneFileBrowser.
+
+[StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (File selection during setup)
+
+> [!NOTE]
+> UnityStandaloneFileBrowser is only required when using the AISetup window.
+> It is not required for core runtime functionality.
+
 ---
  
 ## Setup

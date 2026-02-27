@@ -5,6 +5,11 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
 [![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-CommunityGuild-5865F2?logo=discord&logoColor=white)](https://discord.gg/dfzwqCHSW2)
 
+> [!NOTE]
+> フレームワークは最近、よりクリーンなAPIと改良されたExecutorアーキテクチャへと進化しました。
+
+[紹介動画](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
+
 ## 🚀 Quick Start
 [インストール](#インストール)
 ## 目次
@@ -33,10 +38,6 @@ UnityでローカルLLMをUXや権利に配慮し、安心して扱うための�
  
 を内部で管理し、  
 **Unity側からは最小APIのみで扱える設計**になっています。
-> [!NOTE]
-> フレームワークは最近、よりクリーンなAPIと改良されたExecutorアーキテクチャへと進化しました。
-
-[紹介動画](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
 
 ---
 ## 💬 Community & Support
@@ -46,7 +47,7 @@ CommunityGuild で受け付けています。
 
 実験の共有や、Unity × Local LLM 開発についてのディスカッションも歓迎です。
 
-https://discord.gg/dfzwqCHSW2
+👉 [CommunityGuild に参加する](https://discord.gg/dfzwqCHSW2)
 
 ---
 
@@ -79,32 +80,83 @@ AIDrivenInitializer.Initialize();
  
 - Unity 2022.3 LTS 以上
 - Windows 10/11 (64bit)
-- 推奨: RAM 16GB以上 / VRAM 8GB以上（モデル依存）
+- 推奨: RAM 16GB以上 / VRAM 8GB以上（使用モデルに依存）
  
-※MacOSは未検証
+※ macOS は現時点では未検証です。
  
 ---
- 
+
 ## インストール
- 
-### Package Manager (Git URL)
+
+AIDrivenFramework は OpenUPM（推奨）または  
+Unity Package Manager の Git URL 経由でインストールできます。
+
+---
+
+### 方法1：OpenUPM（推奨）
+
+まず OpenUPM CLI をインストールします：
+```bash
+npm install -g openupm-cli
+```
+Unity プロジェクトへ追加：
+```bash
+openupm add com.hatomaru.ai.framework
+```
+または、manifest.json に OpenUPM レジストリを追加してください：
+```json
+{
+  "scopedRegistries": [
+    {
+      "name": "OpenUPM",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.hatomaru"
+      ]
+    }
+  ],
+  "dependencies": {
+    "com.hatomaru.ai.framework": "2.1.1"
+  }
+}
+```
+
+### 方法2：Unity Package Manager（Git URL）
+
  Unityの Package Manager を開き、`+` ボタン内の`Add package from git URL...` を選択して以下を入力してください：
 ```
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
- 
----
- 
-## 依存パッケージ
- 
-本フレームワークの動作には以下のパッケージが必要です。これらを Unity Package Manager 等からプロジェクトに導入してください。
+
+### 📦 必須依存パッケージ
+
+コア機能の利用には以下のパッケージが必要です：
 
 - [UniTask](https://github.com/Cysharp/UniTask) (非同期処理)
 
 - [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / 演出制御)
 
-- [StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (セットアップ時のファイル選択)
- 
+自動解決されない場合は manifest.json に追加してください：
+```json
+{
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.10",
+    "com.annulusgames.lit-motion": "2.0.1"
+  }
+}
+```
+
+### オプション依存（AISetup使用時のみ）
+
+AISetup ウィンドウ（ファイル選択UI）を使用する場合のみ、
+UnityStandaloneFileBrowser を追加してください。
+
+ [StandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser) (セットアップ時のファイル選択)
+
+> [!NOTE]
+> UnityStandaloneFileBrowser は AISetup ウィンドウ使用時のみ必要です。
+> コアの実行機能には依存しません。
+
 ---
  
 ## セットアップ
