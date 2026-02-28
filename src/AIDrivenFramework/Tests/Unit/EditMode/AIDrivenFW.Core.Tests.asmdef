@@ -6,7 +6,8 @@
         "UnityEditor.TestRunner",
         "UniTask",
         "AIFW.Core",
-        "AIFW.Config"
+        "AIFW.Config",
+        "AIFW.API"
     ],
     "includePlatforms": [
         "Editor"
