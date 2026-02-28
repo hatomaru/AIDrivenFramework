@@ -8,9 +8,7 @@ namespace AIDrivenFW.Core
 {
     public class GenAICore
     {
-        private static readonly SemaphoreSlim _generateLock = new(1, 1);
-        //public static AIProcess process = null;
-        private static bool generationComplete = false;
+        private readonly SemaphoreSlim _generateLock = new(1, 1);
         const int checkIntervalMs = 500; // 確認の間隔  
         private readonly IAIExecutor executor;
 
@@ -46,7 +44,6 @@ namespace AIDrivenFW.Core
                 {
                     await executor.StartProcessAsync(ct, genAIConfig);
                 }
-                generationComplete = false;
 
                 // システムプロンプトとユーザー入力を結合
                 string fullPrompt = string.IsNullOrEmpty(systemPrompt)
