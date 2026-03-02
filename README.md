@@ -12,6 +12,12 @@ A setup & execution framework for safely integrating local LLMs into Unity.
 🇯🇵 [日本語READMEはこちら](README_ja.md)
 
 ---
+## 🎞 Demo
+
+## Model Setup Demo
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/en/AISetupWalkthrough.gif" width="800">
+
+---
 
 ## ✨ Main Features
 - 🛡 Safe-by-Design Architecture  

@@ -4,13 +4,19 @@
 Unity にローカル LLM を安全に統合するための  
 セットアップ & 実行管理フレームワークです。
 
-<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/Banner.png" width="800">
 
 [![License](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)  
 [![Discord](https://img.shields.io/badge/Discord-CommunityGuild-5865F2?logo=discord&logoColor=white)](https://discord.gg/dfzwqCHSW2)
 
 🎥 [紹介動画](https://www.youtube.com/watch?v=_Foj7tXq_Ss)  
 [English version Readme is here](README.md)
+
+---
+## 🎞 Demo
+
+## Model Setup Demo
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/ja/AISetupWalkthrough.gif" width="800">
 
 ---
 
