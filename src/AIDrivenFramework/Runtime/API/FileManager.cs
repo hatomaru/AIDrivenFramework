@@ -14,11 +14,12 @@ namespace AIDrivenFW.API
         /// <summary>
         /// ローカルLLM環境の準備が整っているか確認
         /// </summary>
+        /// <param name="defaultGenAI">準備済のGenAIクラス (オプション)</param>
         /// <returns>ローカルLLM環境の準備が整っているか</returns>
-        public static async UniTask<bool> IsPrepared(CancellationToken token)
+        public static async UniTask<bool> IsPrepared(CancellationToken token, GenAI defaultGenAI = null)
         {
             // デフォルトAIエグゼキュータをセットする
-            GenAI testAI = new GenAI();
+            GenAI testAI = defaultGenAI == null ? new GenAI() : defaultGenAI;
             AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
             // AIソフトウェアの実行ファイル確認
             if (AIDrivenConfig.isDeepDebug)
@@ -57,7 +58,8 @@ namespace AIDrivenFW.API
             }
             finally
             {
-                try { testAI.KillProcess(); } catch { }
+                // 準備済のGenAIクラスを指定している場合はプロセスを終了しない
+                try { if(defaultGenAI == null) testAI.KillProcess(); } catch { }
             }
 
             if (GenAI.isResponseError(response))
