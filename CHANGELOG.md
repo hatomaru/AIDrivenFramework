@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- AISetup now supports English and Japanese
+- Automatic language detection based on system language
+
+### Changed
+- `IsPrepared()` now accepts optional `GenAI` instance to prevent double LLM initialization.
+
+### Improved
+- UI text localization system foundation added
+
+
+
 ## [2.1.3] - 2026-02-27
 ### Changed
 - Documentation: Overall review and fixes to README / README_ja.md
