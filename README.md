@@ -3,7 +3,7 @@
 
 A setup & execution framework for safely integrating local LLMs into Unity.
 
-<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/Banner.png" width="800">
 
 [![License](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)  
 [![Discord](https://img.shields.io/badge/Discord-CommunityGuild-5865F2?logo=discord&logoColor=white)](https://discord.gg/dfzwqCHSW2)
@@ -79,6 +79,12 @@ If the environment is not prepared:
 
 - The setup scene opens automatically  
 - Requires optional **AISetup** component  
+
+> [!TIP]
+> `IsPrepared()` accepts an optional `GenAI` instance.
+> 
+> Passing an existing instance prevents the LLM process from being terminated after the health check,
+> avoiding double model loading and improving startup performance.
 
 ---
 
