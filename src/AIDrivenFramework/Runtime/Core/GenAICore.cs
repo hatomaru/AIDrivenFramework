@@ -62,9 +62,10 @@ namespace AIDrivenFW.Core
                 // プロンプトを送信して生成開始
                 var mainTask = executor.GenerateAsync(fullPrompt, cts.Token,onUpdate,timeoutMs: timeoutMs);
                 var loadingTask = LoadingAsync(cts.Token, progress, timeoutMs);
-                Debug.Log("Generation completed, waiting for loading task to finish...");
+                Debug.Log("Generation started, waiting for completion...");
                 // 生成完了を待機
                 await mainTask;
+                Debug.Log("Generation completed, waiting for loading task to finish...");
                 // ロードィングタスクをキャンセル
                 cts.Cancel();
                 Debug.Log("Loading task finished, finalizing output...");
