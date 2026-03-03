@@ -1,8 +1,7 @@
-using AIDrivenFW.Core;
 using AIDrivenFW.Config;
+using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -11,8 +10,9 @@ using System.Threading;
 public class LlamaProcessExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
-    const int checkIntervalMs = 50; // 確認の間隔  
+    const int checkIntervalMs = 100; // 確認の間隔  
     string AISoftwarePath = "";
+    int outStartIndex = 0;
 
     public LlamaProcessExecutor()
     {
@@ -38,14 +38,14 @@ public class LlamaProcessExecutor : IAIExecutor
         aiProcess = new AIProcess(genAIConfig);
         await UniTask.WaitUntil(() => aiProcess.IsProcessAlive(), cancellationToken: ct);
 
-        await WaitUntilReadyAsync(ct,progress,timeoutMs);
+        await WaitUntilReadyAsync(ct, progress, timeoutMs);
         await UniTask.CompletedTask;
     }
 
     public async UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         // ここでプロセスが準備できるまで待機する処理を実装  
-        await WaitModelLoadAsync(ct,progress,timeoutMs);
+        await WaitModelLoadAsync(ct, progress, timeoutMs);
     }
 
     private async UniTask WaitModelLoadAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
@@ -82,7 +82,7 @@ public class LlamaProcessExecutor : IAIExecutor
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null,IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
@@ -90,10 +90,11 @@ public class LlamaProcessExecutor : IAIExecutor
             await StartProcessAsync(ct, null);
         }
         aiProcess.ClearOutputBuffer();
+        outStartIndex = 0;
         // プロセスに入力を送る処理  
         aiProcess.SendStdin(input);
         // 生成完了を待機
-        while(!await CheckOutput(ct,onUpdate))
+        while (!await CheckOutput(ct, onUpdate))
         {
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
         }
@@ -107,13 +108,18 @@ public class LlamaProcessExecutor : IAIExecutor
 
     public async UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate)
     {
-        string output = await ReceiveAsync(CancellationToken.None);
+        string output = await ReceiveAsync(token);
         if (onUpdate != null)
         {
             string extracted = ExtractAssistantOutput(output);
-            if (!string.IsNullOrEmpty(extracted))
+            if (!string.IsNullOrEmpty(extracted) && extracted.Length > outStartIndex)
             {
-                onUpdate(extracted);
+                for (int i = outStartIndex; i < extracted.Length; i++)
+                {
+                    onUpdate(extracted[i].ToString());
+                    outStartIndex = i + 1;
+                    await UniTask.Delay(20, cancellationToken: token);
+                }
             }
         }
         return OnOutputMarkerReceived(output);
