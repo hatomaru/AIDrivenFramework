@@ -16,11 +16,13 @@ namespace AIDrivenFW.API
         /// <summary>
         /// ローカルLLMの準備が行えているのかを確認し、必要に応じてAIDrivenSetupシーンをロードして準備を行う。
         /// </summary>
+        /// <param name="defaultGenAI">準備済のGenAIクラス (オプション)</param>
         /// <returns>セットアップが完了したか</returns>
-        public async static UniTask<bool> Initialize(CancellationToken ct = default)
+        public async static UniTask<bool> Initialize(CancellationToken ct = default,GenAI defaultGenAI = null)
         {
-            bool isPrepare = await FileManager.IsPrepared(ct);
+            bool isPrepare = await FileManager.IsPrepared(ct,defaultGenAI);
             UnityEngine.Debug.Log("Preparation Result: " + isPrepare);
+
             if (!isPrepare)
             {
                 if (!Application.CanStreamedLevelBeLoaded(setupSceneName))

@@ -1,42 +1,65 @@
-# AIDrivenFramework  
-A setup & execution framework for safely handling local LLMs in Unity with consideration for UX and licensing  
-<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Banner.png" width="800">  
-[![license](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)
+# AIDrivenFramework 🚀  
+**Unity × Local LLM Safe Framework**
+
+A setup & execution framework for safely integrating local LLMs into Unity.
+
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/Banner.png" width="800">
+
+[![License](https://img.shields.io/badge/LICENSE-MIT-green.svg)](LICENSE)  
 [![Discord](https://img.shields.io/badge/Discord-CommunityGuild-5865F2?logo=discord&logoColor=white)](https://discord.gg/dfzwqCHSW2)
 
-> [!NOTE]
-> The framework has recently evolved with a cleaner API and improved executor architecture.
+🎥 [Introduction Video](https://www.youtube.com/watch?v=FkSMRITf-4Q)  
+🇯🇵 [日本語READMEはこちら](README_ja.md)
 
-[Introduction video](https://www.youtube.com/watch?v=_Foj7tXq_Ss)
+---
+## 🎞 Demo
 
-[日本語版READMEはこちら](README_ja.md)
-## 🚀 Quick Start  
-### 1. Install (Git URL)
+## Model Setup Demo
+<img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/en/AISetupWalkthrough.gif" width="800">
 
-Add the package via Unity Package Manager:
+---
+
+## ✨ Main Features
+
+- 🎯 **Built for Unity:** Optimized for Play Mode, runtime builds, and real game workflows.
+- 💬 **Streaming output support:** Receive and display generated text sequentially. Can be used for chat and interactive effects.
+- 🛠 **Integrated Setup Wizard:** No Ollama required - Easy installation via GUI.
+- 🔒 **Safe-by-Design:** Prevents invalid states and guarantees model readiness before generation.
+- ⚡ **Automatic Initialization:** Prepares the LLM environment automatically on Play.
+- 🧩 **Modular Executors:** Seamlessly switch between CLI, HTTP, or custom backends.
+- 🧼 **Clean & Managed Execution:** Handles process lifecycle and returns pure assistant output.
+
+Unity interacts only with a minimal, clean API.
+
+---
+
+## ⚡ Quick Start
+
+### 1️⃣ Install
+
+Add via Unity Package Manager:
 
 ```
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
 
-> See the [Installation](#installation) section below for dependency details.
-
 ---
 
-### 2. Prepare Local LLM
+### 2️⃣ Prepare Local LLM
 
 Download separately:
 
 - `llama.cpp`
 - `.gguf` model file
 
-These are not included in the framework.
+(Not included in this repository)
 
+> [!TIP]
+> Use pre-built llama.cpp binaries from https://github.com/ggerganov/llama.cpp/releases  
+> Recommended starting model: [https://huggingface.co/bartowski/Llama-3.1-8B-Instruct-GGUF (Q4_K_M)](https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF)
 ---
 
-### 3. Initialize
-
-Call Initialize from your game code:
+### 3️⃣ Initialize
 
 ```csharp
 await AIDrivenInitializer.Initialize();
@@ -44,12 +67,18 @@ await AIDrivenInitializer.Initialize();
 
 If the environment is not prepared:
 
-- The setup scene (`AIDrivenSetup`) will open automatically  
-- Requires the optional **AISetup** component  
+- The setup scene opens automatically  
+- Requires optional **AISetup** component  
+
+> [!TIP]
+> `IsPrepared()` accepts an optional `GenAI` instance.
+> 
+> Passing an existing instance prevents the LLM process from being terminated after the health check,
+> avoiding double model loading and improving startup performance.
 
 ---
 
-### 4. Generate Text
+### 4️⃣ Generate
 
 ```csharp
 var genAI = new GenAI();
@@ -57,542 +86,130 @@ var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
 ```
 
-You are now ready to integrate a local LLM into your Unity project.
-
-## Table of Contents
- 
-- [Overview](#overview)
-- [V1 Public API](#-v1-public-api)
-- [Features](#features)
-- [System Requirements](#system-requirements)
-- [Installation](#installation)
-- [Setup](#setup)
-- [Basic Usage](#basic-usage)
-- [About Executor](#about-executor-v1)
-- [Design Philosophy](#design-philosophy)
-- [License](#license)
- 
----
- 
-## Overview
- 
-**AIDrivenFramework** is a framework for safely integrating local LLMs (e.g., llama.cpp) into Unity projects.
- 
-This framework internally manages:
- 
-- Process management  
-- Model loading control  
-- Output noise filtering  
-- Execution order guarantees  
- 
-It is designed so that **Unity only interacts with a minimal API surface**.
- 
----
-## 💬 Community & Support
-
-Questions about AIDrivenFW?
-
-Join the CommunityGuild to ask questions, share experiments,
-and discuss Unity × Local LLM development.
-
-👉 [Join the CommunityGuild](https://discord.gg/dfzwqCHSW2)
+You're ready. 🎉
 
 ---
+##🧙 Setup Wizard (AISetup Component)
 
-## 🎯 V1 Public API
- 
-In V1, the public API is intentionally limited to a minimal set.
- 
+The optional **AISetup** package provides a user-friendly wizard:
+
+- Automatic detection of missing setup
+- GUI for selecting llama.cpp binary and model file
+> [!TIP]
+> One-click installation of sample scenes (optional)
+> Menu access: AIDrivenFramework > Setup (manual open)
+
+Install via the Setup window or Unity Package Manager (optional dependency).
+
+> This makes first-time setup much easier — especially for beginners!
+
+
+## 🎯 Minimal Public API (V1)
+
 ```csharp
-GenAI.Generate(string input, GenAIConfig genAIConfig = null)
-GenAIConfig
+GenAI.Generate(string input, GenAIConfig config = null);
 AIDrivenInitializer.Initialize();
+GenAIConfig;
 ```
- 
-All other structures are internal implementations.
- 
----
- 
-## Features
- 
-- Call a local LLM in a single line  
-- Automatically starts the process if not running  
-- Automatically loads the model if not loaded  
-- Removes CLI noise and returns only the generated result  
-- Designed not to redistribute models  
-- Executor replacement supported (minimal support in V1)
- 
+
+Everything else is internal.
+
 ---
 
-## System Requirements
+## 🧠 Why AIDrivenFramework?
+
+Unlike simple wrappers, this framework:
+
+- Prevents generation before model load  
+- Prevents missing process startup  
+- Guarantees execution safety at API level  
+- Supports Executor replacement  
+
+Designed for **long-term Unity × AI architecture**, not just quick calls.
+
+---
+
+## 🔁 Executor Replacement (Advanced)
+
+You can replace the execution layer:
+
+```csharp
+GenAI.SetExecutor(customExecutor);
+```
+
+Default implementation:
+
+```
+LlamaProcessExecutor
+```
+
+This allows HTTP executors or custom process handlers.
+
+---
+
+## 📦 Installation Options
+
+### ✅ OpenUPM (Recommended)
+
+```bash
+openupm add com.hatomaru.ai.framework
+```
+
+---
+
+### 🔧 Required Dependencies
+
+The following packages are required:
+
+- [UniTask](https://github.com/Cysharp/UniTask) (Asynchronous processing)
+- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / animation control) 
+
+Optional:
+
+- - [UnityStandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser)   (for AISetup UI)
+
+---
+
+## 🖥 System Requirements
 
 - Unity 2022.3 LTS or later  
 - Windows 10/11 (64bit)  
 - Recommended: 16GB RAM or more / 8GB VRAM or more (depending on the model used)
 
-※ macOS is currently untested.
+macOS is currently untested.
 
 ---
 
-## Installation
+## 💬 Community
 
-AIDrivenFramework can be installed via OpenUPM (recommended)  
-or through a Git URL using the Unity Package Manager.
+Questions? Experiments? Unity × Local LLM discussion?
 
----
-
-### Method 1: OpenUPM (Recommended)
-
-First, install the OpenUPM CLI:
-```bash
-npm install -g openupm-cli
-```
-
-Add the package to your Unity project:
-```bash
-openupm add com.hatomaru.ai.framework
-```
-
-Alternatively, add the OpenUPM registry to your `manifest.json`:
-```json
-{
-  "scopedRegistries": [
-    {
-      "name": "OpenUPM",
-      "url": "https://package.openupm.com",
-      "scopes": [
-        "com.hatomaru"
-      ]
-    }
-  ],
-  "dependencies": {
-    "com.hatomaru.ai.framework": "2.1.3" // Please check the latest version in Package Manager
-  }
-}
-```
-
-### Method 2: Unity Package Manager (Git URL)
-
-Open Unity’s Package Manager, click the `+` button,  
-select `Add package from git URL...`, and enter the following:
-```
-https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
-```
-
-### 📦 Required Dependencies
-
-The following packages are required for core functionality:
-
-- [UniTask](https://github.com/Cysharp/UniTask) (Asynchronous processing)
-- [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / animation control)
-
-If they are not resolved automatically, add them to your `manifest.json`:
-```json
-{
-  "dependencies": {
-    "com.cysharp.unitask": "2.5.10",
-    "com.annulusgames.lit-motion": "2.0.1"
-  }
-}
-```
-
-### Optional Dependency (Only When Using AISetup)
-
-If you use the AISetup window (file selection UI),  
-the following additional package is required:
-
-- **[UnityStandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser)**  
-  (For file selection dialogs during setup)
-
-> [!NOTE]  
-> This package is not automatically resolved.  
-> If you use AISetup, please add it manually using the method below:
-> 
-> - Download the `.unitypackage` from Releases and import it.
-
-> [!IMPORTANT]  
-> StandaloneFileBrowser is only required when using the AISetup window.  
-> It is not required for core generation features (such as GenAI.Generate()).
+👉 Join CommunityGuild  
+https://discord.gg/dfzwqCHSW2
 
 ---
 
-# Setup
+## ⚖ License
 
-## 1. Prepare Your LLM
-
-The following are not included in this framework:
-
-- `llama.cpp`
-- `.gguf` model files
-
-Please obtain them from official distribution sources such as Hugging Face.
+- Framework core: MIT License  
+- Models & runtimes: Not included  
+- Follow each official distribution license  
 
 ---
 
-## 2. Run Initialization (Recommended)
+## 🎮 Target Users
 
-Call the following code from any class:
-
-```csharp
-// Example: Call once in MonoBehaviour Start()
-await AIDrivenInitializer.Initialize();
-```
-
-This method automatically performs the following:
-
-1. Checks whether the local LLM environment is prepared  
-2. If not set up, automatically displays the `AIDrivenSetup` scene when entering Play Mode (only if the AISetup component is installed)
-
-> [!IMPORTANT]
-> To use the `AIDrivenSetup` scene, the optional **AISetup** component must be installed.  
-> If AISetup is not installed, automatic setup will not be available.  
-> Please refer to the Optional Dependency section in Installation for details.
-
-In the setup screen, specify the downloaded `llama.cpp` executable  
-and the `.gguf` model file.
-
-Follow the instructions to complete the configuration.  
-Once finished, the environment will be activated.
-
-> [!TIP]
-> This process works not only in the Unity Editor but also in built applications.  
-> End users can perform the same initial setup process.
+- Unity developers exploring local LLM  
+- Developers concerned about execution safety  
+- Experimental AI × Game creators  
+- OSS contributors  
 
 ---
 
-# Options
+## ✍ From the Author
 
-## Manually Open the Setup Window
+AIDrivenFramework was created to provide  
+a **safe entry point for local LLM integration in Unity**.
 
-You can also open the setup window directly from the Unity menu:
-
-```
-AIDrivenFramework > Setup
-```
-
----
-
-## Installing Optional Components
-
-In the Setup window, you can choose the following components:
-
-- **AISetup** (Setup functionality + AIDrivenSetup scene)
-- **Example Scene** (Sample scene)
-
-Check the items you need,  
-then click **"Install Selected"**.
-
-An Import dialog will appear.  
-Review the contents and proceed with Import.
-
-> [!TIP]
-> For first-time use, installing **AISetup is strongly recommended**.
-
----
-
-## Setup Complete!
-
-After the import is finished,  
-**"Setup Complete!"** will appear at the bottom of the window.
-
----
- 
-## Basic Usage
- 
-> [!IMPORTANT]
-> ### Prerequisite
-> **The above setup must be completed**
-> (Model downloaded, placed, and verified)
- 
-```csharp
-using AIDrivenFW.API;
-using Cysharp.Threading.Tasks;
-using UnityEngine;
-
-public class AIDriven_SmallCode : MonoBehaviour
-{
-    GenAI genAI;
-
-    void Start()
-    {
-        TestCode().Forget();
-    }
-
-    async UniTask TestCode()
-    {
-        // Set the default AI executor
-        genAI = new GenAI();
-
-        string response = await genAI.Generate(
-            "Hello",
-            ct: destroyCancellationToken
-        );
-
-        Debug.Log("Response: " + response);
-    }
-}
-```
- 
-Internally, the framework automatically performs:
- 
-- Process startup  
-- Model loading  
-- Input transmission  
-- Output extraction  
-- Result return  
- 
----
- 
-## About Executor (V1)
- 
-By default, `LlamaProcessExecutor` is used.
- 
-By preparing your own Executor, you can replace the process communication layer.
- 
-```csharp
-GenAI.SetExecutor(customExecutor);
-```
- 
----
- 
-## IsPrepared()
- 
-Checks whether the local LLM environment is available.
-
-Setup scene auto-launch requires the AISetup optional package to be installed.
-
-> [!NOTE]
-> To use this feature, the optional component AISetup must be installed.
- 
-```csharp
-await AIDrivenInitializer.Initialize();
-```
- 
----
- 
-## About Config
- 
-In AIDrivenFramework, configuration is handled as follows.
- 
-### Configurable Parameters
- 
-- Model path  
-- Args (for advanced users)  
- 
-Example:
- 
-```csharp
-config.Args = "--ctx-size 2048 --n-gpu-layers 32 --temp 0.7";
-```
- 
-If detailed control is required, you can specify LLM execution arguments as a string.
- 
----
- 
-## Executor Replacement Example (Advanced)
- 
-> [!NOTE]
-> This section is intended for users who want to implement HTTP communication or separate process management themselves.
-> No changes are required for basic usage.
- 
-In AIDrivenFramework, you can replace the LLM communication layer by implementing `IAIExecutor`.
- 
----
- 
-### 1. Implement IAIExecutor
-
-#### Custom Executor Usage
-
-```csharp
-using AIDrivenFW.Config;
-using AIDrivenFW.Core;
-using Cysharp.Threading.Tasks;
-using System;
-using System.IO;
-using System.Threading;
-
-public class CustomExecutor : IAIExecutor
-{
-    private AIProcess aiProcess;
-    const int checkIntervalMs = 500;
-    string AISoftwarePath = "";
-
-    public CustomExecutor()
-    {
-        AISoftwarePath = Path.Combine(
-            UnityEngine.Application.persistentDataPath,
-            AIDrivenConfig.baseFilePath,
-            "mock-cli.exe"
-        );
-    }
-
-    public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
-    {
-        if (genAIConfig == null) genAIConfig = new GenAIConfig();
-
-        genAIConfig.aiSoftwarePath = AISoftwarePath;
-        aiProcess = new AIProcess(genAIConfig);
-
-        await UniTask.WaitUntil(
-            () => aiProcess.IsProcessAlive(),
-            cancellationToken: ct
-        );
-
-        await WaitUntilReadyAsync(ct,progress);
-    }
-
-    public async UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
-    {
-        await WaitModelLoadAsync(ct);
-    }
-
-    private async UniTask WaitModelLoadAsync(CancellationToken ct)
-    {
-        int timeoutMs = 120000;
-        int elapsedMs = 0;
-
-        while (elapsedMs < timeoutMs)
-        {
-            ct.ThrowIfCancellationRequested();
-
-            string output = await ReceiveAsync(ct);
-
-            if (output.Contains("available commands:"))
-                return;
-
-            await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
-            elapsedMs += checkIntervalMs;
-        }
-
-        throw new TimeoutException("Model loading timed out");
-    }
-
-    public async UniTask GenerateAsync(string input, CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
-    {
-        aiProcess.ClearOutputBuffer();
-        aiProcess.SendStdin(input);
-
-        while (!await CheckOutput(ct))
-        {
-            await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
-        }
-    }
-
-    public UniTask<string> ReceiveAsync(CancellationToken ct)
-    {
-        return UniTask.FromResult("mock response");
-    }
-
-    public async UniTask<bool> CheckOutput(CancellationToken token)
-    {
-        string output = await ReceiveAsync(token);
-        return true;
-    }
-
-    public bool IsProcessAlive()
-    {
-        return aiProcess != null && aiProcess.IsProcessAlive();
-    }
-
-    public void KillProcess()
-    {
-        aiProcess?.KillProcess();
-    }
-
-    public string IsFoundAISoftware()
-    {
-        return File.Exists(AISoftwarePath) ? AISoftwarePath : "null";
-    }
-
-    public string IsFoundModelFile()
-    {
-        string modelPath = ModelRepository.GetModelExecutablePath();
-        return modelPath != "null" ? modelPath : "null";
-    }
-
-    public string ExtractAssistantOutput(string raw)
-    {
-        return raw;
-    }
-}
-```
- 
----
- 
-### 2. Inject into GenAI
- 
-```csharp
-using AIDrivenFW.API;
- 
-GenAI genAI = new GenAI(new CustomExecutor());
-string result = await genAI.Generate("Hello");
-```
- 
----
- 
-### Default Implementation Example
- 
-The framework includes `LlamaProcessExecutor`.
- 
-```csharp
-GenAI genAI = new GenAI(new LlamaProcessExecutor());
-```
- 
-This Executor internally manages:
- 
-- Launching `llama-cli.exe`  
-- Waiting for model loading  
-- Monitoring stdout  
-- Removing CLI noise  
-- Detecting generation completion via markers  
- 
----
- 
-## Design Philosophy
- 
-AIDrivenFramework is a framework designed to  
-**“guarantee a safe experience when handling LLMs.”**
- 
-Common issues during LLM integration such as:
- 
-- Forgetting to start the process  
-- Generating before the model is loaded  
-- Not knowing the execution state  
- 
-are prevented at the API level.
- 
----
- 
-## About Models
- 
-> [!CAUTION]
-> Models and LLM runtime environments are NOT included.
-> Please follow the licenses of each official distribution source.
- 
----
- 
-## License
- 
-- Framework core (AIDrivenFramework): MIT License  
-- Rounded M+ Fonts: M+ FONTS LICENSE  
-- Required packages (UniTask / LitMotion etc.): Follow each package’s license  
- 
-This repository does NOT include model files or LLM runtime environments.
- 
----
- 
-## Target Users
- 
-- Those who want to use LLMs in Unity  
-- Those interested in local LLMs but unsure about setup  
-- Those who want to experiment with LLM × games / interactive expression  
-- Those looking for experimental OSS  
- 
----
- 
-## From the Author
- 
-AIDrivenFramework was designed to  
-“create a safe entry point before integrating LLMs.”
- 
-Bug reports, improvement suggestions, and philosophical differences are welcome via Issue / PR.
+Issues, PRs, and feedback are welcome.# AIDrivenFramework 🚀  
+**Unity × Local LLM Safe Framework**

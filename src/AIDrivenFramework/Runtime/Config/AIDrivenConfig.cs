@@ -15,6 +15,6 @@ namespace AIDrivenFW.Config
         public static readonly string modelSubPath = "Models/";
         // Link Settings
         public static readonly string softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
-        public static readonly string modelink = "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main";
+        public static readonly string modelink = "https://huggingface.co/shirubei/Llama-3-ELYZA-JP-8B-Q4_K_M-GGUF/tree/main";
     }
 }
