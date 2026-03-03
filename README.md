@@ -20,24 +20,14 @@ A setup & execution framework for safely integrating local LLMs into Unity.
 ---
 
 ## ✨ Main Features
-- 🛡 Safe-by-Design Architecture  
-Prevents invalid states such as generation before model readiness.
-- 🚀 Zero-Stress Initialization  
-Automatically prepares the LLM environment when entering Play Mode.
-- 🧙 Built-in Setup Wizard (No Ollama Required)  
-Download-based setup — no external LLM installers needed.
-- 🔍 Automatic Environment Detection  
-Detects missing configuration and guides users through setup.
-- 🖥 GUI-Based Model & Binary Selection  
-Select `llama.cpp` and `.gguf` files via an intuitive interface.
-- 🔄 Intelligent Process Orchestration  
-Manages process lifecycle and model loading seamlessly.
-- 🧹 Clean Response Extraction  
-Filters CLI artifacts and returns pure assistant output only.
-- 🔁 Modular Executor System  
-Swap execution backends (CLI / HTTP / Custom) effortlessly.
-- 🎮 Built for Unity  
-Optimized for Play Mode, runtime builds, and game workflows.
+
+- 🎯 **Built for Unity:** Optimized for Play Mode, runtime builds, and real game workflows.
+- 💬 **Streaming output support:** Receive and display generated text sequentially. Can be used for chat and interactive effects.
+- 🛠 **Integrated Setup Wizard:** No Ollama required - Easy installation via GUI.
+- 🔒 **Safe-by-Design:** Prevents invalid states and guarantees model readiness before generation.
+- ⚡ **Automatic Initialization:** Prepares the LLM environment automatically on Play.
+- 🧩 **Modular Executors:** Seamlessly switch between CLI, HTTP, or custom backends.
+- 🧼 **Clean & Managed Execution:** Handles process lifecycle and returns pure assistant output.
 
 Unity interacts only with a minimal, clean API.
 
