@@ -103,7 +103,6 @@ namespace AIDrivenFW.Core
                 Name = "AIProcess_StdoutReader"
             };
             _stdoutThread.Start();
-
             // 標準入力ストリームを取得
             procStdin = new StreamWriter(persistentProc.StandardInput.BaseStream, new UTF8Encoding(false))
             {

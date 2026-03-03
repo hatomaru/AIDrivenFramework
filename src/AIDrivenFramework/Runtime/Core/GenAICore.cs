@@ -19,7 +19,7 @@ namespace AIDrivenFW.Core
             executor = aiExecutor;
         }
 
-        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
         {
             // 設定の初期化
             if (genAIConfig == null)
@@ -60,7 +60,7 @@ namespace AIDrivenFW.Core
 
                 var cts = new CancellationTokenSource();
                 // プロンプトを送信して生成開始
-                var mainTask = executor.GenerateAsync(fullPrompt, cts.Token);
+                var mainTask = executor.GenerateAsync(fullPrompt, cts.Token,onUpdate,timeoutMs: timeoutMs);
                 var loadingTask = LoadingAsync(cts.Token, progress, timeoutMs);
                 Debug.Log("Generation completed, waiting for loading task to finish...");
                 // 生成完了を待機

@@ -28,13 +28,18 @@ namespace AIDrivenFW.API
         /// <summary>
         /// 実際の生成部分
         /// </summary>
-        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        /// <param name="input">プロンプト</param>
+        /// <param name="genAIConfig">GenAIオプション</param>
+        /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
+        /// <param name="progress">生成の進行度を受け取るコールバック</param>
+        /// <param name="timeoutMs">生成のタイムアウト時間（ミリ秒）</param>
+        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
         {
             if (core == null)
             {
                 core = new GenAICore(executor);
             }
-            return await core.GenerateAsync(input, genAIConfig, progress, ct, timeoutMs);
+            return await core.GenerateAsync(input, genAIConfig, onUpdate,progress, ct, timeoutMs);
         }
 
         /// <summary>
@@ -48,6 +53,7 @@ namespace AIDrivenFW.API
         /// <summary>
         /// 出力がエラーかどうか確認する
         /// </summary>
+        /// <param name="response">GenAIからの出力</param>
         public static bool isResponseError(string response)
         {
             if (response.Contains("Exception") || response.Contains("issue"))
