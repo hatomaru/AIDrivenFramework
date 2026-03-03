@@ -10,6 +10,7 @@ public class CustomExecutor : IAIExecutor
     private AIProcess aiProcess;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
+    int outStartIndex = 0;
 
     public CustomExecutor()
     {
@@ -64,6 +65,8 @@ public class CustomExecutor : IAIExecutor
     public async UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         aiProcess.ClearOutputBuffer();
+        outStartIndex = 0;
+
         aiProcess.SendStdin(input);
 
         while (!await CheckOutput(ct,onUpdate))
@@ -84,9 +87,14 @@ public class CustomExecutor : IAIExecutor
         if (onUpdate != null)
         {
             string extracted = ExtractAssistantOutput(output);
-            if (string.IsNullOrEmpty(extracted))
+            if (!string.IsNullOrEmpty(extracted) && extracted.Length > outStartIndex)
             {
-                onUpdate(extracted);
+                for (int i = outStartIndex; i < extracted.Length; i++)
+                {
+                    onUpdate(extracted[i].ToString());
+                    outStartIndex = i + 1;
+                    await UniTask.Delay(20, cancellationToken: token);
+                }
             }
         }
         return true;
