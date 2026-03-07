@@ -10,7 +10,11 @@ namespace AIDrivenFW.Config
         public const string defaultArguments = "--gpu-layers 80 --batch-size 16 --prio 2 --keep 0 -cnv";
         // File Paths
         public static readonly string baseFilePath = "AIDrivenFreameWork/";
-        public static readonly string aiSoftwareFileName = "llama-cli.exe";
+        public static string aiSoftwareFileName =>
+            (Application.platform == RuntimePlatform.OSXEditor ||
+             Application.platform == RuntimePlatform.OSXPlayer)
+                ? "llama-cli"
+                : "llama-cli.exe";
         public static readonly string tempFilePath = "Temp/";
         public static readonly string modelSubPath = "Models/";
         public static readonly string[] aiSoftwareFileFilters = {"*.zip", "*.tar.gz", "*.tar" };
