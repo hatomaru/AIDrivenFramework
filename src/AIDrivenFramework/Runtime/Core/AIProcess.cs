@@ -34,7 +34,8 @@ namespace AIDrivenFW.Core
         StreamReader reader = null;  // stdout 読み取り用
         StringBuilder outputBuilder = new StringBuilder();
         StringBuilder errorBuilder = new StringBuilder();
-        private StreamWriter procStdin = null;  // 標準入力
+        private Stream procStdinStream = null;  // 標準入力ストリーム
+        private static readonly UTF8Encoding _utf8NoBom = new UTF8Encoding(false);
         private Thread _stdoutThread = null;           // stdout 読み取りスレッド
         private volatile bool _stopReading = false;    // 読み取り停止フラグ
         // 出力イベント
@@ -70,6 +71,13 @@ namespace AIDrivenFW.Core
             };
             UnityEngine.Debug.Log($"{psi.FileName} {psi.Arguments}");
             state = AIState.Prepare;
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+            // UTF-8 ロケールを明示的に設定（bash 経由起動時に日本語が文字化けする対策）
+            psi.Environment["LANG"] = "en_US.UTF-8";
+            psi.Environment["LC_ALL"] = "en_US.UTF-8";
+            ApplyMacOSPermissions(psi.FileName);
+            WrapWithBash(psi);
+#endif
             Boot(psi);
         }
 
@@ -103,11 +111,8 @@ namespace AIDrivenFW.Core
                 Name = "AIProcess_StdoutReader"
             };
             _stdoutThread.Start();
-            // 標準入力ストリームを取得
-            procStdin = new StreamWriter(persistentProc.StandardInput.BaseStream, new UTF8Encoding(false))
-            {
-                AutoFlush = true
-            };
+            // 標準入力ストリームを取得（StreamWriter を介さず BaseStream を直接使用）
+            procStdinStream = persistentProc.StandardInput.BaseStream;
             state = AIState.Running;
         }
 
@@ -164,10 +169,12 @@ namespace AIDrivenFW.Core
             lock (_lock)
             {
                 // プロセスを使用できるか確認
-                if (procStdin != null && persistentProc != null && !persistentProc.HasExited)
+                if (procStdinStream != null && persistentProc != null && !persistentProc.HasExited)
                 {
-                    // 標準入力で書き込む
-                    procStdin.WriteLine(input);
+                    // UTF-8 バイト列を直接書き込み（StreamWriter のバッファリング問題を回避）
+                    byte[] data = _utf8NoBom.GetBytes(input + "\n");
+                    procStdinStream.Write(data, 0, data.Length);
+                    procStdinStream.Flush();
                 }
                 else
                 {
@@ -204,12 +211,12 @@ namespace AIDrivenFW.Core
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
                 try { reader?.Dispose(); } catch { }
-                try { procStdin?.Dispose(); } catch { }
+                try { procStdinStream?.Dispose(); } catch { }
                 try { persistentProc?.Dispose(); } catch { }
                 Application.quitting -= KillProcess;
 
                 persistentProc = null;
-                procStdin = null;
+                procStdinStream = null;
             }
         }
 
@@ -230,10 +237,6 @@ namespace AIDrivenFW.Core
                 {
                     if (ch == '\n')
                     {
-                        // 行末の \r を除去
-                        if (lineBuffer.Length > 0 && lineBuffer[lineBuffer.Length - 1] == '\r')
-                            lineBuffer.Length--;
-
                         string line = lineBuffer.ToString();
                         lineBuffer.Clear();
 
@@ -246,6 +249,12 @@ namespace AIDrivenFW.Core
                                 UnityEngine.Debug.Log($"[llama stdout] {line}");
                             }
                         }
+                    }
+                    else if (ch == '\r')
+                    {
+                        // キャリッジリターン: 行頭に戻る動作をエミュレート
+                        // スピナー等の上書き文字を蓄積しないようバッファをクリア
+                        lineBuffer.Clear();
                     }
                     else
                     {
@@ -286,5 +295,55 @@ namespace AIDrivenFW.Core
                 UnityEngine.Debug.Log($"[llama stderr] {e.Data}");
             }
         }
+
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+        /// <summary>
+        /// macOS: 実行権限の付与とGatekeeperの隔離属性を除去する
+        /// </summary>
+        private static void ApplyMacOSPermissions(string filePath)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("/bin/chmod", $"+x \"{filePath}\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                })?.WaitForExit(3000);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[AIProcess] chmod +x failed: {ex.Message}");
+            }
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+            try
+            {
+                Process.Start(new ProcessStartInfo("/usr/bin/xattr", $"-d com.apple.quarantine \"{filePath}\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                })?.WaitForExit(3000);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[AIProcess] xattr -d failed: {ex.Message}");
+            }
+#endif
+        }
+
+        /// <summary>
+        /// macOS: /bin/bash 経由でプロセスを起動するように ProcessStartInfo を書き換える
+        /// (Unity の Process.Start() が非 .app バイナリを直接起動できないケースへの対処)
+        /// </summary>
+        private static void WrapWithBash(ProcessStartInfo psi)
+        {
+            string execPath = psi.FileName;
+            string execArgs = psi.Arguments;
+            // exec でbashを置き換えることで、persistentProcがllama-cliのPIDを直接指す
+            string shellSafePath = "'" + execPath.Replace("'", "'\\''") + "'";
+            string shellSafeArgs = execArgs.Replace("\"", "\\\"");
+            psi.FileName = "/bin/bash";
+            psi.Arguments = $"-c \"exec {shellSafePath} {shellSafeArgs}\"";
+        }
+#endif
     }
 }
