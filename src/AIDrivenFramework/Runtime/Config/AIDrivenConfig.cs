@@ -38,10 +38,10 @@ namespace AIDrivenFW.Config
                 return 60;                      // 32GB 以上
 #else
                 // Windows/Linux: 専用 VRAM
-                if (vramMB < 4096) return 0;
-                if (vramMB < 8192) return 20;
-                if (vramMB < 16384) return 40;
-                return 80;
+                if (vramMB < 4096) return 40;
+                if (vramMB < 8192) return 60;
+                if (vramMB < 16384) return 80;
+                return 100;
 #endif
             }
         }
