@@ -237,6 +237,11 @@ namespace AIDrivenFW.Core
                 {
                     if (ch == '\n')
                     {
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+                        // Windows の \r\n に対応: 末尾の \r を除去
+                        if (lineBuffer.Length > 0 && lineBuffer[lineBuffer.Length - 1] == '\r')
+                            lineBuffer.Length--;
+#endif
                         string line = lineBuffer.ToString();
                         lineBuffer.Clear();
 
@@ -252,9 +257,15 @@ namespace AIDrivenFW.Core
                     }
                     else if (ch == '\r')
                     {
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+                        // Windows: \r\n の \r をバッファに積む（\n 到達時に除去）
+                        lineBuffer.Append((char)ch);
+#else
+                        // macOS/Linux: スタンドアロン \r（スピナー等）は読み捨てる
                         // キャリッジリターン: 行頭に戻る動作をエミュレート
                         // スピナー等の上書き文字を蓄積しないようバッファをクリア
                         lineBuffer.Clear();
+#endif
                     }
                     else
                     {
