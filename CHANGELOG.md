@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2026-03-08
+### Added
+- macOS support (Apple Silicon confirmed)
+- Built-in file browser
+- Glob-based file filtering
+
+### Changed
+- Updated AI Setup UI for improved file selection workflow
+
+### Changed
+- Removed StandaloneFileBrowser dependency
+
+
 ## [2.2.0] - 2026-03-03
 ### Added
 - AISetup now supports English and Japanese.
