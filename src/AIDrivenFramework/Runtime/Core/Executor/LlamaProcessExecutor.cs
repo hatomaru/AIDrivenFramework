@@ -34,6 +34,7 @@ public class LlamaProcessExecutor : IAIExecutor
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
         string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
+        UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
         UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
         genAIConfig.arguments = args;
         aiProcess = new AIProcess(genAIConfig);
@@ -183,6 +184,9 @@ public class LlamaProcessExecutor : IAIExecutor
 
         string s = raw.Replace("\r\n", "\n");
 
+        // \r によるキャリッジリターン（スピナー等）をエミュレート: 各行で最後の \r 以降のみ残す
+        s = Regex.Replace(s, @"[^\n]*\r", "", RegexOptions.Multiline);
+
         // ロール文の削除
         s = Regex.Replace(s, @"(^|\n)\s*(system|user|assistant)\s*[:：]?\s*", "$1", RegexOptions.IgnoreCase);
 
@@ -243,6 +247,8 @@ public class LlamaProcessExecutor : IAIExecutor
     {
         if (string.IsNullOrWhiteSpace(line)) return true;
         if (Regex.IsMatch(line, @"^[▄█▀]+")) return true;
+        // スピナー文字 (|/-\) のみで構成された行を除去
+        if (Regex.IsMatch(line, @"^[\|/\-\\]+$")) return true;
         if (line.StartsWith("ggml_") || line.StartsWith("load_backend") ||
             line.StartsWith("Loading model") || line.StartsWith("build") ||
             line.StartsWith("model") || line.StartsWith("modalities") ||
