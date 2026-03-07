@@ -14,11 +14,8 @@ public class CustomExecutor : IAIExecutor
 
     public CustomExecutor()
     {
-        AISoftwarePath = Path.Combine(
-            UnityEngine.Application.persistentDataPath,
-            AIDrivenConfig.baseFilePath,
-            "mock-cli.exe"
-        );
+        string baseDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath);
+        AISoftwarePath = FindRunFile(baseDir);
     }
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
@@ -124,5 +121,48 @@ public class CustomExecutor : IAIExecutor
     public string ExtractAssistantOutput(string raw)
     {
         return raw;
+    }
+
+    /// <summary>
+    /// baseDir 内から実行ファイルを検索して返す
+    /// </summary>
+    private static string FindRunFile(string baseDir)
+    {
+        string softwareName = "mock-cli";
+        if (!Directory.Exists(baseDir))
+            return Path.Combine(baseDir, $"{softwareName}.exe");
+        // アーカイブ・ライブラリ・データファイルは除外
+        string[] excludeExtensions = { ".zip", ".tar", ".gz", ".gguf", ".dylib", ".dll", ".json", ".txt", ".md" };
+        string[] all = Directory.GetFiles(baseDir, $"{softwareName}*", SearchOption.AllDirectories);
+
+        string fallback = null;
+        foreach (var f in all)
+        {
+            string ext = Path.GetExtension(f);
+            bool isExcluded = false;
+            foreach (var ex in excludeExtensions)
+            {
+                if (string.Equals(ext, ex, StringComparison.OrdinalIgnoreCase))
+                {
+                    isExcluded = true;
+                    break;
+                }
+            }
+            if (isExcluded) continue;
+
+            if (fallback == null) fallback = f;
+
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+            // macOS: 拡張子なしの実行ファイルを優先
+            if (Path.GetFileName(f) == $"{softwareName}")
+                return f;
+#else
+            // Windows: "llama-cli.exe" を優先
+            if (string.Equals(Path.GetFileName(f), $"{softwareName}.exe", StringComparison.OrdinalIgnoreCase))
+                return f;
+#endif
+        }
+
+        return fallback ?? Path.Combine(baseDir, softwareName);
     }
 }
