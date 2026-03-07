@@ -11,11 +11,7 @@ namespace AIDrivenFW.Config
 
         // File Paths
         public static readonly string baseFilePath = "AIDrivenFreameWork/";
-        public static string aiSoftwareFileName =>
-            (Application.platform == RuntimePlatform.OSXEditor ||
-             Application.platform == RuntimePlatform.OSXPlayer)
-                ? "llama-cli"
-                : "llama-cli.exe";
+        public static string aiSoftwareFileName = "llama-cli";
         public static readonly string tempFilePath = "Temp/";
         public static readonly string modelSubPath = "Models/";
         public static readonly string[] aiSoftwareFileFilters = {"*.zip", "*.tar.gz", "*.tar" };
