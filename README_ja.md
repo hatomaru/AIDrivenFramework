@@ -175,20 +175,18 @@ openupm add com.hatomaru.ai.framework
 - [UniTask](https://github.com/Cysharp/UniTask)（非同期処理）
 - [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md)（UI / アニメーション制御）
 
-オプション：
-
-- [UnityStandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser)  
-  （AISetup UI 用）
-
 ---
 
 ## 🖥 動作環境
 
-- Unity 2022.3 LTS 以上  
-- Windows 10/11（64bit）  
-- 推奨：RAM 16GB以上 / VRAM 8GB以上（モデル依存）
+### 最低動作環境
+- Unity 2022.3 LTS 以上
+- Windows 10 / 11（64bit）または macOS
+- RAM：8GB以上
 
-macOS は現在未検証です。
+### 推奨環境
+- RAM：16GB以上
+- GPU VRAM：8GB以上（使用するAIモデルに依存）
 
 ---
 

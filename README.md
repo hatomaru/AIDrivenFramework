@@ -164,19 +164,18 @@ The following packages are required:
 - [UniTask](https://github.com/Cysharp/UniTask) (Asynchronous processing)
 - [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md) (UI / animation control) 
 
-Optional:
-
-- - [UnityStandaloneFileBrowser](https://github.com/gkngkc/UnityStandaloneFileBrowser)   (for AISetup UI)
-
 ---
 
 ## 🖥 System Requirements
 
-- Unity 2022.3 LTS or later  
-- Windows 10/11 (64bit)  
-- Recommended: 16GB RAM or more / 8GB VRAM or more (depending on the model used)
+### Minimum
+- Unity 2022.3 LTS or later
+- Windows 10 / 11 (64-bit) or macOS
+- RAM: 8 GB or more
 
-macOS is currently untested.
+### Recommended
+- RAM: 16 GB or more
+- GPU VRAM: 8 GB or more (depending on the AI model used)
 
 ---
 
