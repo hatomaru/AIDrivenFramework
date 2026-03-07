@@ -7,7 +7,8 @@ namespace AIDrivenFW.Config
         public const bool isDeepDebug = true;
         // Auto Detect Constant
         public const string autoDetect = "Auto";
-        public const string defaultArguments = "--gpu-layers 80 --batch-size 16 --prio 2 --keep 0 -cnv";
+        public static string defaultArguments => $"--gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
+
         // File Paths
         public static readonly string baseFilePath = "AIDrivenFreameWork/";
         public static string aiSoftwareFileName =>
@@ -22,5 +23,46 @@ namespace AIDrivenFW.Config
         // Link Settings
         public static readonly string softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         public static readonly string modelink = "https://huggingface.co/shirubei/Llama-3-ELYZA-JP-8B-Q4_K_M-GGUF/tree/main";
+
+        /// <summary>
+        /// GPU メモリに応じた推奨 GPU レイヤー数を返す
+        /// Apple Silicon Mac では統合メモリを OS と共有するため余裕を持って設定
+        /// </summary>
+        public static int RecommendedGpuLayers
+        {
+            get
+            {
+                int vramMB = UnityEngine.SystemInfo.graphicsMemorySize; // MB 単位
+                if (vramMB <= 0) return 0;
+
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+                if (vramMB < 8192)  return 0;   // 8GB 未満は CPU のみ
+                if (vramMB < 16384) return 10;  // 8-16GB: 最小限の GPU オフロード
+                if (vramMB < 32768) return 30;  // 16-32GB
+                return 60;                      // 32GB 以上
+#else
+                // Windows/Linux: 専用 VRAM
+                if (vramMB < 4096) return 0;
+                if (vramMB < 8192) return 20;
+                if (vramMB < 16384) return 40;
+                return 80;
+#endif
+            }
+        }
+
+        /// <summary>
+        /// GPU メモリに応じた推奨バッチサイズを返す
+        /// </summary>
+        public static int RecommendedBatchSize
+        {
+            get
+            {
+                int vramMB = UnityEngine.SystemInfo.graphicsMemorySize;
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+                if (vramMB < 16384) return 8;
+#endif
+                return 16;
+            }
+        }
     }
 }
