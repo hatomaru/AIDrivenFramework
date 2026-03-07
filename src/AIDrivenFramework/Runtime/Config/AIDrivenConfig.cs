@@ -13,6 +13,8 @@ namespace AIDrivenFW.Config
         public static readonly string aiSoftwareFileName = "llama-cli.exe";
         public static readonly string tempFilePath = "Temp/";
         public static readonly string modelSubPath = "Models/";
+        public static readonly string[] aiSoftwareFileFilters = {"*.zip", "*.tar.gz", "*.tar" };
+        public static readonly string[] modelFileFilters = { "*.gguf" };
         // Link Settings
         public static readonly string softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         public static readonly string modelink = "https://huggingface.co/shirubei/Llama-3-ELYZA-JP-8B-Q4_K_M-GGUF/tree/main";
