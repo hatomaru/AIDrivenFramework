@@ -262,12 +262,12 @@ public class LlamaProcessExecutor : IAIExecutor
     /// </summary>
     private static string FindRunFile(string baseDir)
     {
+        string softwareName = AIDrivenConfig.aiSoftwareFileName;
         if (!Directory.Exists(baseDir))
-            return Path.Combine(baseDir, AIDrivenConfig.aiSoftwareFileName);
-
+            return Path.Combine(baseDir, $"{softwareName}.exe");
         // アーカイブ・ライブラリ・データファイルは除外
         string[] excludeExtensions = { ".zip", ".tar", ".gz", ".gguf", ".dylib", ".dll", ".json", ".txt", ".md" };
-        string[] all = Directory.GetFiles(baseDir, $"{AIDrivenConfig.aiSoftwareFileName}*", SearchOption.AllDirectories);
+        string[] all = Directory.GetFiles(baseDir, $"{softwareName}*", SearchOption.AllDirectories);
 
         string fallback = null;
         foreach (var f in all)
@@ -288,15 +288,15 @@ public class LlamaProcessExecutor : IAIExecutor
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
             // macOS: 拡張子なしの実行ファイルを優先
-            if (Path.GetFileName(f) == $"{AIDrivenConfig.aiSoftwareFileName}")
+            if (Path.GetFileName(f) == $"{softwareName}")
                 return f;
 #else
             // Windows: "llama-cli.exe" を優先
-            if (string.Equals(Path.GetFileName(f), $"{AIDrivenConfig.aiSoftwareFileName}.exe", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(Path.GetFileName(f), $"{softwareName}.exe", StringComparison.OrdinalIgnoreCase))
                 return f;
 #endif
         }
 
-        return fallback ?? Path.Combine(baseDir, AIDrivenConfig.aiSoftwareFileName);
+        return fallback ?? Path.Combine(baseDir, softwareName);
     }
 }
