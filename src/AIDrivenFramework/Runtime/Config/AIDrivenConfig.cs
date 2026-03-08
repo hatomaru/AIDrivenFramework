@@ -19,13 +19,31 @@ namespace AIDrivenFW.Config
         // Link Settings
         public static readonly string softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         // Model Settings
-        public static readonly ModelInfoConfig defaultModelInfo = new ModelInfoConfig(
-            modelName: "Llama-3-ELYZA-JP:8B-Q4_K_M",
-            downloadUrl: "https://huggingface.co/shirubei/Llama-3-ELYZA-JP-8B-Q4_K_M-GGUF/tree/main",
-            minVRAM: 4096,
-            maxVRAM: 16384,
-            level: ModelLevel.Balanced
-        );
+        public static readonly ModelInfoConfig[] recommendModelInfos = new ModelInfoConfig[]
+        {
+            new ModelInfoConfig(
+                modelName: "\r\nLFM2.5-1.2B:Instruct",
+                downloadUrl: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/tree/main",
+                minVRAM: 2048,
+                maxVRAM: 8192,
+                level: ModelLevel.Light
+            ),
+            new ModelInfoConfig(
+                modelName: "qwen3.5:4b",
+                downloadUrl: "https://huggingface.co/Qwen/Qwen3.5-4B/tree/main",
+                minVRAM: 4096,
+                maxVRAM: 8192,
+                level: ModelLevel.Balanced
+            ),
+            new ModelInfoConfig(
+                modelName: "Llama-3-ELYZA-JP:8B",
+                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                minVRAM: 8192,
+                maxVRAM: 32768,
+                level: ModelLevel.Powerful
+            )
+        };
+
         /// <summary>
         /// VRAM を MB 単位で返す
         /// </summary>
