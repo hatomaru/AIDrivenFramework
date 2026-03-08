@@ -27,6 +27,15 @@ namespace AIDrivenFW.Config
             level: ModelLevel.Balanced
         );
         /// <summary>
+        /// VRAM を MB 単位で返す
+        /// </summary>
+        /// <returns>VRAMメモリ</returns>
+        public static int GetVRAM()
+        {
+            return UnityEngine.SystemInfo.graphicsMemorySize;
+        }
+
+        /// <summary>
         /// GPU メモリに応じた推奨 GPU レイヤー数を返す
         /// Apple Silicon Mac では統合メモリを OS と共有するため余裕を持って設定
         /// </summary>
@@ -34,7 +43,7 @@ namespace AIDrivenFW.Config
         {
             get
             {
-                int vramMB = UnityEngine.SystemInfo.graphicsMemorySize; // MB 単位
+                int vramMB = GetVRAM();
                 if (vramMB <= 0) return 0;
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
@@ -59,7 +68,7 @@ namespace AIDrivenFW.Config
         {
             get
             {
-                int vramMB = UnityEngine.SystemInfo.graphicsMemorySize;
+                int vramMB = GetVRAM();
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
                 if (vramMB < 16384) return 8;
 #endif
