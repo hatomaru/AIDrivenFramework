@@ -18,7 +18,40 @@ namespace AIDrivenFW.Config
         public static readonly string[] modelFileFilters = { "*.gguf" };
         // Link Settings
         public static readonly string softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
-        public static readonly string modelink = "https://huggingface.co/shirubei/Llama-3-ELYZA-JP-8B-Q4_K_M-GGUF/tree/main";
+        // Model Settings
+        public static readonly ModelInfoConfig[] recommendModelInfos = new ModelInfoConfig[]
+        {
+            new ModelInfoConfig(
+                modelName: "\r\nLFM2.5-1.2B:Instruct",
+                downloadUrl: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/tree/main",
+                minVRAM: 2048,
+                maxVRAM: 8192,
+                level: ModelLevel.Light
+            ),
+            new ModelInfoConfig(
+                modelName: "qwen3.5:4b",
+                downloadUrl: "https://huggingface.co/Qwen/Qwen3.5-4B/tree/main",
+                minVRAM: 4096,
+                maxVRAM: 8192,
+                level: ModelLevel.Balanced
+            ),
+            new ModelInfoConfig(
+                modelName: "Llama-3-ELYZA-JP:8B",
+                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                minVRAM: 8192,
+                maxVRAM: 32768,
+                level: ModelLevel.Powerful
+            )
+        };
+
+        /// <summary>
+        /// VRAM を MB 単位で返す
+        /// </summary>
+        /// <returns>VRAMメモリ</returns>
+        public static int GetVRAM()
+        {
+            return UnityEngine.SystemInfo.graphicsMemorySize;
+        }
 
         /// <summary>
         /// GPU メモリに応じた推奨 GPU レイヤー数を返す
@@ -28,7 +61,7 @@ namespace AIDrivenFW.Config
         {
             get
             {
-                int vramMB = UnityEngine.SystemInfo.graphicsMemorySize; // MB 単位
+                int vramMB = GetVRAM();
                 if (vramMB <= 0) return 0;
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
@@ -53,7 +86,7 @@ namespace AIDrivenFW.Config
         {
             get
             {
-                int vramMB = UnityEngine.SystemInfo.graphicsMemorySize;
+                int vramMB = GetVRAM();
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
                 if (vramMB < 16384) return 8;
 #endif
