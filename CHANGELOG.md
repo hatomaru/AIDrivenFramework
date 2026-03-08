@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.1] - 2026-03-09
+
+### Added
+- AI Setup Wizard for easier local AI configuration
+- Model recommendation based on detected GPU memory
+- Light / Balanced / Powerful model presets
+
+### Changed
+- Improved onboarding with a step-based AI setup interface
+
 ## [2.3.0] - 2026-03-08
 ### Added
 - macOS support (Apple Silicon confirmed)
@@ -13,7 +23,6 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Removed StandaloneFileBrowser dependency
-
 
 ## [2.2.0] - 2026-03-03
 ### Added
