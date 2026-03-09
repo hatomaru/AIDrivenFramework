@@ -31,7 +31,7 @@ public class AIDrivenSetupWindow : EditorWindow
 
     string currentImportedTempPath;
 
-    [MenuItem("AIDrivenFramework/Setup")]
+    [MenuItem("Tools/AIDrivenFW/Setup")]
     static void Open()
     {
         GetWindow<AIDrivenSetupWindow>("AIDriven Framework Setup");
