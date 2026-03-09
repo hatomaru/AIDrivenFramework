@@ -44,6 +44,50 @@ namespace AIDrivenFW.Config
             )
         };
 
+        private static AIDrivenConfig instance;
+
+        public static AIDrivenConfig Instance
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    bool loadThrew = false;
+                    try
+                    {
+                        instance = Resources.Load<AIDrivenConfig>("AIDrivenConfig");
+                    }
+                    catch (UnityEngine.UnityException)
+                    {
+                        loadThrew = true;
+                        return null;
+                    }
+
+#if UNITY_EDITOR
+                    if (instance == null && !loadThrew)
+                    {
+                        instance = CreateInstance<AIDrivenConfig>();
+
+                        string folder = "Assets/AIDrivenFW/Resources";
+                        if (!System.IO.Directory.Exists(folder))
+                        {
+                            System.IO.Directory.CreateDirectory(folder);
+                        }
+
+                        UnityEditor.AssetDatabase.CreateAsset(
+                            instance,
+                            $"{folder}/AIDrivenConfig.asset"
+                        );
+
+                        UnityEditor.AssetDatabase.SaveAssets();
+                    }
+#endif
+                }
+
+                return instance;
+            }
+        }
+
         /// <summary>
         /// VRAM を MB 単位で返す
         /// </summary>
