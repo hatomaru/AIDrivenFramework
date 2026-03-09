@@ -30,7 +30,7 @@ namespace AIDrivenFW.Config
             ),
             new ModelInfoConfig(
                 modelName: "qwen3.5:4b",
-                downloadUrl: "https://huggingface.co/Qwen/Qwen3.5-4B/tree/main",
+                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/tree/main",
                 minVRAM: 4096,
                 maxVRAM: 8192,
                 level: ModelLevel.Balanced
