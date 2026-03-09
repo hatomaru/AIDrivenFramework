@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+- ScriptableObject-based framework configuration system
+- Config Editor UI for managing AIDrivenFW settings
+- Model metadata support (download URLs, filters, file paths)
+- Unity Tools menu integration (`Tools → AIDrivenFW`)
+
+### Changed
+- Improved configuration workflow and Editor UI organization
+
 ## [2.3.1] - 2026-03-09
 
 ### Added
