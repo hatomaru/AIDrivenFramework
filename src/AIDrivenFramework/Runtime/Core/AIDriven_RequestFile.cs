@@ -16,7 +16,7 @@ public class AIDriven_RequestFile
     public void Reload()
     {
         files.Clear();
-        string path = Path.Combine(Application.persistentDataPath,AIDrivenConfig.baseFilePath);
+        string path = Path.Combine(Application.persistentDataPath,AIDrivenConfig.Instance.BaseFilePath);
         if (!Directory.Exists(path)) return;
 
         // Get files in directory and all subdirectories

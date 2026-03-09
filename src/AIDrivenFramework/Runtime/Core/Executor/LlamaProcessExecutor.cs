@@ -16,7 +16,7 @@ public class LlamaProcessExecutor : IAIExecutor
 
     public LlamaProcessExecutor()
     {
-        string baseDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.baseFilePath);
+        string baseDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath);
         AISoftwarePath = FindRunFile(baseDir);
     }
 

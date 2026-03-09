@@ -1,9 +1,13 @@
+using System;
+using UnityEngine;
+
 namespace AIDrivenFW.Config
 {
 
     /// <summary>
     /// モデルの性能レベル
     /// </summary>
+    [System.Serializable]
     public enum ModelLevel
     {
         Light,
@@ -11,6 +15,7 @@ namespace AIDrivenFW.Config
         Powerful
     }
 
+    [System.Serializable]
 
     public class ModelInfoConfig
     {
