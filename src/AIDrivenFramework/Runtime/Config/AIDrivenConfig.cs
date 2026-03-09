@@ -2,27 +2,27 @@ using UnityEngine;
 
 namespace AIDrivenFW.Config
 {
-    public class AIDrivenConfig : MonoBehaviour
+    [System.Serializable]
+    public class AIDrivenConfig : ScriptableObject
     {
         public const bool isDeepDebug = true;
         // Auto Detect Constant
         public const string autoDetect = "Auto";
         public static string defaultArguments => $"--gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
-
+        
         // File Paths
-        public static readonly string baseFilePath = "AIDrivenFreameWork/";
-        public static string aiSoftwareFileName = "llama-cli";
-        public static readonly string tempFilePath = "Temp/";
-        public static readonly string modelSubPath = "Models/";
-        public static readonly string[] aiSoftwareFileFilters = {"*.zip", "*.tar.gz", "*.tar" };
-        public static readonly string[] modelFileFilters = { "*.gguf" };
-        // Link Settings
-        public static readonly string softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
-        // Model Settings
-        public static readonly ModelInfoConfig[] recommendModelInfos = new ModelInfoConfig[]
+        // Static fallbacks to avoid calling Resources.Load during field initialization / constructor time
+        private static string s_baseFilePath = "AIDrivenFreameWork/";
+        private static string s_aiSoftwareFileName = "llama-cli";
+        private static string s_tempFilePath = "Temp/";
+        private static string s_modelSubPath = "Models/";
+        private static string s_softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
+        private static string[] s_aiSoftwareFileFilters = {"*.zip", "*.tar.gz", "*.tar" };
+        private static string[] s_modelFileFilters = { "*.gguf" };
+        private static ModelInfoConfig[] s_recommendModelInfos = new ModelInfoConfig[]
         {
             new ModelInfoConfig(
-                modelName: "\r\nLFM2.5-1.2B:Instruct",
+                modelName: "LFM2.5-1.2B:Instruct",
                 downloadUrl: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/tree/main",
                 minVRAM: 2048,
                 maxVRAM: 8192,
@@ -44,6 +44,51 @@ namespace AIDrivenFW.Config
             )
         };
 
+        // Link Settings
+        [SerializeField] private string _aiSoftwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
+        [SerializeField] private string _baseFilePath = s_baseFilePath;
+        [SerializeField] private string _aiSoftwareFileName = s_aiSoftwareFileName;
+        [SerializeField] private string _tempFilePath = s_tempFilePath;
+        [SerializeField] private string _modelSubPath = s_modelSubPath;
+        [Header("File Filter")]
+        [SerializeField] private string[] _aiSoftwareFileFilters = s_aiSoftwareFileFilters;
+        [SerializeField] private string[] _modelFileFilters = s_modelFileFilters;
+        [Header("Model")]
+        // Model Settings
+        [SerializeField] private ModelInfoConfig[] _recommendModelInfos;
+
+        // Instance properties for direct access
+        public string BaseFilePath => _baseFilePath;
+        public string AiSoftwareFileName
+        {
+            get => _aiSoftwareFileName;
+            set => _aiSoftwareFileName = value;
+        }
+        public string TempFilePath => _tempFilePath;
+        public string ModelSubPath => _modelSubPath;
+        public string[] AiSoftwareFileFilters => _aiSoftwareFileFilters;
+        public string[] ModelFileFilters => _modelFileFilters;
+        public string SoftwareLink => _aiSoftwareLink;
+        public ModelInfoConfig[] RecommendModelInfos => _recommendModelInfos;
+
+        // Static accessors for backward compatibility
+        public static string baseFilePath => instance != null ? instance._baseFilePath : s_baseFilePath;
+        public static string aiSoftwareFileName
+        {
+            get => instance != null ? instance._aiSoftwareFileName : s_aiSoftwareFileName;
+            set
+            {
+                if (instance != null) instance._aiSoftwareFileName = value;
+                else s_aiSoftwareFileName = value;
+            }
+        }
+        public static string tempFilePath => instance != null ? instance._tempFilePath : s_tempFilePath;
+        public static string modelSubPath => instance != null ? instance._modelSubPath : s_modelSubPath;
+        public static string[] aiSoftwareFileFilters => instance != null ? instance._aiSoftwareFileFilters : s_aiSoftwareFileFilters;
+        public static string[] modelFileFilters => instance != null ? instance._modelFileFilters : s_modelFileFilters;
+        public static string aiSoftwareLink => instance != null ? instance._aiSoftwareLink : s_softwareLink;
+        public static ModelInfoConfig[] recommendModelInfos => instance != null ? instance._recommendModelInfos : s_recommendModelInfos;
+
         private static AIDrivenConfig instance;
 
         public static AIDrivenConfig Instance
@@ -59,6 +104,8 @@ namespace AIDrivenFW.Config
                     }
                     catch (UnityEngine.UnityException)
                     {
+                        // Resources.Load is not allowed in this context (e.g., during a MonoBehaviour constructor).
+                        // Avoid throwing; caller should retry later (e.g., in Awake/Start).
                         loadThrew = true;
                         return null;
                     }
@@ -136,6 +183,27 @@ namespace AIDrivenFW.Config
 #endif
                 return 16;
             }
+        }
+
+        /// <summary>
+        /// 設定をデフォルトにリセット
+        /// </summary>
+        public void ResetToDefaults()
+        {
+            _baseFilePath = s_baseFilePath;
+            _aiSoftwareFileName = s_aiSoftwareFileName;
+            _tempFilePath = s_tempFilePath;
+            _modelSubPath = s_modelSubPath;
+            _aiSoftwareFileFilters = (string[])s_aiSoftwareFileFilters.Clone();
+            _modelFileFilters = (string[])s_modelFileFilters.Clone();
+            _aiSoftwareLink = s_softwareLink;
+            _recommendModelInfos = (ModelInfoConfig[])s_recommendModelInfos.Clone();
+
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+            UnityEditor.AssetDatabase.SaveAssets();
+            UnityEditor.AssetDatabase.Refresh();
+#endif
         }
     }
 }
