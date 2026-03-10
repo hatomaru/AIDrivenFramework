@@ -55,7 +55,7 @@ namespace AIDrivenFW.Config
         [SerializeField] private string[] _modelFileFilters = s_modelFileFilters;
         [Header("Model")]
         // Model Settings
-        [SerializeField] private ModelInfoConfig[] _recommendModelInfos;
+        [SerializeField] private ModelInfoConfig[] _recommendModelInfos = s_recommendModelInfos;
 
         // Instance properties for direct access
         public string BaseFilePath => _baseFilePath;
