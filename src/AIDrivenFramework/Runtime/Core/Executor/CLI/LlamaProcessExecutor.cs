@@ -84,7 +84,7 @@ public class LlamaProcessExecutor : IAIExecutor
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
