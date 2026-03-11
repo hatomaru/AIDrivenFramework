@@ -19,7 +19,13 @@ Unity にローカル LLM を安全に統合するための
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/ja/AISetupWalkthrough.gif" width="800">
 
 ---
+## 🛠 システムアーキテクチャ
 
+![System Flow](Docs/system_flow.png)
+
+AIDrivenFrameworkは、柔軟なExecutorアーキテクチャを通じてUnityで作られたゲームとローカルLLM環境を接続します。
+
+--
 ## ✨ 主な機能
 
 - 🎯 **Unity向け設計:** Play Mode・ビルド対応でゲームにスムーズに統合可能 

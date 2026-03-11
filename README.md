@@ -18,9 +18,11 @@ A setup & execution framework for safely integrating local LLMs into Unity.
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/en/AISetupWalkthrough.gif" width="800">
 
 ---
-## System Architecture
+## 🛠 System Architecture
 
-![System Flow](docs/system_flow.png)
+![System Flow](Docs/system_flow.png)
+
+AIDrivenFramework connects Unity games with Local LLM environments through a flexible Executor architecture.
 
 --
 ## ✨ Main Features
