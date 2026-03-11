@@ -307,6 +307,16 @@ namespace AIDrivenFW.Core
             }
         }
 
+        /// <summary>
+        /// 成功の検出
+        /// </summary>
+        /// <returns>成功したか</returns>
+        public bool isSuccessful()
+        {
+            return errorBuilder.ToString().Contains("success") || outputBuilder.ToString().Contains("success");
+        }
+
+
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
         /// <summary>
         /// macOS: 実行権限の付与とGatekeeperの隔離属性を除去する
