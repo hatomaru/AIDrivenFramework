@@ -26,11 +26,12 @@ namespace AIDrivenFW.Core
         /// <summary>
         /// プロセスに入力を送り生成を開始する
         /// </summary>
+        /// <param name="sysInput">システムプロンプト</param>
         /// <param name="input">入力</param>
         /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
         /// <param name="progress">進捗報告用のIProgressインスタンス</param>
         /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
-        UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000);
+        UniTask GenerateAsync(string sysInput,string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000);
         /// <summary>
         /// プロセスからの出力を受け取る
         /// </summary>

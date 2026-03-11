@@ -20,21 +20,6 @@ namespace AIDrivenFW.API
         {
             // デフォルトAIエグゼキュータをセットする
             GenAI testAI = defaultGenAI == null ? new GenAI() : defaultGenAI;
-            AIDriven_RequestFile requestFile = new AIDriven_RequestFile();
-            // AIソフトウェアの実行ファイル確認
-            if (AIDrivenConfig.isDeepDebug)
-            {
-                UnityEngine.Debug.Log("Checking AI Software...");
-            }
-            string result = testAI.IsFoundAISoftware();
-            if (result == "null") { return false; }
-            // モデルファイルの拡張子確認
-            if (AIDrivenConfig.isDeepDebug)
-            {
-                UnityEngine.Debug.Log("Checking Model File...");
-            }
-            result = ModelRepository.GetModelExecutablePath();
-            if (result == "null") { return false; }
 
             // 実際にプロセスを起動してテスト生成を行う
             string response = null;

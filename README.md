@@ -45,7 +45,7 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 
 ---
 
-### 2️⃣ Prepare Local LLM
+### 2️⃣ Prepare Local LLM (If not using Ollama)
 
 Download separately:
 
@@ -89,20 +89,33 @@ Debug.Log(result);
 You're ready. 🎉
 
 ---
-##🧙 Setup Wizard (AISetup Component)
+## Supported LLM runtimes
 
-The optional **AISetup** package provides a user-friendly wizard:
+✔ Ollama
+✔ llama.cpp CLI
+✔ llama.cpp server
+---
 
-- Automatic detection of missing setup
-- GUI for selecting llama.cpp binary and model file
+## 🧙 Setup Wizard (AISetup Component)
+
+The optional AISetup package
+provides a setup wizard for beginners.
+
+- Automatic detection of unconfigured states
+- llama.cpp executable selection GUI
+- .gguf model file selection GUI
+
 > [!TIP]
-> One-click installation of sample scenes (optional)
-> Menu access: AIDrivenFramework > Setup (manual open)
+> One-click installation of the sample scene (optional)
+> 
+> Manual launch from the menu:
+> `Tools > AIDrivenFW > Optional Packages`
 
-Install via the Setup window or Unity Package Manager (optional dependency).
+It can be installed from the setup window (optional dependency).
 
-> This makes first-time setup much easier — especially for beginners!
+> This greatly simplifies the initial setup, especially recommended for beginners.
 
+---
 
 ## 🎯 Minimal Public API (V1)
 

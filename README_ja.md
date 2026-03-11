@@ -46,7 +46,7 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 
 ---
 
-### 2️⃣ ローカルLLMの準備
+### 2️⃣ ローカルLLMの準備 (Ollamaを使用しない場合)
 
 以下は別途ダウンロードしてください：
 
@@ -108,10 +108,9 @@ Debug.Log(result);
 > サンプルシーンのワンクリック導入（任意）
 >  
 > メニューから手動起動：  
-> `AIDrivenFramework > Setup`
+> `Tools > AIDrivenFW > Optional Packages`
 
-セットアップウィンドウまたは  
-Unity Package Manager からインストール可能（オプション依存）。
+セットアップウィンドウからインストール可能（オプション依存）。
 
 > 初回導入を大幅に簡単にします。特に初心者におすすめです。
 

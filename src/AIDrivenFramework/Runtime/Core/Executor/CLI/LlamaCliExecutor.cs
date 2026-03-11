@@ -7,14 +7,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-public class LlamaProcessExecutor : IAIExecutor
+public class LlamaCliExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
     const int checkIntervalMs = 100; // 確認の間隔  
     string AISoftwarePath = "";
     int outStartIndex = 0;
 
-    public LlamaProcessExecutor()
+    public LlamaCliExecutor()
     {
         string baseDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath);
         AISoftwarePath = FindRunFile(baseDir);
@@ -22,7 +22,7 @@ public class LlamaProcessExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
@@ -53,7 +53,7 @@ public class LlamaProcessExecutor : IAIExecutor
     private async UniTask WaitModelLoadAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         // ここでモデルのロードが完了するまで待機する処理を実装  
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             // モデルロード完了を待機 ("> " プロンプトが表示されるまで)  
             UnityEngine.Debug.Log("Model Loading...");
@@ -70,7 +70,7 @@ public class LlamaProcessExecutor : IAIExecutor
             // 特定の開始時コマンドを取得するまで待機  
             if (output.Contains("available commands:"))
             {
-                if (AIDrivenConfig.isDeepDebug)
+                if (AIDrivenConfig.Instance.IsDeepDebug)
                 {
                     UnityEngine.Debug.Log("ModelLoad Complete");
                 }
@@ -84,7 +84,7 @@ public class LlamaProcessExecutor : IAIExecutor
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
@@ -262,7 +262,7 @@ public class LlamaProcessExecutor : IAIExecutor
     /// </summary>
     private static string FindRunFile(string baseDir)
     {
-        string softwareName = AIDrivenConfig.aiSoftwareFileName;
+        string softwareName = AIDrivenConfig.Instance.AiSoftwareFileName;
         if (!Directory.Exists(baseDir))
             return Path.Combine(baseDir, $"{softwareName}.exe");
         // アーカイブ・ライブラリ・データファイルは除外

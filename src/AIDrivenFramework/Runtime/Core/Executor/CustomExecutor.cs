@@ -59,7 +59,7 @@ public class CustomExecutor : IAIExecutor
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask GenerateAsync(string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         aiProcess.ClearOutputBuffer();
         outStartIndex = 0;

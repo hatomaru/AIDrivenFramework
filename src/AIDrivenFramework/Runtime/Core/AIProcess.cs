@@ -249,7 +249,7 @@ namespace AIDrivenFW.Core
                         {
                             outputBuilder.AppendLine(line);
                             onPartialOutput?.Invoke(line);
-                            if (AIDrivenConfig.isDeepDebug)
+                            if (AIDrivenConfig.Instance.IsDeepDebug)
                             {
                                 UnityEngine.Debug.Log($"[llama stdout] {line}");
                             }
@@ -301,11 +301,21 @@ namespace AIDrivenFW.Core
             {
                 errorBuilder.AppendLine(e.Data);
             }
-            if (AIDrivenConfig.isDeepDebug)
+            if (AIDrivenConfig.Instance.IsDeepDebug)
             {
                 UnityEngine.Debug.Log($"[llama stderr] {e.Data}");
             }
         }
+
+        /// <summary>
+        /// 成功の検出
+        /// </summary>
+        /// <returns>成功したか</returns>
+        public bool isSuccessful()
+        {
+            return errorBuilder.ToString().Contains("success") || outputBuilder.ToString().Contains("success");
+        }
+
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
         /// <summary>
