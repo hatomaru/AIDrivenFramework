@@ -7,14 +7,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-public class LlamaProcessExecutor : IAIExecutor
+public class LlamaCliExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
     const int checkIntervalMs = 100; // 確認の間隔  
     string AISoftwarePath = "";
     int outStartIndex = 0;
 
-    public LlamaProcessExecutor()
+    public LlamaCliExecutor()
     {
         string baseDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath);
         AISoftwarePath = FindRunFile(baseDir);

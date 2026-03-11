@@ -10,7 +10,7 @@ public class EndToEndIntegrationTests
     [Test, Category("E2E")]
     public async Task EndToEnd_MultipleGenerations_WorkCorrectly_LlamaCppCLI()
     {
-        testAI = new GenAI(new LlamaProcessExecutor());
+        testAI = new GenAI(new LlamaCliExecutor());
 
         bool prepared = await AIDrivenInitializer.Initialize().AsTask();
 

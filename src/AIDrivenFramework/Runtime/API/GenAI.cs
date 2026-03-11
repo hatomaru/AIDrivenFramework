@@ -13,7 +13,7 @@ namespace AIDrivenFW.API
 
         public GenAI(IAIExecutor aiExecutor = null)
         {
-            SetExecutor(aiExecutor ?? new LlamaProcessExecutor());
+            SetExecutor(aiExecutor ?? new LlamaCliExecutor());
         }
 
         /// <summary>
