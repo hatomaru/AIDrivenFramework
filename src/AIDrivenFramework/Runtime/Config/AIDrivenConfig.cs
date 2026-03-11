@@ -9,7 +9,7 @@ namespace AIDrivenFW.Config
         // Auto Detect Constant
         public const string autoDetect = "Auto";
         public static string defaultArguments => $"--gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
-        
+
         // File Paths
         // Static fallbacks to avoid calling Resources.Load during field initialization / constructor time
         private static string s_baseFilePath = "AIDrivenFreameWork/";
@@ -17,32 +17,32 @@ namespace AIDrivenFW.Config
         private static string s_tempFilePath = "Temp/";
         private static string s_modelSubPath = "Models/";
         private static string s_softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
-        private static string[] s_aiSoftwareFileFilters = {"*.zip", "*.tar.gz", "*.tar" };
+        private static string[] s_aiSoftwareFileFilters = { "*.zip", "*.tar.gz", "*.tar" };
         private static string[] s_modelFileFilters = { "*.gguf" };
         private static ModelInfoConfig[] s_recommendModelInfos = new ModelInfoConfig[]
-        {
-            new ModelInfoConfig(
-                modelName: "Qwen3:0.6B",
-                downloadUrl: "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF",
-                minVRAM: 2048,
-                maxVRAM: 8192,
-                level: ModelLevel.Light
-            ),
-            new ModelInfoConfig(
-                modelName: "qwen3.5:4b",
-                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/tree/main",
-                minVRAM: 4096,
-                maxVRAM: 8192,
-                level: ModelLevel.Balanced
-            ),
-            new ModelInfoConfig(
-                modelName: "Qwen3.5:35B-A3B",
-                downloadUrl: "https://huggingface.co/unidaikon/Qwen3.5-35B-A3B-Q5_K_XXL-GGUF",
-                minVRAM: 8192,
-                maxVRAM: 32768,
-                level: ModelLevel.Powerful
-            )
-        };
+                {
+                    new ModelInfoConfig(
+                        modelName: "Qwen3:0.6B",
+                        downloadUrl: "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF",
+                        minVRAM: 2048,
+                        maxVRAM: 8192,
+                        level: ModelLevel.Light
+                    ),
+                    new ModelInfoConfig(
+                        modelName: "Qwen3.5:4b",
+                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/tree/main",
+                        minVRAM: 4096,
+                        maxVRAM: 8192,
+                        level: ModelLevel.Balanced
+                    ),
+                    new ModelInfoConfig(
+                        modelName: "Qwen3.5:35B-A3B",
+                        downloadUrl: "https://huggingface.co/unidaikon/Qwen3.5-35B-A3B-Q5_K_XXL-GGUF",
+                        minVRAM: 8192,
+                        maxVRAM: 32768,
+                        level: ModelLevel.Powerful
+                    )
+                };
 
         // Link Settings
         [SerializeField] private string _aiSoftwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
