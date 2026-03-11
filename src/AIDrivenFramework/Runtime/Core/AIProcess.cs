@@ -249,7 +249,7 @@ namespace AIDrivenFW.Core
                         {
                             outputBuilder.AppendLine(line);
                             onPartialOutput?.Invoke(line);
-                            if (AIDrivenConfig.isDeepDebug)
+                            if (AIDrivenConfig.Instance.IsDeepDebug)
                             {
                                 UnityEngine.Debug.Log($"[llama stdout] {line}");
                             }
@@ -301,7 +301,7 @@ namespace AIDrivenFW.Core
             {
                 errorBuilder.AppendLine(e.Data);
             }
-            if (AIDrivenConfig.isDeepDebug)
+            if (AIDrivenConfig.Instance.IsDeepDebug)
             {
                 UnityEngine.Debug.Log($"[llama stderr] {e.Data}");
             }

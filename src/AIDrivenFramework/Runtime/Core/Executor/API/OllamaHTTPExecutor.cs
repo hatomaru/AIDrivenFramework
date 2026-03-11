@@ -49,7 +49,7 @@ public class OllamaHTTPExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
@@ -109,7 +109,7 @@ public class OllamaHTTPExecutor : IAIExecutor
                 if (response.IsSuccessStatusCode)
                 {
                     _serverReady = true;
-                    if (AIDrivenConfig.isDeepDebug)
+                    if (AIDrivenConfig.Instance.IsDeepDebug)
                     {
                         UnityEngine.Debug.Log("ModelLoad Complete");
                     }

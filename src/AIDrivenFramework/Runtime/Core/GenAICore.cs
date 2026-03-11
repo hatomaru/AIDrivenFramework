@@ -52,7 +52,7 @@ namespace AIDrivenFW.Core
                 string fullPrompt = string.IsNullOrEmpty(systemPrompt)
                     ? input
                     : $"{systemPrompt}\n\n{input}";
-                if (AIDrivenConfig.isDeepDebug)
+                if (AIDrivenConfig.Instance.IsDeepDebug)
                 {
                     // 標準入力にプロンプトを送信
                     UnityEngine.Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");

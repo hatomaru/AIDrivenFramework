@@ -22,7 +22,7 @@ public class LlamaProcessExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
@@ -53,7 +53,7 @@ public class LlamaProcessExecutor : IAIExecutor
     private async UniTask WaitModelLoadAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         // ここでモデルのロードが完了するまで待機する処理を実装  
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             // モデルロード完了を待機 ("> " プロンプトが表示されるまで)  
             UnityEngine.Debug.Log("Model Loading...");
@@ -70,7 +70,7 @@ public class LlamaProcessExecutor : IAIExecutor
             // 特定の開始時コマンドを取得するまで待機  
             if (output.Contains("available commands:"))
             {
-                if (AIDrivenConfig.isDeepDebug)
+                if (AIDrivenConfig.Instance.IsDeepDebug)
                 {
                     UnityEngine.Debug.Log("ModelLoad Complete");
                 }
@@ -262,7 +262,7 @@ public class LlamaProcessExecutor : IAIExecutor
     /// </summary>
     private static string FindRunFile(string baseDir)
     {
-        string softwareName = AIDrivenConfig.aiSoftwareFileName;
+        string softwareName = AIDrivenConfig.Instance.AiSoftwareFileName;
         if (!Directory.Exists(baseDir))
             return Path.Combine(baseDir, $"{softwareName}.exe");
         // アーカイブ・ライブラリ・データファイルは除外

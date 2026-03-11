@@ -5,7 +5,8 @@ namespace AIDrivenFW.Config
     [System.Serializable]
     public class AIDrivenConfig : ScriptableObject
     {
-        public const bool isDeepDebug = true;
+        public const bool s_isDeepDebug = true;
+        public const bool s_isAllaiveOllama  = true;    // Ollamaをサポートするか
         // Auto Detect Constant
         public const string autoDetect = "Auto";
         public static string defaultArguments => $"--gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
@@ -45,6 +46,8 @@ namespace AIDrivenFW.Config
                 };
 
         // Link Settings
+        [SerializeField] private bool _isDeepDebug = s_isDeepDebug;
+        [SerializeField] private bool _isAllaiveOllama = s_isAllaiveOllama;
         [SerializeField] private string _aiSoftwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         [SerializeField] private string _baseFilePath = s_baseFilePath;
         [SerializeField] private string _aiSoftwareFileName = s_aiSoftwareFileName;
@@ -58,6 +61,9 @@ namespace AIDrivenFW.Config
         [SerializeField] private ModelInfoConfig[] _recommendModelInfos = s_recommendModelInfos;
 
         // Instance properties for direct access
+        public bool IsDeepDebug => _isDeepDebug;
+        public bool IsAllaiveOllama => _isAllaiveOllama;
+
         public string BaseFilePath => _baseFilePath;
         public string AiSoftwareFileName
         {

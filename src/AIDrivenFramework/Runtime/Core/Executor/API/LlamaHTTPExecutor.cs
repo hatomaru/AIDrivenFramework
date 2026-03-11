@@ -73,7 +73,7 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
@@ -117,7 +117,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     private async UniTask WaitModelLoadAsync(CancellationToken ct)
     {
         // ここでモデルのロードが完了するまで待機する処理を実装  
-        if (AIDrivenConfig.isDeepDebug)
+        if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Model Loading...");
         }
@@ -133,7 +133,7 @@ public class LlamaHTTPExecutor : IAIExecutor
                 var response = await httpClient.GetAsync($"{ServerUrl}/health", ct);
                 if (response.IsSuccessStatusCode)
                 {
-                    if (AIDrivenConfig.isDeepDebug)
+                    if (AIDrivenConfig.Instance.IsDeepDebug)
                     {
                         UnityEngine.Debug.Log("ModelLoad Complete");
                     }
