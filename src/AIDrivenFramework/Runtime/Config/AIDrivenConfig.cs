@@ -22,8 +22,8 @@ namespace AIDrivenFW.Config
         private static ModelInfoConfig[] s_recommendModelInfos = new ModelInfoConfig[]
         {
             new ModelInfoConfig(
-                modelName: "LFM2.5-1.2B:Instruct",
-                downloadUrl: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct/tree/main",
+                modelName: "Qwen3:0.6B",
+                downloadUrl: "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF",
                 minVRAM: 2048,
                 maxVRAM: 8192,
                 level: ModelLevel.Light
@@ -36,8 +36,8 @@ namespace AIDrivenFW.Config
                 level: ModelLevel.Balanced
             ),
             new ModelInfoConfig(
-                modelName: "Llama-3-ELYZA-JP:8B",
-                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                modelName: "Qwen3.5:35B-A3B",
+                downloadUrl: "https://huggingface.co/unidaikon/Qwen3.5-35B-A3B-Q5_K_XXL-GGUF",
                 minVRAM: 8192,
                 maxVRAM: 32768,
                 level: ModelLevel.Powerful
@@ -197,7 +197,30 @@ namespace AIDrivenFW.Config
             _aiSoftwareFileFilters = (string[])s_aiSoftwareFileFilters.Clone();
             _modelFileFilters = (string[])s_modelFileFilters.Clone();
             _aiSoftwareLink = s_softwareLink;
-            _recommendModelInfos = (ModelInfoConfig[])s_recommendModelInfos.Clone();
+            _recommendModelInfos = new ModelInfoConfig[]
+                {
+                    new ModelInfoConfig(
+                        modelName: "Qwen3:0.6B",
+                        downloadUrl: "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF",
+                        minVRAM: 2048,
+                        maxVRAM: 8192,
+                        level: ModelLevel.Light
+                    ),
+                    new ModelInfoConfig(
+                        modelName: "Qwen3.5:4b",
+                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/tree/main",
+                        minVRAM: 4096,
+                        maxVRAM: 8192,
+                        level: ModelLevel.Balanced
+                    ),
+                    new ModelInfoConfig(
+                        modelName: "Qwen3.5:35B-A3B",
+                        downloadUrl: "https://huggingface.co/unidaikon/Qwen3.5-35B-A3B-Q5_K_XXL-GGUF",
+                        minVRAM: 8192,
+                        maxVRAM: 32768,
+                        level: ModelLevel.Powerful
+                    )
+                };
 
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(this);
