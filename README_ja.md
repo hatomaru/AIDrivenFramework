@@ -67,6 +67,8 @@ https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ### 3️⃣ 初期化
 
 ```csharp
+using AIDrivenFW.API;
+
 await AIDrivenInitializer.Initialize();
 ```
 
@@ -86,6 +88,8 @@ await AIDrivenInitializer.Initialize();
 ### 4️⃣ 生成
 
 ```csharp
+using AIDrivenFW.API;
+
 var genAI = new GenAI();
 var result = await genAI.Generate("Hello AI");
 Debug.Log(result);

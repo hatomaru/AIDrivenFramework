@@ -62,6 +62,8 @@ Download separately:
 ### 3️⃣ Initialize
 
 ```csharp
+using AIDrivenFW.API;
+
 await AIDrivenInitializer.Initialize();
 ```
 
@@ -81,6 +83,8 @@ If the environment is not prepared:
 ### 4️⃣ Generate
 
 ```csharp
+using AIDrivenFW.API;
+
 var genAI = new GenAI();
 var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
