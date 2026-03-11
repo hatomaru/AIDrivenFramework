@@ -1,6 +1,6 @@
+using Newtonsoft.Json;
 using System.IO;
 using System.Text;
-using Unity.Plastic.Newtonsoft.Json;
 using UnityEngine;
 
 namespace AIDrivenFW.Config

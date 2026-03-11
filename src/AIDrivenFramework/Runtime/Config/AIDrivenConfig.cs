@@ -13,10 +13,10 @@ namespace AIDrivenFW.Config
 
         // File Paths
         // Static fallbacks to avoid calling Resources.Load during field initialization / constructor time
-        private static string s_baseFilePath = "AIDrivenFreameWork/";
+        private static string s_baseFilePath = "AIDrivenFreameWork";
         private static string s_aiSoftwareFileName = "llama-cli";
-        private static string s_tempFilePath = "Temp/";
-        private static string s_modelSubPath = "Models/";
+        private static string s_tempFilePath = "Temp";
+        private static string s_modelSubPath = "Models";
         private static string s_softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         private static string[] s_aiSoftwareFileFilters = { "*.zip", "*.tar.gz", "*.tar" };
         private static string[] s_modelFileFilters = { "*.gguf" };
@@ -37,8 +37,8 @@ namespace AIDrivenFW.Config
                         level: ModelLevel.Balanced
                     ),
                     new ModelInfoConfig(
-                        modelName: "Qwen3.5:35B-A3B",
-                        downloadUrl: "https://huggingface.co/unidaikon/Qwen3.5-35B-A3B-Q5_K_XXL-GGUF",
+                        modelName: "Qwen3.5:9b",
+                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
                         minVRAM: 8192,
                         maxVRAM: 32768,
                         level: ModelLevel.Powerful
@@ -203,7 +203,7 @@ namespace AIDrivenFW.Config
             _aiSoftwareFileFilters = (string[])s_aiSoftwareFileFilters.Clone();
             _modelFileFilters = (string[])s_modelFileFilters.Clone();
             _aiSoftwareLink = s_softwareLink;
-            _recommendModelInfos = new ModelInfoConfig[]
+            _recommendModelInfos =  new ModelInfoConfig[]
                 {
                     new ModelInfoConfig(
                         modelName: "Qwen3:0.6B",
@@ -220,8 +220,8 @@ namespace AIDrivenFW.Config
                         level: ModelLevel.Balanced
                     ),
                     new ModelInfoConfig(
-                        modelName: "Qwen3.5:35B-A3B",
-                        downloadUrl: "https://huggingface.co/unidaikon/Qwen3.5-35B-A3B-Q5_K_XXL-GGUF",
+                        modelName: "Qwen3.5:9b",
+                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
                         minVRAM: 8192,
                         maxVRAM: 32768,
                         level: ModelLevel.Powerful
@@ -229,7 +229,7 @@ namespace AIDrivenFW.Config
                 };
 
 #if UNITY_EDITOR
-            UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.EditorUtility.SetDirty(this);
             UnityEditor.AssetDatabase.SaveAssets();
             UnityEditor.AssetDatabase.Refresh();
 #endif
