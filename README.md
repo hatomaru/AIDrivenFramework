@@ -116,6 +116,19 @@ It can be installed from the setup window (optional dependency).
 > This greatly simplifies the initial setup, especially recommended for beginners.
 
 ---
+## 🎮 Sample Games (Coming Soon)
+
+Currently under development.  
+They will be included in the Example package soon.
+
+| Sample | Name                 | Overview                                      | AI Features You Can Experience        |
+|--------|----------------------|-----------------------------------------------|---------------------------------------|
+| 1      | AI NPC Roleplay Chat | A roleplay chat where you can freely talk with AI NPCs | NPC personality and conversation history management |
+| 2      | Guess the Topic      | A game where you guess the topic the AI is thinking of by asking questions | Reasoning and question answering |
+| 3      | Dialogue Battle      | A game where you overcome NPCs through conversation | State management and dialogue gameplay |
+| 4      | AI Story Generator   | A game where you generate stories together with AI | Text generation and context management |
+
+---
 
 ## 🎯 Minimal Public API (V1)
 
