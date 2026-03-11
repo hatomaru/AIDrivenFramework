@@ -60,7 +60,7 @@ namespace AIDrivenFW.Core
 
                 var cts = new CancellationTokenSource();
                 // プロンプトを送信して生成開始
-                var mainTask = executor.GenerateAsync(fullPrompt, cts.Token,onUpdate,timeoutMs: timeoutMs);
+                var mainTask = executor.GenerateAsync(systemPrompt,input, cts.Token,onUpdate,timeoutMs: timeoutMs);
                 var loadingTask = LoadingAsync(cts.Token, progress, timeoutMs);
                 Debug.Log("Generation started, waiting for completion...");
                 // 生成完了を待機
