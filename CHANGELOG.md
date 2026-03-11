@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- Built-in executors for common LLM runtimes:
+  - `OllamaHTTPExecutor`
+  - `LlamaCliExecutor` (llama.cpp CLI)
+  - `LlamaHTTPExecutor` (llama.cpp server)
 - ScriptableObject-based framework configuration system
 - Config Editor UI for managing AIDrivenFW settings
 - Model metadata support (download URLs, filters, file paths)
@@ -11,6 +15,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Improved configuration workflow and Editor UI organization
+- Refactored runtime execution layer with a unified Executor architecture
 
 ## [2.3.1] - 2026-03-09
 
