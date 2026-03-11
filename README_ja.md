@@ -25,7 +25,7 @@ Unity にローカル LLM を安全に統合するための
 
 AIDrivenFrameworkは、柔軟なExecutorアーキテクチャを通じてUnityで作られたゲームとローカルLLM環境を接続します。
 
---
+---
 ## ✨ 主な機能
 
 - 🎯 **Unity向け設計:** Play Mode・ビルド対応でゲームにスムーズに統合可能 

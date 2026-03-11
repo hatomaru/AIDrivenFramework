@@ -24,7 +24,7 @@ A setup & execution framework for safely integrating local LLMs into Unity.
 
 AIDrivenFramework connects Unity games with Local LLM environments through a flexible Executor architecture.
 
---
+---
 ## ✨ Main Features
 
 - 🎯 **Built for Unity:** Optimized for Play Mode, runtime builds, and real game workflows.
