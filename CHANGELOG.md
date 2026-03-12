@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- SampleGame #01: AI NPC Roleplay Chat
 - Built-in executors for common LLM runtimes:
   - `OllamaHTTPExecutor`
   - `LlamaCliExecutor` (llama.cpp CLI)
