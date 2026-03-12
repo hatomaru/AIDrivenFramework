@@ -208,98 +208,117 @@ public class LlamaHTTPExecutor : IAIExecutor
         {
             Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
         };
-        if (stream)
+
+        try
         {
-            var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
-            if (!httpResponse.IsSuccessStatusCode)
+            if (stream)
             {
-                string errorBody = await httpResponse.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+                await ProcessStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, onUpdate);
+            }
+            else
+            {
+                await ProcessNonStreamingResponseAsync(httpRequest, cts.Token, responseBuilder);
             }
 
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(responseStream, Encoding.UTF8);
-
-            // SSE形式でデータを逐次的に読み取る
-            // SSE イベントは複数の "data:" 行を持ち、空行でイベントが終了する。
-            var eventBuffer = new StringBuilder();
-            bool done = false;
-
-            while (!reader.EndOfStream && !cts.Token.IsCancellationRequested)
-            {
-                string line = await reader.ReadLineAsync();
-                if (line == null) break;
-
-                // 空行はイベントの区切りを示す
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    if (eventBuffer.Length == 0) continue;
-
-                    // イベント内の data: 行を結合して JSON を得る
-                    string evt = eventBuffer.ToString();
-                    eventBuffer.Clear();
-
-                    var sbData = new StringBuilder();
-                    using (var sr = new StringReader(evt))
-                    {
-                        string l;
-                        const string dataPrefix = "data:";
-                        while ((l = sr.ReadLine()) != null)
-                        {
-                            if (!l.StartsWith(dataPrefix)) continue;
-                            string part = l.Substring(dataPrefix.Length).Trim();
-                            if (part == "[DONE]")
-                            {
-                                done = true;
-                                break;
-                            }
-                            sbData.Append(part);
-                        }
-                    }
-
-                    if (done) break;
-
-                    string data = sbData.ToString();
-                    if (string.IsNullOrEmpty(data)) continue;
-
-                    try
-                    {
-                        var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
-                        if (chunk?.choices == null || chunk.choices.Length == 0) continue;
-                        string content = chunk.choices[0].delta?.content ?? chunk.choices[0].message?.content;
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            responseBuilder.Append(content);
-                            onUpdate.Invoke(content);
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        // JSON 解析失敗は無視して次へ
-                    }
-                }
-                else
-                {
-                    // イベントの一部としてバッファに追加
-                    eventBuffer.AppendLine(line);
-                }
-            }
+            _lastResponse = responseBuilder.ToString();
         }
-        else
+        catch (OperationCanceledException)
         {
-            var httpResponse = await httpClient.SendAsync(httpRequest, cts.Token);
-            if (!httpResponse.IsSuccessStatusCode)
+            if (AIDrivenConfig.Instance.IsDeepDebug)
             {
-                string errorBody = await httpResponse.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+                UnityEngine.Debug.Log("Generation was cancelled");
             }
+            throw;
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogError($"Error during generation: {ex.Message}");
+            throw;
+        }
+    }
 
-            string responseJson = await httpResponse.Content.ReadAsStringAsync();
-            var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
-            responseBuilder.Append(result?.choices?[0]?.message?.content ?? "");
+    private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate)
+    {
+        var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            string errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
         }
 
-        _lastResponse = responseBuilder.ToString();
+        using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
+
+        // SSE形式でデータを逐次的に読み取る
+        while (!reader.EndOfStream)
+        {
+            // キャンセルチェック
+            if (ct.IsCancellationRequested)
+            {
+                ct.ThrowIfCancellationRequested();
+            }
+
+            string line = await reader.ReadLineAsync();
+            if (string.IsNullOrEmpty(line)) continue;
+
+            // SSE format: "data: {...}" or "data: [DONE]"
+            if (!line.StartsWith("data: ")) continue;
+
+            string data = line.Substring(6).Trim();
+            if (data == "[DONE]")
+            {
+                if (AIDrivenConfig.Instance.IsDeepDebug)
+                {
+                    UnityEngine.Debug.Log("Streaming completed");
+                }
+                break;
+            }
+
+            try
+            {
+                var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
+                if (chunk?.choices == null || chunk.choices.Length == 0) continue;
+
+                string content = chunk.choices[0].delta?.content;
+                if (!string.IsNullOrEmpty(content))
+                {
+                    responseBuilder.Append(content);
+                    onUpdate?.Invoke(content);
+
+                    // Yield to allow Unity to process other tasks
+                    await UniTask.Yield();
+                }
+            }
+            catch (Exception ex)
+            {
+                if (AIDrivenConfig.Instance.IsDeepDebug)
+                {
+                    UnityEngine.Debug.LogWarning($"Failed to parse SSE chunk: {data}. Error: {ex.Message}");
+                }
+                // Continue processing next chunks even if one fails
+                continue;
+            }
+        }
+    }
+
+    private async UniTask ProcessNonStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder)
+    {
+        var httpResponse = await httpClient.SendAsync(httpRequest, ct);
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            string errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+        }
+
+        string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
+        string content = result?.choices?[0]?.message?.content ?? "";
+        responseBuilder.Append(content);
+
+        if (AIDrivenConfig.Instance.IsDeepDebug)
+        {
+            UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
+        }
     }
 
     public UniTask<string> ReceiveAsync(CancellationToken ct)

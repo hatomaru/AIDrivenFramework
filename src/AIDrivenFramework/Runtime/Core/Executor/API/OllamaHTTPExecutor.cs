@@ -179,57 +179,117 @@ public class OllamaHTTPExecutor : IAIExecutor
         cts.CancelAfter(timeoutMs);
 
         var responseBuilder = new StringBuilder();
-
         var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/api/generate")
         {
             Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
         };
-        if (stream)
-        { 
-            var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
-            if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+
+        try
+        {
+            if (stream)
             {
-                string errorBody = await httpResponse.Content.ReadAsStringAsync();
-                throw new InvalidOperationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
+                await ProcessStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, onUpdate, model);
             }
-            httpResponse.EnsureSuccessStatusCode();
-
-            using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(responseStream, Encoding.UTF8);
-
-            while (!reader.EndOfStream && !cts.Token.IsCancellationRequested)
+            else
             {
-                string line = await reader.ReadLineAsync();
-                if (string.IsNullOrEmpty(line)) continue;
+                await ProcessNonStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, model);
+            }
 
+            _lastResponse = responseBuilder.ToString();
+        }
+        catch (OperationCanceledException)
+        {
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log("Generation was cancelled");
+            }
+            throw;
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogError($"Error during generation: {ex.Message}");
+            throw;
+        }
+    }
+
+    private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate, string model)
+    {
+        var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
+        if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            string errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
+        }
+        httpResponse.EnsureSuccessStatusCode();
+
+        using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
+
+        while (!reader.EndOfStream)
+        {
+            // キャンセルチェック
+            if (ct.IsCancellationRequested)
+            {
+                ct.ThrowIfCancellationRequested();
+            }
+
+            string line = await reader.ReadLineAsync();
+            if (string.IsNullOrEmpty(line)) continue;
+
+            try
+            {
                 var chunk = JsonUtility.FromJson<OllamaGenerateResponse>(line);
                 if (chunk == null) continue;
 
                 if (!string.IsNullOrEmpty(chunk.response))
                 {
                     responseBuilder.Append(chunk.response);
-                    onUpdate.Invoke(chunk.response);
+                    onUpdate?.Invoke(chunk.response);
+
+                    // Yield to allow Unity to process other tasks
+                    await UniTask.Yield();
                 }
 
-                if (chunk.done) break;
+                if (chunk.done)
+                {
+                    if (AIDrivenConfig.Instance.IsDeepDebug)
+                    {
+                        UnityEngine.Debug.Log("Streaming completed");
+                    }
+                    break;
+                }
             }
-        }
-        else
-        {
-            var httpResponse = await httpClient.SendAsync(httpRequest, cts.Token);
-            if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+            catch (Exception ex)
             {
-                string errorBody = await httpResponse.Content.ReadAsStringAsync();
-                throw new InvalidOperationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
+                if (AIDrivenConfig.Instance.IsDeepDebug)
+                {
+                    UnityEngine.Debug.LogWarning($"Failed to parse streaming chunk: {line}. Error: {ex.Message}");
+                }
+                // Continue processing next chunks even if one fails
+                continue;
             }
-            httpResponse.EnsureSuccessStatusCode();
-
-            string responseJson = await httpResponse.Content.ReadAsStringAsync();
-            var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);
-            responseBuilder.Append(result?.response ?? "");
         }
+    }
 
-        _lastResponse = responseBuilder.ToString();
+    private async UniTask ProcessNonStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, string model)
+    {
+        var httpResponse = await httpClient.SendAsync(httpRequest, ct);
+        if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            string errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw new InvalidOperationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
+        }
+        httpResponse.EnsureSuccessStatusCode();
+
+        string responseJson = await httpResponse.Content.ReadAsStringAsync();
+        var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);
+        string content = result?.response ?? "";
+        responseBuilder.Append(content);
+
+        if (AIDrivenConfig.Instance.IsDeepDebug)
+        {
+            UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
+        }
     }
 
     public UniTask<string> ReceiveAsync(CancellationToken ct)
