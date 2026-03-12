@@ -15,8 +15,9 @@ namespace AIDrivenFW.API
         /// ローカルLLM環境の準備が整っているか確認
         /// </summary>
         /// <param name="defaultGenAI">準備済のGenAIクラス (オプション)</param>
+        /// <param name="prepareGenAIConfig">準備に使用するGenAIConfig (オプション)</param>
         /// <returns>ローカルLLM環境の準備が整っているか</returns>
-        public static async UniTask<bool> IsPrepared(CancellationToken token, GenAI defaultGenAI = null)
+        public static async UniTask<bool> IsPrepared(CancellationToken token, GenAI defaultGenAI = null,GenAIConfig prepareGenAIConfig = null)
         {
             // デフォルトAIエグゼキュータをセットする
             GenAI testAI = defaultGenAI == null ? new GenAI() : defaultGenAI;
@@ -25,7 +26,7 @@ namespace AIDrivenFW.API
             string response = null;
             try
             {
-                response = await testAI.Generate("こんにちは", ct: token);
+                response = await testAI.Generate("こんにちは",prepareGenAIConfig, ct: token);
                 UnityEngine.Debug.Log("Test Response: " + response);
             }
             catch (OperationCanceledException)

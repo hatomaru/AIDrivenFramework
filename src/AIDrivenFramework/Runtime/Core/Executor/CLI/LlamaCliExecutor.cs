@@ -33,7 +33,7 @@ public class LlamaCliExecutor : IAIExecutor
         }
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
-        string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments}";
+        string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments} --system-prompt \"{genAIConfig.sysPrompt}\"";
         UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
         UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
         genAIConfig.arguments = args;
