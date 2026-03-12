@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.4.0] - 2026-03-13
 ### Added
 - SampleGame #01: AI NPC Roleplay Chat
 - Built-in executors for common LLM runtimes:
