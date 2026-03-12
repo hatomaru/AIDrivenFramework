@@ -178,11 +178,19 @@ public class LlamaCliExecutor : IAIExecutor
 
     public string ExtractAssistantOutput(string raw)
     {
-        // ここで出力から必要な情報を抽出する処理を実装  
+        // ここで出力から必要な情報を抽出する処理を実装
         if (string.IsNullOrWhiteSpace(raw))
             return "";
 
         string s = raw.Replace("\r\n", "\n");
+
+        // [Start thinking] から [End thinking] までのブロックを削除（存在する場合のみ）
+        s = Regex.Replace(s, @"\[Start thinking\][\s\S]*?\[End thinking\]\s*", "", RegexOptions.Singleline);
+        // もし [Start thinking] のみ存在する場合は、その位置以降を全て削除
+        if (s.Contains("[Start thinking]") && !s.Contains("[End thinking]"))
+        {
+            s = Regex.Replace(s, @"\[Start thinking\][\s\S]*$", "", RegexOptions.Singleline);
+        }
 
         // \r によるキャリッジリターン（スピナー等）をエミュレート: 各行で最後の \r 以降のみ残す
         s = Regex.Replace(s, @"[^\n]*\r", "", RegexOptions.Multiline);
