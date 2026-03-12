@@ -1,7 +1,7 @@
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
-using Newtonsoft.Json;
+using UnityEngine;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -9,16 +9,27 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 
+[Serializable]
 public class OllamaRequest
 {
-    public GenAIConfig Config { get; set; }
-    public string Prompt { get; set; }
+    public GenAIConfig Config;
+    public string Prompt;
 }
 
+[Serializable]
 internal class OllamaGenerateResponse
 {
-    public string response { get; set; }
-    public bool done { get; set; }
+    public string response;
+    public bool done;
+}
+
+[Serializable]
+internal class OllamaPayload
+{
+    public string model;
+    public string prompt;
+    public string system;
+    public bool stream;
 }
 
 public class OllamaHTTPExecutor : IAIExecutor
@@ -141,7 +152,7 @@ public class OllamaHTTPExecutor : IAIExecutor
 
         try
         {
-            var request = JsonConvert.DeserializeObject<OllamaRequest>(input);
+            var request = JsonUtility.FromJson<OllamaRequest>(input);
             if (request != null)
             {
                 prompt = request.Prompt ?? input;
@@ -160,16 +171,9 @@ public class OllamaHTTPExecutor : IAIExecutor
         }
 
         bool stream = onUpdate != null;
-        object payload;
         // Ollama APIに送るペイロードを構築
-        payload = new
-        {
-            model,
-            prompt,
-            system,
-            stream
-        };
-        string requestJson = JsonConvert.SerializeObject(payload);
+        var payload = new OllamaPayload { model = model, prompt = prompt, system = system, stream = stream };
+        string requestJson = JsonUtility.ToJson(payload);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -198,7 +202,7 @@ public class OllamaHTTPExecutor : IAIExecutor
                 string line = await reader.ReadLineAsync();
                 if (string.IsNullOrEmpty(line)) continue;
 
-                var chunk = JsonConvert.DeserializeObject<OllamaGenerateResponse>(line);
+                var chunk = JsonUtility.FromJson<OllamaGenerateResponse>(line);
                 if (chunk == null) continue;
 
                 if (!string.IsNullOrEmpty(chunk.response))
@@ -221,7 +225,7 @@ public class OllamaHTTPExecutor : IAIExecutor
             httpResponse.EnsureSuccessStatusCode();
 
             string responseJson = await httpResponse.Content.ReadAsStringAsync();
-            var result = JsonConvert.DeserializeObject<OllamaGenerateResponse>(responseJson);
+            var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);
             responseBuilder.Append(result?.response ?? "");
         }
 

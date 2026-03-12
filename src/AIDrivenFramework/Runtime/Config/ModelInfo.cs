@@ -1,21 +1,23 @@
-using Newtonsoft.Json;
 using System.IO;
 using System.Text;
 using UnityEngine;
+// Using Unity's built-in JsonUtility to avoid adding external dependencies.
 
 namespace AIDrivenFW.Config
 {
+    [System.Serializable]
     public class ModelInfo
     {
         const string FileName = "AISetup.json";
 
-        public string Name { get; set; } = "";
+        // JsonUtility serializes fields, so use a public field instead of a property
+        public string Name = "";
 
         public ModelInfo() { }
 
         public string ToJson()
         {
-            return JsonConvert.SerializeObject(this, Formatting.Indented);
+            return JsonUtility.ToJson(this, true);
         }
 
         public static ModelInfo FromJson(string json)
@@ -23,7 +25,7 @@ namespace AIDrivenFW.Config
             if (string.IsNullOrEmpty(json)) return null;
             try
             {
-                return JsonConvert.DeserializeObject<ModelInfo>(json);
+                return JsonUtility.FromJson<ModelInfo>(json);
             }
             catch
             {

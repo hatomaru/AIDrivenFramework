@@ -1,7 +1,7 @@
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
-using Newtonsoft.Json;
+using UnityEngine;
 using System;
 using System.IO;
 using System.Net.Http;
@@ -9,31 +9,50 @@ using System.Text;
 using System.Threading;
 
 
+[Serializable]
 public class Request
 {
-    public GenAIConfig Config { get; set; }
-    public string Prompt { get; set; }
+    public GenAIConfig Config;
+    public string Prompt;
 }
 
+[Serializable]
 internal class LlamaChatChunk
 {
-    public LlamaChatChoice[] choices { get; set; }
+    public LlamaChatChoice[] choices;
 }
 
+[Serializable]
 internal class LlamaChatChoice
 {
-    public LlamaChatDelta delta { get; set; }     // streaming
-    public LlamaChatMessage message { get; set; } // non-streaming
+    public LlamaChatDelta delta;     // streaming
+    public LlamaChatMessage message; // non-streaming
 }
 
+[Serializable]
 internal class LlamaChatDelta
 {
-    public string content { get; set; }
+    public string content;
 }
 
+[Serializable]
 internal class LlamaChatMessage
 {
-    public string content { get; set; }
+    public string content;
+}
+
+[Serializable]
+internal class Message
+{
+    public string role;
+    public string content;
+}
+
+[Serializable]
+internal class RequestPayload
+{
+    public Message[] messages;
+    public bool stream;
 }
 
 public class LlamaHTTPExecutor : IAIExecutor
@@ -160,7 +179,7 @@ public class LlamaHTTPExecutor : IAIExecutor
         string systemPrompt = sysInput;
         try
         {
-            var request = JsonConvert.DeserializeObject<Request>(input);
+            var request = JsonUtility.FromJson<Request>(input);
             if (request != null && !string.IsNullOrEmpty(request.Prompt))
             {
                 prompt = request.Prompt;
@@ -174,11 +193,12 @@ public class LlamaHTTPExecutor : IAIExecutor
         }
 
         bool stream = onUpdate != null;
-        object[] messages = string.IsNullOrEmpty(systemPrompt)
-            ? new object[] { new { role = "user", content = prompt } }
-            : new object[] { new { role = "system", content = systemPrompt }, new { role = "user", content = prompt } };
+        Message[] messages = string.IsNullOrEmpty(systemPrompt)
+            ? new Message[] { new Message { role = "user", content = prompt } }
+            : new Message[] { new Message { role = "system", content = systemPrompt }, new Message { role = "user", content = prompt } };
 
-        string requestJson = JsonConvert.SerializeObject(new { messages, stream });
+        var payload = new RequestPayload { messages = messages, stream = stream };
+        string requestJson = JsonUtility.ToJson(payload);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -211,7 +231,7 @@ public class LlamaHTTPExecutor : IAIExecutor
                 string data = line.Substring(6);
                 if (data == "[DONE]") break;
 
-                var chunk = JsonConvert.DeserializeObject<LlamaChatChunk>(data);
+                var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
                 if (chunk?.choices == null || chunk.choices.Length == 0) continue;
 
                 string content = chunk.choices[0].delta?.content;
@@ -232,7 +252,7 @@ public class LlamaHTTPExecutor : IAIExecutor
             }
 
             string responseJson = await httpResponse.Content.ReadAsStringAsync();
-            var result = JsonConvert.DeserializeObject<LlamaChatChunk>(responseJson);
+            var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
             responseBuilder.Append(result?.choices?[0]?.message?.content ?? "");
         }
 
