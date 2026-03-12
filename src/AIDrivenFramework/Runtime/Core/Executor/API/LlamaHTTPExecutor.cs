@@ -221,24 +221,67 @@ public class LlamaHTTPExecutor : IAIExecutor
             using var reader = new StreamReader(responseStream, Encoding.UTF8);
 
             // SSE形式でデータを逐次的に読み取る
+            // SSE イベントは複数の "data:" 行を持ち、空行でイベントが終了する。
+            var eventBuffer = new StringBuilder();
+            bool done = false;
+
             while (!reader.EndOfStream && !cts.Token.IsCancellationRequested)
             {
                 string line = await reader.ReadLineAsync();
-                if (string.IsNullOrEmpty(line)) continue;
+                if (line == null) break;
 
-                // SSE format: "data: {...}" or "data: [DONE]"
-                if (!line.StartsWith("data: ")) continue;
-                string data = line.Substring(6);
-                if (data == "[DONE]") break;
-
-                var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
-                if (chunk?.choices == null || chunk.choices.Length == 0) continue;
-
-                string content = chunk.choices[0].delta?.content;
-                if (!string.IsNullOrEmpty(content))
+                // 空行はイベントの区切りを示す
+                if (string.IsNullOrWhiteSpace(line))
                 {
-                    responseBuilder.Append(content);
-                    onUpdate.Invoke(content);
+                    if (eventBuffer.Length == 0) continue;
+
+                    // イベント内の data: 行を結合して JSON を得る
+                    string evt = eventBuffer.ToString();
+                    eventBuffer.Clear();
+
+                    var sbData = new StringBuilder();
+                    using (var sr = new StringReader(evt))
+                    {
+                        string l;
+                        const string dataPrefix = "data:";
+                        while ((l = sr.ReadLine()) != null)
+                        {
+                            if (!l.StartsWith(dataPrefix)) continue;
+                            string part = l.Substring(dataPrefix.Length).Trim();
+                            if (part == "[DONE]")
+                            {
+                                done = true;
+                                break;
+                            }
+                            sbData.Append(part);
+                        }
+                    }
+
+                    if (done) break;
+
+                    string data = sbData.ToString();
+                    if (string.IsNullOrEmpty(data)) continue;
+
+                    try
+                    {
+                        var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
+                        if (chunk?.choices == null || chunk.choices.Length == 0) continue;
+                        string content = chunk.choices[0].delta?.content ?? chunk.choices[0].message?.content;
+                        if (!string.IsNullOrEmpty(content))
+                        {
+                            responseBuilder.Append(content);
+                            onUpdate.Invoke(content);
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // JSON 解析失敗は無視して次へ
+                    }
+                }
+                else
+                {
+                    // イベントの一部としてバッファに追加
+                    eventBuffer.AppendLine(line);
                 }
             }
         }
