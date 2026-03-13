@@ -23,22 +23,22 @@ namespace AIDrivenFW.Config
         private static ModelInfoConfig[] s_recommendModelInfos = new ModelInfoConfig[]
                 {
                     new ModelInfoConfig(
-                        modelName: "Qwen3:0.6B",
-                        downloadUrl: "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF",
+                        modelName: "Qwen2.5:0.5B",
+                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
                         minVRAM: 2048,
                         maxVRAM: 8192,
                         level: ModelLevel.Light
                     ),
                     new ModelInfoConfig(
-                        modelName: "Qwen3.5:4b",
-                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/tree/main",
+                        modelName: "Qwen2.5:3b",
+                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
                         minVRAM: 4096,
                         maxVRAM: 8192,
                         level: ModelLevel.Balanced
                     ),
                     new ModelInfoConfig(
-                        modelName: "Qwen3.5:9b",
-                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
+                        modelName: "llama3.1:8b",
+                        downloadUrl: "https://huggingface.co/mmnga/Llama-3.1-8B-Instruct-gguf",
                         minVRAM: 8192,
                         maxVRAM: 32768,
                         level: ModelLevel.Powerful
@@ -206,22 +206,22 @@ namespace AIDrivenFW.Config
             _recommendModelInfos =  new ModelInfoConfig[]
                 {
                     new ModelInfoConfig(
-                        modelName: "Qwen3:0.6B",
-                        downloadUrl: "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF",
+                        modelName: "Qwen2.5:0.5B",
+                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
                         minVRAM: 2048,
                         maxVRAM: 8192,
                         level: ModelLevel.Light
                     ),
                     new ModelInfoConfig(
-                        modelName: "Qwen3.5:4b",
-                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/tree/main",
+                        modelName: "Qwen2.5:3b",
+                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
                         minVRAM: 4096,
                         maxVRAM: 8192,
                         level: ModelLevel.Balanced
                     ),
                     new ModelInfoConfig(
-                        modelName: "Qwen3.5:9b",
-                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
+                        modelName: "llama3.1:8b",
+                        downloadUrl: "https://huggingface.co/mmnga/Llama-3.1-8B-Instruct-gguf",
                         minVRAM: 8192,
                         maxVRAM: 32768,
                         level: ModelLevel.Powerful
