@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-03-14
+### Added
+- SampleGame #02: GuessTopicGame
+
+### Changed
+- Fixed an issue where some Executors would not restart when their process had already terminated
+
 ## [2.4.0] - 2026-03-13
 ### Added
 - SampleGame #01: AI NPC Roleplay Chat
