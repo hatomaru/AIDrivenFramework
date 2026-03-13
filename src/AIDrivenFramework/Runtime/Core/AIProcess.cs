@@ -42,18 +42,27 @@ namespace AIDrivenFW.Core
         public event Action<string> onPartialOutput;
 
         public Process persistentProc { get; private set; } = null;  // 常駐プロセス
+        private readonly bool _redirectStdIn;
+        private readonly bool _redirectStdOut;
+        private readonly bool _redirectStdErr;
 
         /// <summary>
         /// AIプロセスのコンストラクタ、プロセスを開始する
         /// </summary>
-        /// <param name="psi">プロセス情報</param>
-        public AIProcess(GenAIConfig genAIConfig = null)
+        /// <param name="genAIConfig">生成設定</param>
+        /// <param name="redirectStdOut">標準出力をリダイレクトするか</param>
+        /// <param name="redirectStdIn">標準入力をリダイレクトするか</param>
+        /// <param name="redirectStdErr">標準エラー出力をリダイレクトするか</param>
+        public AIProcess(GenAIConfig genAIConfig = null, bool redirectStdIn = true, bool redirectStdOut = true, bool redirectStdErr = true)
         {
             if (genAIConfig == null)
             {
                 genAIConfig = new GenAIConfig();
             }
             aiConfig = genAIConfig;
+            _redirectStdIn = redirectStdIn;
+            _redirectStdOut = redirectStdOut;
+            _redirectStdErr = redirectStdErr;
             // プロセスの生成
             ProcessStartInfo psi = new ProcessStartInfo
             {
@@ -63,11 +72,10 @@ namespace AIDrivenFW.Core
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 // 書き出し関係
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
+                RedirectStandardInput = redirectStdIn,
+                RedirectStandardOutput = redirectStdOut,
+                RedirectStandardError = redirectStdErr,
+                // StandardOutputEncoding/StandardErrorEncoding are set below only when redirection is enabled
             };
             UnityEngine.Debug.Log($"{psi.FileName} {psi.Arguments}");
             state = AIState.Prepare;
@@ -78,6 +86,15 @@ namespace AIDrivenFW.Core
             ApplyMacOSPermissions(psi.FileName);
             WrapWithBash(psi);
 #endif
+            // エンコーディングはリダイレクトが有効な場合のみ設定（無効だと例外になるため）
+            if (redirectStdOut)
+            {
+                psi.StandardOutputEncoding = Encoding.UTF8;
+            }
+            if (redirectStdErr)
+            {
+                psi.StandardErrorEncoding = Encoding.UTF8;
+            }
             Boot(psi);
         }
 
@@ -97,22 +114,35 @@ namespace AIDrivenFW.Core
                 errorBuilder.Clear();
             }
             // レシーブ設定 (マーカー判定)
-            persistentProc.ErrorDataReceived += OnErrorDataReceived;
+            if (_redirectStdErr)
+            {
+                persistentProc.ErrorDataReceived += OnErrorDataReceived;
+            }
             Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
-            persistentProc.BeginErrorReadLine();
+            if (_redirectStdErr)
+            {
+                persistentProc.BeginErrorReadLine();
+            }
 
             // stdout を BaseStream から直接読み取るスレッドを起動
-            _stopReading = false;
-            _stdoutThread = new Thread(ReadStdoutLoop)
+            if (_redirectStdOut)
             {
-                IsBackground = true,
-                Name = "AIProcess_StdoutReader"
-            };
-            _stdoutThread.Start();
+                _stopReading = false;
+                _stdoutThread = new Thread(ReadStdoutLoop)
+                {
+                    IsBackground = true,
+                    Name = "AIProcess_StdoutReader"
+                };
+                _stdoutThread.Start();
+            }
+
             // 標準入力ストリームを取得（StreamWriter を介さず BaseStream を直接使用）
-            procStdinStream = persistentProc.StandardInput.BaseStream;
+            if (_redirectStdIn)
+            {
+                procStdinStream = persistentProc.StandardInput.BaseStream;
+            }
             state = AIState.Running;
         }
 

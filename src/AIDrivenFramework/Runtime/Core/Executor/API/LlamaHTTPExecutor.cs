@@ -174,6 +174,11 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (aiProcess == null || !aiProcess.IsProcessAlive())
+        {
+            UnityEngine.Debug.LogWarning("AIProcess is not initialized. Call StartProcessAsync first.");
+            await StartProcessAsync(ct, null);
+        }
         // プロンプトをJSON形式で受け取る場合とプレーンテキストで受け取る場合の両方に対応
         string prompt = input;
         string systemPrompt = sysInput;
@@ -339,6 +344,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     public void KillProcess()
     {
         aiProcess?.KillProcess();
+        aiProcess = null;
     }
 
     public string IsFoundAISoftware()
