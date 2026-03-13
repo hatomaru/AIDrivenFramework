@@ -47,6 +47,7 @@ namespace AIDrivenFW.API
         /// </summary>
         public void KillProcess()
         {
+            core = null;
             executor.KillProcess();
         }
 
