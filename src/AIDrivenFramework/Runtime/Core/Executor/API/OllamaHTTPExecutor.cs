@@ -1,13 +1,13 @@
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using UnityEngine;
 
 [Serializable]
 public class OllamaRequest
@@ -42,7 +42,7 @@ public class OllamaHTTPExecutor : IAIExecutor
     private const string DefaultModel = "llama3";
     private string modelName = DefaultModel;
 
-    private Process _ollamaProcess;
+    private AIProcess _ollamaProcess;
     private bool _serverReady = false;
     private string _lastResponse = "";
     string AISoftwarePath = "";
@@ -71,27 +71,16 @@ public class OllamaHTTPExecutor : IAIExecutor
         {
             try
             {
-                string args = "serve";
-                var psi = new ProcessStartInfo
+                // Start Ollama via AIProcess so we have unified process management.
+                var gen = new GenAIConfig
                 {
-                    FileName = AISoftwarePath,
-                    Arguments = args,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    // stdin/stdout は リダイレクトしない（ollama serve は stdin を受け付けない）
-                    RedirectStandardInput = false,
-                    RedirectStandardOutput = false,
-                    RedirectStandardError = false
+                    aiSoftwarePath = AISoftwarePath,
+                    arguments = "serve"
                 };
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-                psi.Environment["LANG"] = "en_US.UTF-8";
-                psi.Environment["LC_ALL"] = "en_US.UTF-8";
-                ApplyMacOSPermissions(psi.FileName);
-                WrapWithBash(psi);
-#endif
-                _ollamaProcess = Process.Start(psi);
+                // Ollama serve does not use stdio for streaming, so disable redirection.
+                _ollamaProcess = new AIDrivenFW.Core.AIProcess(gen, redirectStdIn: false, redirectStdOut: false, redirectStdErr: true);
                 UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
-                UnityEngine.Debug.Log($"Starting process with command: {AISoftwarePath} {args}");
+                UnityEngine.Debug.Log($"Starting process with command: {AISoftwarePath} serve");
             }
             catch (Exception e)
             {
@@ -142,6 +131,12 @@ public class OllamaHTTPExecutor : IAIExecutor
 
     public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        // Ensure server/process is running
+        if ((_ollamaProcess == null || !_ollamaProcess.IsProcessAlive()) && !_serverReady)
+        {
+            UnityEngine.Debug.LogWarning("Ollama process is not initialized. Call StartProcessAsync first.");
+            await StartProcessAsync(ct, null);
+        }
         // モデル指定
         ModelInfo modelInfo = ModelInfo.LoadFromFile();
         modelName = modelInfo.Name;
@@ -312,15 +307,21 @@ public class OllamaHTTPExecutor : IAIExecutor
 
     public bool IsProcessAlive()
     {
-        if (_ollamaProcess != null && !_ollamaProcess.HasExited)
+        if (_ollamaProcess != null && _ollamaProcess.IsProcessAlive())
             return true;
         return _serverReady;
     }
 
     public void KillProcess()
     {
-        if (_ollamaProcess != null && !_ollamaProcess.HasExited)
-            _ollamaProcess.Kill();
+        try
+        {
+            _ollamaProcess?.KillProcess();
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogWarning($"Failed to kill ollama process: {ex.Message}");
+        }
         _ollamaProcess = null;
         _serverReady = false;
     }
