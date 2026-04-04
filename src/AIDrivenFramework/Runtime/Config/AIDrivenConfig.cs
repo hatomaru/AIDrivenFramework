@@ -6,8 +6,9 @@ namespace AIDrivenFW.Config
     public class AIDrivenConfig : ScriptableObject
     {
         public const bool s_isDeepDebug = true;
-        public const bool s_isAllaiveOllama  = true;    // Ollamaをサポートするか
+        public const bool s_isAllaiveOllama = true;    // Ollamaをサポートするか
         // Auto Detect Constant
+        public static bool isUseOllama = false;
         public const string autoDetect = "Auto";
         public static string defaultArguments => $"--gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
 
@@ -20,30 +21,54 @@ namespace AIDrivenFW.Config
         private static string s_softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         private static string[] s_aiSoftwareFileFilters = { "*.zip", "*.tar.gz", "*.tar" };
         private static string[] s_modelFileFilters = { "*.gguf" };
-        private static ModelInfoConfig[] s_recommendModelInfos = new ModelInfoConfig[]
+        private static ModelInfoConfig[] s_ollamaRecommendModelInfos = new ModelInfoConfig[]
                 {
                     new ModelInfoConfig(
                         modelName: "Qwen2.5:0.5B",
                         downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
                         minVRAM: 2048,
-                        maxVRAM: 8192,
+                        maxVRAM: 4096,
                         level: ModelLevel.Light
-                    ),
-                    new ModelInfoConfig(
-                        modelName: "Qwen2.5:3b",
-                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
-                        minVRAM: 4096,
-                        maxVRAM: 8192,
-                        level: ModelLevel.Balanced
                     ),
                     new ModelInfoConfig(
                         modelName: "llama3.1:8b",
                         downloadUrl: "https://huggingface.co/mmnga/Llama-3.1-8B-Instruct-gguf",
+                        minVRAM: 4096,
+                        maxVRAM: 8192,
+                        level: ModelLevel.Powerful
+                    ),
+                    new ModelInfoConfig(
+                        modelName: "Qwen3.5:9b",
+                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
                         minVRAM: 8192,
                         maxVRAM: 32768,
-                        level: ModelLevel.Powerful
-                    )
+                        level: ModelLevel.Balanced
+                    ),
                 };
+        private static ModelInfoConfig[] s_recommendModelInfos = new ModelInfoConfig[]
+    {
+            new ModelInfoConfig(
+                modelName: "LFM2.5-1.2B-Instruct",
+                downloadUrl: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+                minVRAM: 2048,
+                maxVRAM: 8192,
+                level: ModelLevel.Light
+            ),
+            new ModelInfoConfig(
+                modelName: "Llama-3-ELYZA-JP:8B",
+                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                minVRAM: 4096,
+                maxVRAM: 8192,
+                level: ModelLevel.Balanced
+            ),
+            new ModelInfoConfig(
+                modelName: "qwen3.5:9b",
+                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
+                minVRAM: 8192,
+                maxVRAM: 32768,
+                level: ModelLevel.Powerful
+            )
+        };
 
         // Link Settings
         [SerializeField] private bool _isDeepDebug = s_isDeepDebug;
@@ -58,6 +83,7 @@ namespace AIDrivenFW.Config
         [SerializeField] private string[] _modelFileFilters = s_modelFileFilters;
         [Header("Model")]
         // Model Settings
+        [SerializeField] private ModelInfoConfig[] _ollamaRecommendModelInfos = s_ollamaRecommendModelInfos;
         [SerializeField] private ModelInfoConfig[] _recommendModelInfos = s_recommendModelInfos;
 
         // Instance properties for direct access
@@ -75,8 +101,8 @@ namespace AIDrivenFW.Config
         public string[] AiSoftwareFileFilters => _aiSoftwareFileFilters;
         public string[] ModelFileFilters => _modelFileFilters;
         public string SoftwareLink => _aiSoftwareLink;
+        public ModelInfoConfig[] OllamaRecommendModelInfos => _ollamaRecommendModelInfos;
         public ModelInfoConfig[] RecommendModelInfos => _recommendModelInfos;
-
         // Static accessors for backward compatibility
         public static string baseFilePath => instance != null ? instance._baseFilePath : s_baseFilePath;
         public static string aiSoftwareFileName
@@ -203,33 +229,57 @@ namespace AIDrivenFW.Config
             _aiSoftwareFileFilters = (string[])s_aiSoftwareFileFilters.Clone();
             _modelFileFilters = (string[])s_modelFileFilters.Clone();
             _aiSoftwareLink = s_softwareLink;
-            _recommendModelInfos =  new ModelInfoConfig[]
+            _recommendModelInfos = new ModelInfoConfig[]
+    {
+            new ModelInfoConfig(
+                modelName: "LFM2.5-1.2B-Instruct",
+                downloadUrl: "https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
+                minVRAM: 2048,
+                maxVRAM: 8192,
+                level: ModelLevel.Light
+            ),
+            new ModelInfoConfig(
+                modelName: "Llama-3-ELYZA-JP:8B",
+                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                minVRAM: 4096,
+                maxVRAM: 8192,
+                level: ModelLevel.Balanced
+            ),
+            new ModelInfoConfig(
+                modelName: "qwen3.5:9b",
+                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
+                minVRAM: 8192,
+                maxVRAM: 32768,
+                level: ModelLevel.Powerful
+            )
+        };
+            _ollamaRecommendModelInfos = new ModelInfoConfig[]
                 {
                     new ModelInfoConfig(
                         modelName: "Qwen2.5:0.5B",
                         downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF",
                         minVRAM: 2048,
-                        maxVRAM: 8192,
+                        maxVRAM: 4096,
                         level: ModelLevel.Light
-                    ),
-                    new ModelInfoConfig(
-                        modelName: "Qwen2.5:3b",
-                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
-                        minVRAM: 4096,
-                        maxVRAM: 8192,
-                        level: ModelLevel.Balanced
                     ),
                     new ModelInfoConfig(
                         modelName: "llama3.1:8b",
                         downloadUrl: "https://huggingface.co/mmnga/Llama-3.1-8B-Instruct-gguf",
+                        minVRAM: 4096,
+                        maxVRAM: 8192,
+                        level: ModelLevel.Powerful
+                    ),
+                    new ModelInfoConfig(
+                        modelName: "Qwen3.5:9b",
+                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
                         minVRAM: 8192,
                         maxVRAM: 32768,
-                        level: ModelLevel.Powerful
-                    )
+                        level: ModelLevel.Balanced
+                    ),
                 };
 
 #if UNITY_EDITOR
-        UnityEditor.EditorUtility.SetDirty(this);
+            UnityEditor.EditorUtility.SetDirty(this);
             UnityEditor.AssetDatabase.SaveAssets();
             UnityEditor.AssetDatabase.Refresh();
 #endif
