@@ -39,7 +39,7 @@ namespace AIDrivenFW.Config
                     ),
                     new ModelInfoConfig(
                         modelName: "Qwen3.5:9b",
-                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
+                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF",
                         minVRAM: 8192,
                         maxVRAM: 32768,
                         level: ModelLevel.Balanced
@@ -56,14 +56,14 @@ namespace AIDrivenFW.Config
             ),
             new ModelInfoConfig(
                 modelName: "Llama-3-ELYZA-JP:8B",
-                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF",
                 minVRAM: 4096,
                 maxVRAM: 8192,
                 level: ModelLevel.Balanced
             ),
             new ModelInfoConfig(
                 modelName: "qwen3.5:9b",
-                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
+                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF",
                 minVRAM: 8192,
                 maxVRAM: 32768,
                 level: ModelLevel.Powerful
@@ -240,14 +240,14 @@ namespace AIDrivenFW.Config
             ),
             new ModelInfoConfig(
                 modelName: "Llama-3-ELYZA-JP:8B",
-                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF/tree/main",
+                downloadUrl: "https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF",
                 minVRAM: 4096,
                 maxVRAM: 8192,
                 level: ModelLevel.Balanced
             ),
             new ModelInfoConfig(
                 modelName: "qwen3.5:9b",
-                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/tree/main",
+                downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF",
                 minVRAM: 8192,
                 maxVRAM: 32768,
                 level: ModelLevel.Powerful
@@ -271,7 +271,7 @@ namespace AIDrivenFW.Config
                     ),
                     new ModelInfoConfig(
                         modelName: "Qwen3.5:9b",
-                        downloadUrl: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF",
+                        downloadUrl: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF",
                         minVRAM: 8192,
                         maxVRAM: 32768,
                         level: ModelLevel.Balanced
