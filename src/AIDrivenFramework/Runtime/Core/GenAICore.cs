@@ -54,6 +54,7 @@ namespace AIDrivenFW.Core
                     }
                     if (needRestart || i > 0)
                     {
+                        executor.KillProcess();
                         await executor.StartProcessAsync(ct, genAIConfig);
                         needRestart = false;
                     }
