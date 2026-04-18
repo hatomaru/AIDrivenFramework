@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+### Added
+- Added support for setting default arguments in the Executor
+- Added detection for mismatched AI configurations in the Executor
+- Added separate configuration options for Ollama-specific models and other models
+
 ## [3.0.0] - 2026-03-14
 ### Added
 - SampleGame #02: GuessTopicGame
