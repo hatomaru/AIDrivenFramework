@@ -49,6 +49,12 @@ namespace AIDrivenFW.Core
         /// <returns>プロセスの生存情報</returns>
         bool IsProcessAlive();
         /// <summary>
+        /// AI設定が異なるか確認する
+        /// </summary>
+        /// <param name="newAiConfig">新しいAI設定</param>
+        /// <returns>AI設定が異なるか</returns>
+        bool IsDifferentAIConfig(GenAIConfig newAiConfig);
+        /// <summary>
         /// プロセスを強制終了する
         /// </summary>
         void KillProcess();
