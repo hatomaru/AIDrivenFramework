@@ -93,6 +93,14 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (aiProcess != null && aiProcess.IsProcessAlive())
+        {
+            aiProcess.KillProcess();
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log("Existing process killed.");
+            }
+        }
         if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
@@ -107,14 +115,7 @@ public class LlamaHTTPExecutor : IAIExecutor
             modelArg = $"-m \"{modelPath}\" ";
         }
 
-        string args = $"" +
-              $"{modelArg} --host {ServerHost} --port {ServerPort} " +
-              $"--gpu-layers 130 " +
-              $"--ctx-size 2048 " +
-              $"--parallel 1 " +
-              $"--mlock";
-
-        config.arguments = args;
+        config.arguments = SetArguments(config.arguments, config);
         config.aiSoftwarePath = AISoftwarePath;
         aiProcess = new AIProcess(config);
 
@@ -124,7 +125,7 @@ public class LlamaHTTPExecutor : IAIExecutor
         );
 
         UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
-        UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
+        UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {config.arguments}");
         await WaitUntilReadyAsync(ct);
     }
 
@@ -339,6 +340,19 @@ public class LlamaHTTPExecutor : IAIExecutor
     public bool IsProcessAlive()
     {
         return aiProcess != null && aiProcess.IsProcessAlive();
+    }
+
+    public bool IsDifferentAIConfig(GenAIConfig newAiConfig)
+    {
+        return aiProcess != null && aiProcess.aiConfig.arguments != newAiConfig.arguments;
+    }
+
+    public string SetArguments(string raw, GenAIConfig genAIConfig)
+    {
+        string args = raw;
+        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
+        return args;
     }
 
     public void KillProcess()

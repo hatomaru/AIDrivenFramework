@@ -22,6 +22,14 @@ public class LlamaCliExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (aiProcess != null && aiProcess.IsProcessAlive())
+        {
+            aiProcess.KillProcess();
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log("Existing process killed.");
+            }
+        }
         if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
@@ -33,7 +41,7 @@ public class LlamaCliExecutor : IAIExecutor
         }
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
-        string args = $"-m \"{ModelRepository.GetModelExecutablePath()}\" {genAIConfig.arguments} --system-prompt \"{genAIConfig.sysPrompt}\"";
+        string args = SetArguments(genAIConfig.arguments, genAIConfig);
         UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
         UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
         genAIConfig.arguments = args;
@@ -134,6 +142,11 @@ public class LlamaCliExecutor : IAIExecutor
             return false;
         }
         return aiProcess.IsProcessAlive();
+    }
+
+    public bool IsDifferentAIConfig(GenAIConfig newAiConfig)
+    {
+        return aiProcess != null　&& aiProcess.aiConfig != newAiConfig;
     }
 
     public void KillProcess()
@@ -306,5 +319,13 @@ public class LlamaCliExecutor : IAIExecutor
         }
 
         return fallback ?? Path.Combine(baseDir, softwareName);
+    }
+
+    public string SetArguments(string raw,GenAIConfig genAIConfig)
+    {
+        string args = raw;
+        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
+        return args;
     }
 }

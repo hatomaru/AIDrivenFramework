@@ -20,9 +20,18 @@ public class CustomExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (aiProcess != null && aiProcess.IsProcessAlive())
+        {
+            aiProcess.KillProcess();
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log("Existing process killed.");
+            }
+        }
         if (genAIConfig == null) genAIConfig = new GenAIConfig();
 
         genAIConfig.aiSoftwarePath = AISoftwarePath;
+        genAIConfig.arguments = SetArguments(genAIConfig.arguments, genAIConfig);
         aiProcess = new AIProcess(genAIConfig);
 
         await UniTask.WaitUntil(
@@ -100,6 +109,19 @@ public class CustomExecutor : IAIExecutor
     public bool IsProcessAlive()
     {
         return aiProcess != null && aiProcess.IsProcessAlive();
+    }
+
+    public bool IsDifferentAIConfig(GenAIConfig newAiConfig)
+    {
+        return aiProcess != null && aiProcess.aiConfig != newAiConfig;
+    }
+
+    public string SetArguments(string raw, GenAIConfig genAIConfig)
+    {
+        string args = raw;
+        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
+        return args;
     }
 
     public void KillProcess()

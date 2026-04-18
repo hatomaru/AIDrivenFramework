@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using UnityEngine;
+using static PlasticGui.ProcessProvider;
 
 [Serializable]
 public class OllamaRequest
@@ -60,6 +61,14 @@ public class OllamaHTTPExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (_ollamaProcess != null && _ollamaProcess.IsProcessAlive())
+        {
+            _ollamaProcess.KillProcess();
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log("Existing process killed.");
+            }
+        }
         if (AIDrivenConfig.Instance.IsDeepDebug)
         {
             UnityEngine.Debug.Log("Starting new process...");
@@ -312,6 +321,19 @@ public class OllamaHTTPExecutor : IAIExecutor
         return _serverReady;
     }
 
+    public bool IsDifferentAIConfig(GenAIConfig newAiConfig)
+    {
+        return _ollamaProcess != null && _ollamaProcess.aiConfig.arguments != newAiConfig.arguments;
+    }
+
+    public string SetArguments(string raw, GenAIConfig genAIConfig)
+    {
+        string args = raw;
+        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
+        return args;
+    }
+
     public void KillProcess()
     {
         try
@@ -350,6 +372,16 @@ public class OllamaHTTPExecutor : IAIExecutor
     public string ExtractAssistantOutput(string raw)
     {
         return raw;
+    }
+
+    public string SetArguments(string raw)
+    {
+        throw new NotImplementedException();
+    }
+
+    public string GetDefaultArguments()
+    {
+        throw new NotImplementedException();
     }
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
