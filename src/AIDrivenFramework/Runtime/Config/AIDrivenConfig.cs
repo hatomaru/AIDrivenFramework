@@ -10,7 +10,7 @@ namespace AIDrivenFW.Config
         // Auto Detect Constant
         public static bool isUseOllama = false;
         public const string autoDetect = "Auto";
-        public static string defaultArguments => $"--gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
+        public static string defaultArguments => $"-m {{ModelPath}} --system-prompt {{sysPrompt}} --gpu-layers {RecommendedGpuLayers} --batch-size {RecommendedBatchSize} --prio 2 --keep 0 -cnv";
 
         // File Paths
         // Static fallbacks to avoid calling Resources.Load during field initialization / constructor time
