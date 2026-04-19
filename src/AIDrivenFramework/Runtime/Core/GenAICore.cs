@@ -120,7 +120,7 @@ namespace AIDrivenFW.Core
                 {
                     // ロックを解放
                     _generateLock.Release();
-                    await UniTask.Yield();
+                    await UniTask.Yield(cancellationToken: ct);
                 }
             }
             return "❌ The process has been failed.";

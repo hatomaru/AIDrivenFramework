@@ -26,7 +26,7 @@ namespace AIDrivenFW.API
             string response = null;
             try
             {
-                response = await testAI.Generate("こんにちは",prepareGenAIConfig, ct: token);
+                response = await testAI.Generate("こんにちは", prepareGenAIConfig, ct: token, retryAfterInitialization: false);
                 UnityEngine.Debug.Log("Test Response: " + response);
             }
             catch (OperationCanceledException)

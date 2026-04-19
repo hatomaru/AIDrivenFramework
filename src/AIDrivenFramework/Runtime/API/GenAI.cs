@@ -3,6 +3,7 @@ using AIDrivenFW.Config;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Threading;
+using UnityEngine;
 
 namespace AIDrivenFW.API
 {
@@ -33,13 +34,24 @@ namespace AIDrivenFW.API
         /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
         /// <param name="progress">生成の進行度を受け取るコールバック</param>
         /// <param name="timeoutMs">生成のタイムアウト時間（ミリ秒）</param>
-        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        /// <param name="retryAfterInitialization">生成失敗時に初期化を実行後再試行するかどうか (デフォルト:true)</param>
+        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, bool retryAfterInitialization = true)
         {
             if (core == null)
             {
                 core = new GenAICore(executor);
             }
-            return await core.GenerateAsync(input, genAIConfig, onUpdate,progress, ct, timeoutMs);
+
+            string result = await core.GenerateAsync(input, genAIConfig, onUpdate, progress, ct, timeoutMs);
+            Debug.Log("AI generation result: " + result);
+            if (retryAfterInitialization && result.Contains("❌"))
+            {
+                Debug.LogError("AI generation failed: " + result);
+                //await AIDriven_AISetupHandler.Initialize(_genAI, config);
+                await AIDrivenInitializer.Initialize(ct, this);
+                result = await core.GenerateAsync(input, genAIConfig, onUpdate, progress, ct, timeoutMs);
+            }
+            return result;
         }
 
         /// <summary>
@@ -57,7 +69,12 @@ namespace AIDrivenFW.API
         /// <param name="response">GenAIからの出力</param>
         public static bool isResponseError(string response)
         {
-            if (response.Contains("Exception") || response.Contains("issue"))
+            if (string.IsNullOrEmpty(response))
+            {
+                return true;
+            }
+
+            if (response.Contains("Exception") || response.Contains("issue") || response.Contains("❌") || response.Contains("⚠️"))
             {
                 return true;
             }
