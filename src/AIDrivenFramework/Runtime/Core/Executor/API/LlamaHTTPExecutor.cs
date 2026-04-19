@@ -106,7 +106,15 @@ public class LlamaHTTPExecutor : IAIExecutor
             UnityEngine.Debug.Log("Starting new process...");
         }
         string llamaDir = AISoftwarePath;
-        if (config == null) config = new GenAIConfig();
+        if (config == null)
+        {
+            config = new GenAIConfig();
+        }
+            config.arguments = $"-m {{ModelPath}} --host {ServerHost} --port {ServerPort} " +
+              $"--gpu-layers 130 " +
+              $"--ctx-size 2048 " +
+              $"--parallel 1 " +
+              $"--mlock";
 
         string modelPath = ModelRepository.GetModelExecutablePath();
         string modelArg = string.Empty;
