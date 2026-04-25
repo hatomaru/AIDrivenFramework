@@ -174,7 +174,7 @@ GenAI.SetExecutor(customExecutor);
 デフォルト実装：
 
 ```
-LlamaProcessExecutor
+LlamaCliExecutor
 ```
 
 HTTP通信や独自プロセス管理も実装可能です。

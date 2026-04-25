@@ -173,7 +173,7 @@ GenAI.SetExecutor(customExecutor);
 Default implementation:
 
 ```
-LlamaProcessExecutor
+LlamaCliExecutor
 ```
 
 This allows HTTP executors or custom process handlers.
