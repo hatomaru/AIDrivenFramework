@@ -25,6 +25,7 @@ namespace AIDrivenFW.Core
             if (genAIConfig == null)
             {
                 genAIConfig = new GenAIConfig();
+                genAIConfig.arguments = executor.SetDefaultArguments();
             }
             // プロンプト準備
             string systemPrompt = genAIConfig.sysPrompt;
