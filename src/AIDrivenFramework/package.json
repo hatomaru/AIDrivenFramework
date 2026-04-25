@@ -1,6 +1,6 @@
 {
   "name": "com.hatomaru.ai.framework",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "unity": "6000.0",
   "displayName": "AIDrivenFramework",
   "description": "A modular framework for safely integrating local LLMs into Unity projects.",
