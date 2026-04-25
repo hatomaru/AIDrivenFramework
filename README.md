@@ -27,13 +27,16 @@ AIDrivenFramework connects Unity games with Local LLM environments through a fle
 ---
 ## ✨ Main Features
 
-- 🎯 **Built for Unity:** Optimized for Play Mode, runtime builds, and real game workflows.
-- 💬 **Streaming output support:** Receive and display generated text sequentially. Can be used for chat and interactive effects.
-- 🛠 **Integrated Setup Wizard:** No Ollama required - Easy installation via GUI.
-- 🔒 **Safe-by-Design:** Prevents invalid states and guarantees model readiness before generation.
-- ⚡ **Automatic Initialization:** Prepares the LLM environment automatically on Play.
-- 🧩 **Modular Executors:** Seamlessly switch between CLI, HTTP, or custom backends.
-- 🧼 **Clean & Managed Execution:** Handles process lifecycle and returns pure assistant output.
+- 🎯 **Designed for Unity**: Seamlessly integrates into games with full support for Play Mode and builds
+- 🧠 **Simple Integration**: Embed a local LLM into your game with just a 3 lines of code
+- 💬 **Streaming Generation Support**: Receive and display generated text in real time, ideal for chat and interactive experiences
+- 🔁 **Automatic Retry Mechanism**: Automatically retries up to three times if generation fails
+- 🛠 **Integrated Setup Wizard**: Easy GUI-based setup with no need for Ollama
+- 🚀 **Automatic Setup Launch**: If AISetup is present, setup starts automatically on first run
+- 🔒 **Safe-by-Design**: Prevents generation before the model is fully ready
+- ⚡ **Automatic Initialization**: Prepares the LLM environment automatically when Play begins
+- 🧩 **Modular Execution Framework**: Flexibly switch between CLI, HTTP, and custom execution backends
+- 🧼 **Clean & Stable Execution**: Eliminates CLI noise and returns only pure responses
 
 Unity interacts only with a minimal, clean API.
 
@@ -65,28 +68,22 @@ Download separately:
 > Recommended starting model: [https://huggingface.co/bartowski/Llama-3.1-8B-Instruct-GGUF (Q4_K_M)](https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF)
 ---
 
-### 3️⃣ Initialize
+### 3️⃣ Initialization
 
-```csharp
-using AIDrivenFW.API;
+If the environment is not set up:
 
-await AIDrivenInitializer.Initialize();
-```
+- The setup scene will open automatically  
+- The optional **AISetup** component is required  
 
-If the environment is not prepared:
-
-- The setup scene opens automatically  
-- Requires optional **AISetup** component  
-
-> [!TIP]
-> `IsPrepared()` accepts an optional `GenAI` instance.
-> 
-> Passing an existing instance prevents the LLM process from being terminated after the health check,
-> avoiding double model loading and improving startup performance.
+> [!TIP]  
+> `IsPrepared()` accepts an optional `GenAI` instance.  
+>  
+> Passing an existing instance prevents the LLM process from shutting down after a health check,  
+> avoids reloading the model twice, and improves startup performance.
 
 ---
 
-### 4️⃣ Generate
+### 4️⃣ Generation
 
 ```csharp
 using AIDrivenFW.API;
@@ -96,7 +93,7 @@ var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
 ```
 
-You're ready. 🎉
+You're all set 🎉
 
 ---
 ## Supported LLM runtimes
