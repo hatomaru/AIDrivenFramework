@@ -323,7 +323,7 @@ public class LlamaCliExecutor : IAIExecutor
 
     public string SetDefaultArguments()
     { 
-              return "-m {modelArg}  --system-prompt  " +
+              return "-m {ModelPath} --system-prompt {sysPrompt} " +
               "--gpu-layers 130 " +
               "--ctx-size 2048 " +
               "--parallel 1 " +
