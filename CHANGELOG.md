@@ -2,12 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## [3.1.0] - 2026-04-25
 ### Added
-- Added support for setting default arguments in the Executor
-- Added detection for mismatched AI configurations in the Executor
-- Added separate configuration options for Ollama-specific models and other models
-- Added retry logic for the generation process (up to 3 attempts)
+- Support for setting default arguments in the Executor
+- Detection for mismatched AI configurations in the Executor
+- Separate configuration options for Ollama-specific models and other models
+- Retry logic for the generation process (up to 3 attempts)
+- Behavior to apply default arguments on the `Executer` side when generating `GenAIConfig` with default settings
 
 ## [3.0.0] - 2026-03-14
 ### Added
