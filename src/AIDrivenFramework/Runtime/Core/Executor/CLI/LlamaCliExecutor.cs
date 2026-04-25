@@ -321,6 +321,15 @@ public class LlamaCliExecutor : IAIExecutor
         return fallback ?? Path.Combine(baseDir, softwareName);
     }
 
+    public string SetDefaultArguments()
+    { 
+              return "-m {modelArg}  --system-prompt  " +
+              "--gpu-layers 130 " +
+              "--ctx-size 2048 " +
+              "--parallel 1 " +
+              "--mlock";
+    }
+
     public string SetArguments(string raw,GenAIConfig genAIConfig)
     {
         string args = raw;

@@ -59,10 +59,15 @@ namespace AIDrivenFW.Core
         /// </summary>
         void KillProcess();
         /// <summary>
+        /// デフォルト引数を設定する
+        /// </summary>
+        /// <returns>デフォルト引数</returns>
+        string SetDefaultArguments();
+        /// <summary>
         /// 引数を設定する
         /// </summary>
         /// <param name="raw">引数の生データ</param>
-        /// <returns>デフォルト引数</returns>
+        /// <returns>設定後の引数</returns>
         string SetArguments(string raw, GenAIConfig genAIConfig);
         /// <summary>
         /// AIソフトウェアが存在するか確認しファイルパスを返す

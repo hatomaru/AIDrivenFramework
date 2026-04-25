@@ -187,4 +187,9 @@ public class CustomExecutor : IAIExecutor
 
         return fallback ?? Path.Combine(baseDir, softwareName);
     }
+
+    public string SetDefaultArguments()
+    {
+        return "";
+    }
 }

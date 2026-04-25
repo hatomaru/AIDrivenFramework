@@ -2,13 +2,11 @@ using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
 using UnityEngine;
-using static PlasticGui.ProcessProvider;
 
 [Serializable]
 public class OllamaRequest
@@ -324,6 +322,11 @@ public class OllamaHTTPExecutor : IAIExecutor
     public bool IsDifferentAIConfig(GenAIConfig newAiConfig)
     {
         return _ollamaProcess != null && _ollamaProcess.aiConfig.arguments != newAiConfig.arguments;
+    }
+
+    public string SetDefaultArguments()
+    {
+        return "serve";
     }
 
     public string SetArguments(string raw, GenAIConfig genAIConfig)

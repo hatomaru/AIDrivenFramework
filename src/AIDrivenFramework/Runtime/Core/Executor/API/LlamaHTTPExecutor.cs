@@ -355,11 +355,21 @@ public class LlamaHTTPExecutor : IAIExecutor
         return aiProcess != null && aiProcess.aiConfig.arguments != newAiConfig.arguments;
     }
 
+    public string SetDefaultArguments()
+    {
+        return "-m {modelArg} --host {ServerHost} --port {ServerPort} " +
+              "--gpu-layers 130 " +
+              "--ctx-size 2048 " +
+              "--parallel 1 " +
+              "--mlock";
+    }
+
     public string SetArguments(string raw, GenAIConfig genAIConfig)
     {
         string args = raw;
         args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
-        args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
+        args = args.Replace("{ServerHost}", $"\"{ServerHost}\"");
+        args = args.Replace("{ServerPort}", $"\"{ServerPort}\"");
         return args;
     }
 
