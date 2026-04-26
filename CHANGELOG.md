@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-04-26
+### Changed
+- Updated the AISetup package and fixed an issue where scenes were not included.
+
 ## [3.1.0] - 2026-04-25
 ### Added
 - Support for setting default arguments in the Executor
