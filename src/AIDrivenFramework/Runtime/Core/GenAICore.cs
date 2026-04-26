@@ -30,101 +30,103 @@ namespace AIDrivenFW.Core
             // プロンプト準備
             string systemPrompt = genAIConfig.sysPrompt;
             // ロック中は待機
-            await _generateLock.WaitAsync(ct);
-            if (executor == null)
+            bool lockToken = false;
+            try
             {
-                throw new InvalidOperationException("AI Executor is not set. Please set an executor before calling Generate.");
-            }
-            // プロセスを準備              
-            bool needRestart = false;
-            if (!executor.IsProcessAlive())
-            {
-                needRestart = true;
-            }
-            // 生成処理を最大3回試行
-            for (int i = 0; i < 3; i++)
-            {
-                try
+                await _generateLock.WaitAsync(ct);
+                lockToken = true;
+
+                if (executor == null)
                 {
-                    if (i > 0)
+                    throw new InvalidOperationException("AI Executor is not set. Please set an executor before calling Generate.");
+                }
+                // プロセスを準備
+                bool needRestart = false;
+                if (!executor.IsProcessAlive())
+                {
+                    needRestart = true;
+                }
+                // 生成処理を最大3回試行
+                for (int i = 0; i < 3; i++)
+                {
+                    try
                     {
+                        if (i > 0)
+                        {
+                            if (AIDrivenConfig.Instance.IsDeepDebug)
+                            {
+                                UnityEngine.Debug.LogWarning($"Attempt {i}: Restarting the process and retrying generation...");
+                            }
+                        }
+                        if (needRestart || i > 0)
+                        {
+                            executor.KillProcess();
+                            await executor.StartProcessAsync(ct, genAIConfig);
+                            needRestart = false;
+                        }
+                        generationComplete = false;
+
+                        // システムプロンプトとユーザー入力を結合
+                        string fullPrompt = string.IsNullOrEmpty(systemPrompt)
+                            ? input
+                            : $"{systemPrompt}\n\n{input}";
                         if (AIDrivenConfig.Instance.IsDeepDebug)
                         {
-                            UnityEngine.Debug.LogWarning($"Attempt {i}: Restarting the process and retrying generation...");
+                            // 標準入力にプロンプトを送信
+                            UnityEngine.Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");
                         }
-                    }
-                    if (needRestart || i > 0)
-                    {
-                        executor.KillProcess();
-                        await executor.StartProcessAsync(ct, genAIConfig);
-                        needRestart = false;
-                    }
-                    generationComplete = false;
 
-                    // システムプロンプトとユーザー入力を結合
-                    string fullPrompt = string.IsNullOrEmpty(systemPrompt)
-                        ? input
-                        : $"{systemPrompt}\n\n{input}";
-                    if (AIDrivenConfig.Instance.IsDeepDebug)
-                    {
-                        // 標準入力にプロンプトを送信
-                        UnityEngine.Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");
-                    }
+                        var cts = new CancellationTokenSource();
+                        // プロンプトを送信して生成開始
+                        var mainTask = executor.GenerateAsync(systemPrompt, input, cts.Token, onUpdate, timeoutMs: timeoutMs);
+                        var loadingTask = LoadingAsync(cts.Token, progress, timeoutMs);
+                        Debug.Log("Generation started, waiting for completion...");
+                        // 生成完了を待機
+                        await mainTask;
+                        Debug.Log("Generation completed, waiting for loading task to finish...");
+                        // ロードィングタスクをキャンセル
+                        cts.Cancel();
+                        Debug.Log("Loading task finished, finalizing output...");
 
-                    var cts = new CancellationTokenSource();
-                    // プロンプトを送信して生成開始
-                    var mainTask = executor.GenerateAsync(systemPrompt, input, cts.Token, onUpdate, timeoutMs: timeoutMs);
-                    var loadingTask = LoadingAsync(cts.Token, progress, timeoutMs);
-                    Debug.Log("Generation started, waiting for completion...");
-                    // 生成完了を待機
-                    await mainTask;
-                    Debug.Log("Generation completed, waiting for loading task to finish...");
-                    // ロードィングタスクをキャンセル
-                    cts.Cancel();
-                    Debug.Log("Loading task finished, finalizing output...");
+                        // 少し待って出力を確定
+                        await UniTask.Delay(100, cancellationToken: ct);
 
-                    // 少し待って出力を確定
-                    await UniTask.Delay(100, cancellationToken: ct);
+                        // 結果を抽出
+                        string fullOutput;
+                        fullOutput = await executor.ReceiveAsync(ct);
 
-                    // 結果を抽出
-                    string fullOutput;
-                    fullOutput = await executor.ReceiveAsync(ct);
+                        string generatedOutput = fullOutput;
+                        string result = executor.ExtractAssistantOutput(generatedOutput);
 
-                    string generatedOutput = fullOutput;
-                    string result = executor.ExtractAssistantOutput(generatedOutput);
-
-                    if (string.IsNullOrWhiteSpace(result))
-                    {
-                        /*
-                        string rawErr;
-                        lock (_outputLock)
+                        if (string.IsNullOrWhiteSpace(result))
                         {
-                            rawErr = process.errorBuilder.ToString();
+                            return $"⚠️ An issue occurred during output. \n(response): ";
                         }
-                        */
-                        return $"⚠️ An issue occurred during output. \n(response): ";
-                        //return $"⚠️ An issue occurred during output. \n(response): {rawErr}";
-                    }
 
-                    return result;
-                }
-                catch (OperationCanceledException)
-                {
-                    UnityEngine.Debug.Log("❌ The process has been canceled.");
-                    return "❌ The process has been canceled.";
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"❌ Exception occurred: {ex.Message}");
-                }
-                finally
-                {
-                    // ロックを解放
-                    _generateLock.Release();
+                        return result;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        UnityEngine.Debug.Log("❌ The process has been canceled.");
+                        return "❌ The process has been canceled.";
+                    }
+                    catch (Exception ex)
+                    {
+                        UnityEngine.Debug.LogError($"❌ Exception occurred: {ex.Message}");
+                    }
                     await UniTask.Yield(cancellationToken: ct);
                 }
+
+                return "❌ The process has been failed.";
             }
-            return "❌ The process has been failed.";
+            finally
+            {
+                if (lockToken)
+                {
+                    _generateLock.Release();
+                }
+                await UniTask.Yield(cancellationToken: ct);
+            }
         }
 
         /// <summary>
