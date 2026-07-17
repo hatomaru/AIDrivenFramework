@@ -14,9 +14,11 @@ namespace AIDrivenFW.API
         /// <summary>
         /// ローカルLLM環境の準備が整っているか確認
         /// </summary>
+        /// <param name="token">準備確認を中止するキャンセルトークン。</param>
         /// <param name="defaultGenAI">準備済のGenAIクラス (オプション)</param>
         /// <param name="prepareGenAIConfig">準備に使用するGenAIConfig (オプション)</param>
         /// <returns>ローカルLLM環境の準備が整っているか</returns>
+        /// <exception cref="OperationCanceledException"><paramref name="token"/>がキャンセルされた場合。</exception>
         public static async UniTask<bool> IsPrepared(CancellationToken token, GenAI defaultGenAI = null,GenAIConfig prepareGenAIConfig = null)
         {
             // デフォルトAIエグゼキュータをセットする
@@ -32,8 +34,7 @@ namespace AIDrivenFW.API
             catch (OperationCanceledException)
             {
                 UnityEngine.Debug.LogWarning("Test generation was canceled.");
-                try { testAI.KillProcess(); } catch { }
-                return false;
+                throw;
             }
             catch (Exception ex)
             {
