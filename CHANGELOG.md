@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-07-17
+### Changed
+- Reduced the core package footprint by moving bundled UI fonts into optional resources.
+- Added automatic repair and a manual repair menu for projects using the optional AISetup or Sample content.
+- Preserved all existing font and folder GUIDs so scene and prefab references remain valid after repair.
+- Kept the existing UniTask and LitMotion dependency declarations unchanged.
+
 ## [3.1.1] - 2026-04-26
 ### Changed
 - Updated the AISetup package and fixed an issue where scenes were not included.

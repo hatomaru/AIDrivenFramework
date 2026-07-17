@@ -1,0 +1,85 @@
+{
+  "archive": "AIDriven_Fonts.unitypackage",
+  "archiveSha256": "efa1a7eb537150273037b36e8f2cbd15a2c49ee8d1d81583135ef2224b602bf4",
+  "destinationRoot": "Assets/AIDrivenFW/Shared/Fonts",
+  "hashPolicy": "sha256 hashes asset for files and asset.meta for folders",
+  "entries": [
+    {
+      "path": "Assets/AIDrivenFW",
+      "guid": "142bd6eec43a1c84ab30b515525edecf",
+      "kind": "folder",
+      "sha256": "9507dca4d7a71953619fe8f742137011d058a294404c426b6542a2e6ca7ad4d1",
+      "metaSha256": "9507dca4d7a71953619fe8f742137011d058a294404c426b6542a2e6ca7ad4d1"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared",
+      "guid": "416236b0edfab5e0fbd6a4967a0d2fc9",
+      "kind": "folder",
+      "sha256": "b5aa607d04a1c846e3118d39e3e811abb1cb0d0f4985bff6fb10fc4bed546302",
+      "metaSha256": "b5aa607d04a1c846e3118d39e3e811abb1cb0d0f4985bff6fb10fc4bed546302"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts",
+      "guid": "630b94434fff10a4a9aae173fe816d89",
+      "kind": "folder",
+      "sha256": "b4a38c4ba2f8cf0d0f8e17934983583ed038f30413007125540a2cbc9f011fd4",
+      "metaSha256": "b4a38c4ba2f8cf0d0f8e17934983583ed038f30413007125540a2cbc9f011fd4"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/LICENSE_E",
+      "guid": "4574fadad87412b4cb06767e81e4b592",
+      "kind": "asset",
+      "sha256": "2d499d752eca1988766eeca70d4145fd94793579924702629181d0ed63dd51a7",
+      "metaSha256": "78b61d63d9aaa8dc6a1cf92e90aa403077e1016679ea20b072ab1c960442a4f0"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/LICENSE_J",
+      "guid": "686a6ab7543d00d4fae96a7d61d45a93",
+      "kind": "asset",
+      "sha256": "d544485107dfe8c5eef271ce7cee88e8d0f63aa1e9527a85d549021968717496",
+      "metaSha256": "8562011c3d74aec4498b492a4796f89a9ca4103e3a8ad9acc4d8b999bb41a670"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/rounded-mplus-1c-light SDF.asset",
+      "guid": "86c9d6a06c3775240b8b2ecfb1eca52b",
+      "kind": "asset",
+      "sha256": "7899fd438b191aafbe954dd3d14107e041ef07d6949c977d1c864bc4b9b17849",
+      "metaSha256": "b0ff7254c22fd55c465da39752db54e55f11b0b8184b3d69a3f63faf61be0ef5"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/rounded-mplus-1c-light.ttf",
+      "guid": "4b98d2e1b3345064b89987d02d6c1da4",
+      "kind": "asset",
+      "sha256": "661b4da9088abba37b4ff0825266d2fe4b0ecf60b4bdcef4141a6b4b0854b50b",
+      "metaSha256": "27ff9c662d390999acf9874aaee842de64cda9baa9734222a1b6836780e1756b"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/rounded-mplus-1c-medium SDF Material 1.mat",
+      "guid": "098f7d1878c9bcf45a65b009876f9d0f",
+      "kind": "asset",
+      "sha256": "477d6c64ac0a42193cafc2eed446cc8df72ff5c3d247a1cc9be43358e615c297",
+      "metaSha256": "34542557f0f302150b00061f31fadd32e57a46251721b935aaf2f6318c5c6067"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/rounded-mplus-1c-medium SDF Material.mat",
+      "guid": "c8e16b207112d5d41879680546a99485",
+      "kind": "asset",
+      "sha256": "e515ba444bc287df41dd031f53ad647d314302ba3a116caf402e01597e1bcff8",
+      "metaSha256": "ba39aaf207a71735fff00eaae0d4418932f8a9214d11e19f312578b2404d3627"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/rounded-mplus-1c-medium SDF.asset",
+      "guid": "9587ffef7ed1a054494f0244943458cf",
+      "kind": "asset",
+      "sha256": "ab507c7c8f45fb61bc4a9397a30213daffe92d9e8d2b0058a709bbec34b10dea",
+      "metaSha256": "e8209b83eca7e1920dc7fe77b9ec1389c6ea82cdaa7b2b8ba96ed39638aadfb2"
+    },
+    {
+      "path": "Assets/AIDrivenFW/Shared/Fonts/rounded-mplus-1c-medium.ttf",
+      "guid": "5f762d87a80662745b63f6d126253297",
+      "kind": "asset",
+      "sha256": "d9708ef03bf0fc3c5cfde4c46778f686bd0f8ce79f4195191b7918fe6b11b648",
+      "metaSha256": "6ed6cf5e05a1fbfbee682ae313a32dca6fb4f7a52b6c5fffe91075e9f735ad6e"
+    }
+  ]
+}
