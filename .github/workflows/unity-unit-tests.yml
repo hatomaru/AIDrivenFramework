@@ -1,0 +1,56 @@
+name: Unity unit tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/unity-unit-tests.yml"
+      - "src/AIDrivenFramework/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/unity-unit-tests.yml"
+      - "src/AIDrivenFramework/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unity-unit-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  edit-mode:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: src/AIDrivenFramework
+          packageMode: true
+          unityVersion: 6000.0.60f1
+          testMode: EditMode
+          customParameters: -assemblyNames AIDrivenFW.Unit.Tests
+          scopedRegistryUrl: https://package.openupm.com
+          registryScopes: "com.cysharp,com.annulusgames"
+          artifactsPath: artifacts
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-unit-test-results
+          path: artifacts
+          if-no-files-found: warn
+          retention-days: 14
