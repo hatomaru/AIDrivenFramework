@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Changed
+- `GenAI` now treats its `IAIExecutor` as an exclusively owned per-instance dependency.
+- `SetExecutor` synchronously stops the previous executor and switches only after successful cleanup; failures preserve the old references, but executor side effects cannot be rolled back.
+- Migration: create a separate executor for each `GenAI`; sharing one executor instance is discouraged because lifecycle operations can stop resources used by another `GenAI`.
+
 ## [3.1.1] - 2026-04-26
 ### Changed
 - Updated the AISetup package and fixed an issue where scenes were not included.
