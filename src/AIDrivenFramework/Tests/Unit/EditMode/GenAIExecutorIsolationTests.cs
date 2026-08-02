@@ -28,8 +28,8 @@ namespace AIDrivenFW.Tests.Unit
             var first = new GenAI(firstExecutor);
             var second = new GenAI(secondExecutor);
 
-            string firstResult = await first.Generate("first input", retryAfterInitialization: false).AsTask();
-            string secondResult = await second.Generate("second input", retryAfterInitialization: false).AsTask();
+            string firstResult = await first.Generate("first input", retryAfterInitialization: false);
+            string secondResult = await second.Generate("second input", retryAfterInitialization: false);
 
             Assert.AreEqual("first response", firstResult);
             Assert.AreEqual("second response", secondResult);
@@ -59,9 +59,9 @@ namespace AIDrivenFW.Tests.Unit
             var replacement = new FakeAIExecutor("replacement", "replacement response");
             var genAI = new GenAI(oldExecutor);
 
-            string firstResult = await genAI.Generate("before replacement", retryAfterInitialization: false).AsTask();
+            string firstResult = await genAI.Generate("before replacement", retryAfterInitialization: false);
             genAI.SetExecutor(replacement);
-            string secondResult = await genAI.Generate("after replacement", retryAfterInitialization: false).AsTask();
+            string secondResult = await genAI.Generate("after replacement", retryAfterInitialization: false);
 
             Assert.AreEqual("old response", firstResult);
             Assert.AreEqual("replacement response", secondResult);
@@ -77,9 +77,9 @@ namespace AIDrivenFW.Tests.Unit
             var executor = new FakeAIExecutor("same", "same response");
             var genAI = new GenAI(executor);
 
-            await genAI.Generate("before no-op", retryAfterInitialization: false).AsTask();
+            await genAI.Generate("before no-op", retryAfterInitialization: false);
             genAI.SetExecutor(executor);
-            string result = await genAI.Generate("after no-op", retryAfterInitialization: false).AsTask();
+            string result = await genAI.Generate("after no-op", retryAfterInitialization: false);
 
             Assert.AreEqual("same response", result);
             Assert.AreEqual(0, executor.KillProcessCallCount);
@@ -93,7 +93,7 @@ namespace AIDrivenFW.Tests.Unit
             var genAI = new GenAI(executor);
 
             var exception = Assert.Throws<ArgumentNullException>(() => genAI.SetExecutor(null));
-            string result = await genAI.Generate("after null", retryAfterInitialization: false).AsTask();
+            string result = await genAI.Generate("after null", retryAfterInitialization: false);
 
             Assert.AreEqual("aiExecutor", exception.ParamName);
             Assert.AreEqual("current", genAI.IsFoundAISoftware());
@@ -112,10 +112,10 @@ namespace AIDrivenFW.Tests.Unit
             var replacement = new FakeAIExecutor("replacement", "replacement response");
             var genAI = new GenAI(oldExecutor);
 
-            await genAI.Generate("create core", retryAfterInitialization: false).AsTask();
+            await genAI.Generate("create core", retryAfterInitialization: false);
             var exception = Assert.Throws<InvalidOperationException>(() => genAI.SetExecutor(replacement));
             oldExecutor.Response = "after failure";
-            string result = await genAI.Generate("keep old", retryAfterInitialization: false).AsTask();
+            string result = await genAI.Generate("keep old", retryAfterInitialization: false);
 
             Assert.AreSame(cleanupFailure, exception);
             Assert.AreEqual("old", genAI.IsFoundAISoftware());
