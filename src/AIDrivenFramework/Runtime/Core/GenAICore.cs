@@ -16,7 +16,7 @@ namespace AIDrivenFW.Core
 
         public GenAICore(IAIExecutor aiExecutor)
         {
-            executor = aiExecutor;
+            executor = aiExecutor ?? throw new ArgumentNullException(nameof(aiExecutor));
         }
 
         public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
@@ -36,10 +36,6 @@ namespace AIDrivenFW.Core
                 await _generateLock.WaitAsync(ct);
                 lockToken = true;
 
-                if (executor == null)
-                {
-                    throw new InvalidOperationException("AI Executor is not set. Please set an executor before calling Generate.");
-                }
                 // プロセスを準備
                 bool needRestart = false;
                 if (!executor.IsProcessAlive())

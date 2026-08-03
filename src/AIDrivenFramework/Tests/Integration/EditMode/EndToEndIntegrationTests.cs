@@ -1,5 +1,4 @@
 using AIDrivenFW.API;
-using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System.Threading.Tasks;
 
@@ -12,10 +11,10 @@ public class EndToEndIntegrationTests
     {
         testAI = new GenAI(new LlamaCliExecutor());
 
-        bool prepared = await AIDrivenInitializer.Initialize().AsTask();
+        bool prepared = await AIDrivenInitializer.Initialize();
 
-        var result1 = await testAI.Generate("Hello").AsTask();
-        var result2 = await testAI.Generate("How are you?").AsTask();
+        var result1 = await testAI.Generate("Hello");
+        var result2 = await testAI.Generate("How are you?");
 
         Assert.IsFalse(string.IsNullOrEmpty(result1) || result1.Contains("✖"));
         Assert.IsFalse(string.IsNullOrEmpty(result2) || result2.Contains("✖"));
@@ -26,10 +25,10 @@ public class EndToEndIntegrationTests
     {
         testAI = new GenAI(new LlamaHTTPExecutor());
 
-        bool prepared = await AIDrivenInitializer.Initialize().AsTask();
+        bool prepared = await AIDrivenInitializer.Initialize();
 
-        var result1 = await testAI.Generate("Hello").AsTask();
-        var result2 = await testAI.Generate("How are you?").AsTask();
+        var result1 = await testAI.Generate("Hello");
+        var result2 = await testAI.Generate("How are you?");
 
         Assert.IsFalse(string.IsNullOrEmpty(result1) || result1.Contains("✖"));
         Assert.IsFalse(string.IsNullOrEmpty(result2) || result2.Contains("✖"));
@@ -40,10 +39,10 @@ public class EndToEndIntegrationTests
     {
         testAI = new GenAI(new OllamaHTTPExecutor());
 
-        bool prepared = await AIDrivenInitializer.Initialize().AsTask();
+        bool prepared = await AIDrivenInitializer.Initialize();
 
-        var result1 = await testAI.Generate("Hello").AsTask();
-        var result2 = await testAI.Generate("How are you?").AsTask();
+        var result1 = await testAI.Generate("Hello");
+        var result2 = await testAI.Generate("How are you?");
 
         Assert.IsFalse(string.IsNullOrEmpty(result1) || result1.Contains("✖"));
         Assert.IsFalse(string.IsNullOrEmpty(result2) || result2.Contains("✖"));
