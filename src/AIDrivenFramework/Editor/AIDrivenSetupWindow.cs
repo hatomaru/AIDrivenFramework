@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using System;
 using System.IO;
 using System.Collections.Generic;
 
@@ -7,7 +8,7 @@ public class AIDrivenSetupWindow : EditorWindow
 {
     private const string AISETUP_SCENE_PATH = "Assets/AIDrivenFW/AISetup/AIDrivenSetup.unity";
 
-    private const string TEMP_IMPORT_DIR = "Assets/AIDrivenFramework/TempPackages";
+    private const string TEMP_IMPORT_ROOT = "Assets/AIDrivenFramework/TempPackages";
 
     // ===== UnityPackage paths =====
     private const string EXAMPLE_PACKAGE =
@@ -27,9 +28,14 @@ public class AIDrivenSetupWindow : EditorWindow
     // ===== Import Queue State =====
     readonly Queue<string> importQueue = new Queue<string>();
     bool isImporting = false;
+    bool isEndingImport = false;
     bool shouldAddAISetupSceneToBuild = false;
+    bool importCallbacksRegistered = false;
+    bool reloadAssembliesLocked = false;
 
+    string currentImportSessionDir;
     string currentImportedTempPath;
+    string currentExpectedPackageName;
 
     [MenuItem("Tools/AIDrivenFW/Optional Packages")]
     static void Open()
@@ -55,7 +61,7 @@ public class AIDrivenSetupWindow : EditorWindow
 
         GUILayout.Space(12);
 
-        GUI.enabled = exampleSamples || AISetup || installDefaultSettings;
+        GUI.enabled = !isImporting && (exampleSamples || AISetup || installDefaultSettings);
 
         if (GUILayout.Button("Install Selected", GUILayout.Height(28)))
         {
@@ -70,6 +76,9 @@ public class AIDrivenSetupWindow : EditorWindow
 
     void InstallSelectedPackages()
     {
+        if (isImporting)
+            return;
+
         setupCompleted = false;
 
         importQueue.Clear();
@@ -93,11 +102,25 @@ public class AIDrivenSetupWindow : EditorWindow
             return;
 
         isImporting = true;
-        EditorApplication.LockReloadAssemblies();
-        AssetDatabase.importPackageCompleted += OnImportPackageCompleted;
-        AssetDatabase.importPackageFailed += OnImportPackageFailed;
+        try
+        {
+            EditorApplication.LockReloadAssemblies();
+            reloadAssembliesLocked = true;
 
-        ImportNextFromQueue();
+            CreateImportSession();
+
+            AssetDatabase.importPackageCompleted += OnImportPackageCompleted;
+            AssetDatabase.importPackageFailed += OnImportPackageFailed;
+            AssetDatabase.importPackageCancelled += OnImportPackageCancelled;
+            importCallbacksRegistered = true;
+
+            ImportNextFromQueue();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to start the optional package import: {ex.Message}");
+            EndImportQueue(success: false);
+        }
     }
 
     void ImportNextFromQueue()
@@ -109,81 +132,247 @@ public class AIDrivenSetupWindow : EditorWindow
         }
 
         var path = importQueue.Dequeue();
+        currentExpectedPackageName = NormalizePackageName(path);
+        if (string.IsNullOrEmpty(currentExpectedPackageName))
+        {
+            Debug.LogError($"Could not determine the UnityPackage name: {path}");
+            EndImportQueue(success: false);
+            return;
+        }
+
         ImportUnityPackage(path);
     }
 
     void OnImportPackageCompleted(string packageName)
     {
+        if (!TryConsumeExpectedPackageCallback(packageName))
+            return;
+
         CleanupTempPackage();
         ImportNextFromQueue();
     }
 
     void OnImportPackageFailed(string packageName, string errorMessage)
     {
+        if (!TryConsumeExpectedPackageCallback(packageName))
+            return;
+
         CleanupTempPackage();
         Debug.LogError($"UnityPackage import failed: {packageName}\n{errorMessage}");
         EndImportQueue(success: false);
     }
 
-    void EndImportQueue(bool success)
+    void OnImportPackageCancelled(string packageName)
     {
-        if (!isImporting)
+        if (!TryConsumeExpectedPackageCallback(packageName))
             return;
 
-        isImporting = false;
-        CleanupTempPackage();
-        AssetDatabase.importPackageCompleted -= OnImportPackageCompleted;
-        AssetDatabase.importPackageFailed -= OnImportPackageFailed;
-        EditorApplication.UnlockReloadAssemblies();
-
-        if (success && shouldAddAISetupSceneToBuild)
-            AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
-
-        // Remove the temporary import directory (parent of TEMP_IMPORT_DIR) after successful setup
-        if (success)
-            RemoveTempImportDirectory();
-
-        setupCompleted = success;
-        Repaint();
+        Debug.LogWarning($"UnityPackage import cancelled: {packageName}");
+        EndImportQueue(success: false);
     }
 
-    void RemoveTempImportDirectory()
+    bool TryConsumeExpectedPackageCallback(string packageName)
     {
+        if (string.IsNullOrEmpty(currentExpectedPackageName) ||
+            !PackageNamesMatch(currentExpectedPackageName, packageName))
+        {
+            return false;
+        }
+
+        currentExpectedPackageName = null;
+        return true;
+    }
+
+    static bool PackageNamesMatch(string expectedPackageName, string callbackPackageName)
+    {
+        var normalizedExpectedName = NormalizePackageName(expectedPackageName);
+        var normalizedCallbackName = NormalizePackageName(callbackPackageName);
+
+        return !string.IsNullOrEmpty(normalizedExpectedName) &&
+               string.Equals(
+                   normalizedExpectedName,
+                   normalizedCallbackName,
+                   StringComparison.OrdinalIgnoreCase);
+    }
+
+    static string NormalizePackageName(string packageName)
+    {
+        if (string.IsNullOrWhiteSpace(packageName))
+            return string.Empty;
+
+        var normalizedPath = packageName.Trim().Replace('\\', '/').TrimEnd('/');
+        var fileName = Path.GetFileName(normalizedPath);
+        const string unityPackageExtension = ".unitypackage";
+
+        if (fileName.EndsWith(unityPackageExtension, StringComparison.OrdinalIgnoreCase))
+        {
+            fileName = fileName.Substring(
+                0,
+                fileName.Length - unityPackageExtension.Length);
+        }
+
+        return fileName;
+    }
+
+    void EndImportQueue(bool success)
+    {
+        if (isEndingImport)
+            return;
+
+        if (!isImporting && !importCallbacksRegistered &&
+            !reloadAssembliesLocked && string.IsNullOrEmpty(currentImportSessionDir) &&
+            string.IsNullOrEmpty(currentExpectedPackageName))
+            return;
+
+        isEndingImport = true;
+        isImporting = false;
         try
         {
-            var parentDir = Path.GetDirectoryName(TEMP_IMPORT_DIR.TrimEnd('/', '\\'));
-            if (string.IsNullOrEmpty(parentDir))
+            if (success && shouldAddAISetupSceneToBuild)
+                AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
+
+            setupCompleted = success;
+        }
+        catch (Exception ex)
+        {
+            setupCompleted = false;
+            Debug.LogError($"Failed to finish the optional package setup: {ex.Message}");
+        }
+        finally
+        {
+            try
+            {
+                ReleaseImportResources();
+            }
+            finally
+            {
+                isEndingImport = false;
+                Repaint();
+            }
+        }
+    }
+
+    void OnDisable()
+    {
+        if (isImporting || importCallbacksRegistered || reloadAssembliesLocked ||
+            !string.IsNullOrEmpty(currentImportSessionDir) ||
+            !string.IsNullOrEmpty(currentExpectedPackageName))
+        {
+            EndImportQueue(success: false);
+        }
+    }
+
+    void CreateImportSession()
+    {
+        string sessionDir;
+        do
+        {
+            sessionDir = $"{TEMP_IMPORT_ROOT}/{Guid.NewGuid():N}";
+        }
+        while (Directory.Exists(sessionDir) || AssetDatabase.IsValidFolder(sessionDir));
+
+        Directory.CreateDirectory(sessionDir);
+        currentImportSessionDir = sessionDir;
+        AssetDatabase.Refresh();
+    }
+
+    void ReleaseImportResources()
+    {
+        currentExpectedPackageName = null;
+
+        try
+        {
+            CleanupTempPackage();
+        }
+        finally
+        {
+            try
+            {
+                if (importCallbacksRegistered)
+                {
+                    AssetDatabase.importPackageCompleted -= OnImportPackageCompleted;
+                    AssetDatabase.importPackageFailed -= OnImportPackageFailed;
+                    AssetDatabase.importPackageCancelled -= OnImportPackageCancelled;
+                    importCallbacksRegistered = false;
+                }
+            }
+            finally
+            {
+                try
+                {
+                    CleanupImportSession();
+                    importQueue.Clear();
+                }
+                finally
+                {
+                    if (reloadAssembliesLocked)
+                    {
+                        try
+                        {
+                            EditorApplication.UnlockReloadAssemblies();
+                        }
+                        finally
+                        {
+                            reloadAssembliesLocked = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    void CleanupImportSession()
+    {
+        var sessionDir = currentImportSessionDir;
+        currentImportSessionDir = null;
+
+        if (string.IsNullOrEmpty(sessionDir))
+            return;
+
+        if (!IsValidImportSessionDirectory(sessionDir))
+        {
+            Debug.LogWarning($"Skipped cleanup for an unexpected import session path: {sessionDir}");
+            return;
+        }
+
+        try
+        {
+            if (AssetDatabase.IsValidFolder(sessionDir) && AssetDatabase.DeleteAsset(sessionDir))
                 return;
 
-            // Prefer AssetDatabase deletion so Unity updates its meta/asset database correctly
-            if (AssetDatabase.IsValidFolder(parentDir))
-            {
-                if (!AssetDatabase.DeleteAsset(parentDir))
-                {
-                    // Fallback to file system deletion if AssetDatabase.DeleteAsset failed
-                    var absPath = Path.Combine(Directory.GetCurrentDirectory(), parentDir);
-                    if (Directory.Exists(absPath))
-                        Directory.Delete(absPath, true);
-                    AssetDatabase.Refresh();
-                }
-                else
-                {
-                    AssetDatabase.Refresh();
-                }
-            }
-            else if (Directory.Exists(parentDir))
-            {
-                // If it's not recognized as a Unity folder but exists on disk, remove it
-                var absPath = Path.Combine(Directory.GetCurrentDirectory(), parentDir);
-                if (Directory.Exists(absPath))
-                    Directory.Delete(absPath, true);
-                AssetDatabase.Refresh();
-            }
+            var absoluteSessionDir = GetAbsoluteProjectPath(sessionDir);
+            if (Directory.Exists(absoluteSessionDir))
+                Directory.Delete(absoluteSessionDir, true);
+
+            var metaPath = absoluteSessionDir + ".meta";
+            if (File.Exists(metaPath))
+                File.Delete(metaPath);
+
+            AssetDatabase.Refresh();
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            Debug.LogWarning($"Failed to remove temp import directory '{TEMP_IMPORT_DIR}': {ex.Message}");
+            Debug.LogWarning($"Failed to remove import session '{sessionDir}': {ex.Message}");
         }
+    }
+
+    static bool IsValidImportSessionDirectory(string sessionDir)
+    {
+        var normalizedRoot = TEMP_IMPORT_ROOT.Replace('\\', '/').TrimEnd('/');
+        var normalizedSession = sessionDir.Replace('\\', '/').TrimEnd('/');
+        var prefix = normalizedRoot + "/";
+
+        if (!normalizedSession.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        var sessionName = normalizedSession.Substring(prefix.Length);
+        return sessionName.IndexOf('/') < 0 &&
+               Guid.TryParseExact(sessionName, "N", out _);
+    }
+
+    static string GetAbsoluteProjectPath(string assetPath)
+    {
+        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), assetPath));
     }
 
     static void AddSceneToBuildSettingsIfNeeded(string sceneAssetPath)
@@ -223,15 +412,13 @@ public class AIDrivenSetupWindow : EditorWindow
         // Copy to a stable location under `Assets/` before importing.
         try
         {
-            if (!AssetDatabase.IsValidFolder(TEMP_IMPORT_DIR))
-            {
-                Directory.CreateDirectory(TEMP_IMPORT_DIR);
-                AssetDatabase.Refresh();
-            }
+            if (string.IsNullOrEmpty(currentImportSessionDir) ||
+                !IsValidImportSessionDirectory(currentImportSessionDir))
+                throw new InvalidOperationException("The import session is not initialized.");
 
             var fileName = Path.GetFileName(path);
-            currentImportedTempPath = Path.Combine(TEMP_IMPORT_DIR, fileName).Replace('\\', '/');
-            File.Copy(path, currentImportedTempPath, true);
+            currentImportedTempPath = Path.Combine(currentImportSessionDir, fileName).Replace('\\', '/');
+            File.Copy(path, currentImportedTempPath, false);
             AssetDatabase.Refresh();
         }
         catch (System.Exception ex)
@@ -241,8 +428,16 @@ public class AIDrivenSetupWindow : EditorWindow
             return;
         }
 
-        // true = show Import Window (safe / OSS friendly)
-        AssetDatabase.ImportPackage(currentImportedTempPath, true);
+        try
+        {
+            // true = show Import Window (safe / OSS friendly)
+            AssetDatabase.ImportPackage(currentImportedTempPath, true);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to import UnityPackage: {path}\n{ex.Message}");
+            EndImportQueue(success: false);
+        }
     }
 
     void CleanupTempPackage()
@@ -252,17 +447,47 @@ public class AIDrivenSetupWindow : EditorWindow
 
         try
         {
-            if (File.Exists(currentImportedTempPath))
-                File.Delete(currentImportedTempPath);
+            if (!IsPathInsideCurrentImportSession(currentImportedTempPath))
+            {
+                Debug.LogWarning($"Skipped cleanup for an unexpected temporary package path: {currentImportedTempPath}");
+                return;
+            }
+
+            if (AssetDatabase.DeleteAsset(currentImportedTempPath))
+                return;
+
+            var absoluteTempPath = GetAbsoluteProjectPath(currentImportedTempPath);
+            if (File.Exists(absoluteTempPath))
+                File.Delete(absoluteTempPath);
+
+            var metaPath = absoluteTempPath + ".meta";
+            if (File.Exists(metaPath))
+                File.Delete(metaPath);
+
+            AssetDatabase.Refresh();
         }
-        catch
+        catch (Exception ex)
         {
-            // best-effort cleanup
+            Debug.LogWarning($"Failed to remove temporary package '{currentImportedTempPath}': {ex.Message}");
         }
         finally
         {
             currentImportedTempPath = null;
         }
+    }
+
+    bool IsPathInsideCurrentImportSession(string assetPath)
+    {
+        if (string.IsNullOrEmpty(currentImportSessionDir) ||
+            !IsValidImportSessionDirectory(currentImportSessionDir))
+            return false;
+
+        var sessionPath = GetAbsoluteProjectPath(currentImportSessionDir)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var candidatePath = GetAbsoluteProjectPath(assetPath);
+        var candidateParent = Path.GetDirectoryName(candidatePath);
+
+        return string.Equals(candidateParent, sessionPath, StringComparison.OrdinalIgnoreCase);
     }
 
     void DrawResultMessage()
