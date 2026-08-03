@@ -216,4 +216,17 @@ namespace AIDrivenFW.Tests.Unit
             return new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         }
     }
+
+    internal static class UniTaskTestExtensions
+    {
+        public static async Task AsTask(this UniTask task)
+        {
+            await task;
+        }
+
+        public static async Task<T> AsTask<T>(this UniTask<T> task)
+        {
+            return await task;
+        }
+    }
 }

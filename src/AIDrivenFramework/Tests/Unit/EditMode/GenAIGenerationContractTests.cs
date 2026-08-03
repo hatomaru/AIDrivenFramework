@@ -78,7 +78,6 @@ namespace AIDrivenFW.Tests.Unit
         }
 
         [Test]
-        [NonParallelizable]
         public async Task GenerateAsync_WhenTimeScaleIsZero_DeadlineStillUsesRealtime()
         {
             var executor = new FakeAIExecutor("fake", "response");
@@ -324,7 +323,6 @@ namespace AIDrivenFW.Tests.Unit
         }
 
         [Test]
-        [NonParallelizable]
         public async Task Initialize_WhenFinalCallbackCancels_PropagatesCancellation()
         {
             var executor = new FakeAIExecutor("fake", "response");
