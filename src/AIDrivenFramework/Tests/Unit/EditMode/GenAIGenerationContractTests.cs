@@ -1,5 +1,6 @@
 using AIDrivenFW.API;
 using AIDrivenFW.Core;
+using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System;
 using System.Threading;
@@ -9,7 +10,6 @@ using UnityEngine;
 namespace AIDrivenFW.Tests.Unit
 {
     [Timeout(10000)]
-    [NonParallelizable]
     public class GenAIGenerationContractTests
     {
         [Test]
@@ -79,7 +79,6 @@ namespace AIDrivenFW.Tests.Unit
         }
 
         [Test]
-        [NonParallelizable]
         public async Task GenerateAsync_WhenTimeScaleIsZero_DeadlineStillUsesRealtime()
         {
             var executor = new FakeAIExecutor("fake", "response");
@@ -325,7 +324,6 @@ namespace AIDrivenFW.Tests.Unit
         }
 
         [Test]
-        [NonParallelizable]
         public async Task Initialize_WhenFinalCallbackCancels_PropagatesCancellation()
         {
             var executor = new FakeAIExecutor("fake", "response");

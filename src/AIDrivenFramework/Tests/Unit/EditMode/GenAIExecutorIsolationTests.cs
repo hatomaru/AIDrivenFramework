@@ -1,6 +1,7 @@
 using AIDrivenFW.API;
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
+using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System;
 using System.Threading.Tasks;
@@ -171,6 +172,10 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             var genAI = new GenAI(executor);
+            UnityEngine.TestTools.LogAssert.Expect(
+                LogType.Exception,
+                new System.Text.RegularExpressions.Regex(
+                    "GetGraphicsMemorySize is not allowed to be called from a ScriptableObject constructor"));
             var config = ScriptableObject.CreateInstance<GenAIConfig>();
             config.sysPrompt = "system prompt";
 
