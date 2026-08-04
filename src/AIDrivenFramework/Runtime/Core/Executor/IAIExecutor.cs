@@ -8,11 +8,19 @@ using System.Threading;
 
 namespace AIDrivenFW.Core
 {
+    /// <summary>
+    /// AI生成バックエンドの実行契約。
+    /// </summary>
+    /// <remarks>
+    /// すべての非同期メソッドは、渡された<see cref="CancellationToken"/>を監視し、キャンセル時には
+    /// <see cref="OperationCanceledException"/>を送出して速やかに完了する必要があります。
+    /// </remarks>
     public interface IAIExecutor
     {
         /// <summary>
         /// プロセスを起動する
         /// </summary>
+        /// <param name="ct">処理を中止するキャンセルトークン。</param>
         /// <param name="genAIConfig">LLMの設定</param>
         /// <param name="progress">進捗報告用のIProgressインスタンス</param>
         /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
@@ -20,6 +28,7 @@ namespace AIDrivenFW.Core
         /// <summary>
         /// プロセスが準備できるまで待機する
         /// </summary>
+        /// <param name="ct">処理を中止するキャンセルトークン。</param>
         /// <param name="progress">進捗報告用のIProgressインスタンス</param>
         /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
         UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000);
@@ -28,6 +37,7 @@ namespace AIDrivenFW.Core
         /// </summary>
         /// <param name="sysInput">システムプロンプト</param>
         /// <param name="input">入力</param>
+        /// <param name="ct">処理を中止するキャンセルトークン。</param>
         /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
         /// <param name="progress">進捗報告用のIProgressインスタンス</param>
         /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
@@ -35,11 +45,13 @@ namespace AIDrivenFW.Core
         /// <summary>
         /// プロセスからの出力を受け取る
         /// </summary>
+        /// <param name="ct">処理を中止するキャンセルトークン。</param>
         /// <returns>出力</returns>
         UniTask<string> ReceiveAsync(CancellationToken ct);
         /// <summary>
         /// 生成が完了したかをプロセスの出力から判断する
         /// </summary>
+        /// <param name="token">処理を中止するキャンセルトークン。</param>
         /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
         /// <returns>出力マーカーが存在するか</returns>
         UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate = null);

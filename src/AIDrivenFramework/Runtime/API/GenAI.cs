@@ -83,13 +83,29 @@ namespace AIDrivenFW.API
         /// <param name="genAIConfig">GenAIオプション</param>
         /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
         /// <param name="progress">生成の進行度を受け取るコールバック</param>
-        /// <param name="timeoutMs">生成のタイムアウト時間（ミリ秒）</param>
-        /// <param name="retryAfterInitialization">生成失敗時に初期化を実行後再試行するかどうか (デフォルト:true)</param>
+        /// <param name="timeoutMs">初回生成、必要な初期化、再試行を含む呼び出し全体の実時間タイムアウト（ミリ秒）。ゲームのtime scaleには依存しない。</param>
+        /// <param name="retryAfterInitialization"><see cref="GenAIExecutionException"/>発生時に初期化を実行後、1回再試行するかどうか (デフォルト:true)</param>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeoutMs"/>が0以下の場合。</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="ct"/>がキャンセルされた場合。</exception>
+        /// <exception cref="TimeoutException">生成処理が<paramref name="timeoutMs"/>以内に完了しなかった場合。</exception>
+        /// <exception cref="GenAIExecutionException">Executorでの生成が規定回数の試行後も失敗した場合。</exception>
         /// <remarks>
+        /// <para>
+        /// 初期化後の再試行はExecutorの通常失敗にだけ適用されます。呼び出し元からのキャンセルとタイムアウトは再試行しません。
+        /// </para>
+        /// <para>
         /// 生成中に<see cref="SetExecutor"/>または<see cref="KillProcess"/>を呼び出した場合の動作は保証されません。
+        /// </para>
         /// </remarks>
         public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, bool retryAfterInitialization = true)
         {
+            if (timeoutMs <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeoutMs), timeoutMs, "The generation timeout must be greater than zero.");
+            }
+
+            ct.ThrowIfCancellationRequested();
+
             GenAICore activeCore = core;
             if (activeCore == null)
             {
@@ -97,16 +113,37 @@ namespace AIDrivenFW.API
                 core = activeCore;
             }
 
-            string result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, ct, timeoutMs);
-            Debug.Log("AI generation result: " + result);
-            if (retryAfterInitialization && result.Contains("❌"))
+            using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            using var timeoutRegistration = requestCts.CancelAfterSlim(timeoutMs, DelayType.Realtime);
+            CancellationToken requestToken = requestCts.Token;
+
+            try
             {
-                Debug.LogError("AI generation failed: " + result);
-                //await AIDriven_AISetupHandler.Initialize(_genAI, config);
-                await AIDrivenInitializer.Initialize(ct, this);
-                result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, ct, timeoutMs);
+                string result;
+                try
+                {
+                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
+                }
+                catch (GenAIExecutionException ex) when (retryAfterInitialization)
+                {
+                    Debug.LogWarning($"AI generation failed after {ex.Attempts} attempts. Initializing and retrying once: {ex.Message}");
+                    await AIDrivenInitializer.Initialize(requestToken, this);
+                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
+                }
+
+                requestToken.ThrowIfCancellationRequested();
+                Debug.Log("AI generation result: " + result);
+                return result;
             }
-            return result;
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                ct.ThrowIfCancellationRequested();
+                throw;
+            }
+            catch (OperationCanceledException ex) when (requestToken.IsCancellationRequested)
+            {
+                throw new TimeoutException($"AI generation timed out after {timeoutMs} ms.", ex);
+            }
         }
 
         /// <summary>
