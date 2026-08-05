@@ -15,7 +15,7 @@ Unity にローカル LLM を安全に統合するための
 ---
 ## 🎞 Demo
 
-## Model Setup Demo
+### モデルセットアップデモ
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/ja/AISetupWalkthrough.gif" width="800">
 
 ---
@@ -47,11 +47,20 @@ Unity 側は、最小限かつクリーンな API のみを扱います。
 
 ### 1️⃣ インストール
 
-Unity Package Manager から追加：
+OpenUPMからのインストールを推奨します：
+
+```bash
+openupm add com.hatomaru.ai.framework
+```
+
+または、Unity Package Managerから次のGit URLを追加します：
 
 ```
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
+
+> [!IMPORTANT]
+> Git URLから導入する場合は、後述する必須依存パッケージを先にプロジェクトへ追加してください。依存パッケージは本リポジトリに同梱されていません。
 
 ---
 
@@ -103,6 +112,14 @@ Debug.Log(result);
 
 ---
 
+## 対応LLMランタイム
+
+- Ollama（HTTP）
+- llama.cpp CLI（デフォルトExecutor）
+- llama.cpp server（HTTP）
+
+---
+
 ## 🧙 セットアップウィザード（AISetupコンポーネント）
 
 オプションの **AISetup** パッケージは、  
@@ -113,7 +130,7 @@ Debug.Log(result);
 - `.gguf` モデルファイル選択GUI
 
 > [!TIP]
-> サンプルシーンのワンクリック導入（任意）
+> オプションのサンプルシーンを導入できます
 >  
 > メニューから手動起動：  
 > `Tools > AIDrivenFW > Optional Packages`
@@ -124,29 +141,46 @@ Debug.Log(result);
 
 ---
 
-## 🎮サンプルゲーム（近日公開予定）
+## 🎮 サンプルゲーム
 
-現在開発中です
-近日中にExampleパッケージに同梱します。
+現在、オプションの **Example** パッケージに2本のサンプルゲームを同梱しています。
 
-| Sample | 名前                  | 概要                                   | 体験できるAI機能                  |
-|--------|-----------------------|----------------------------------------|-----------------------------------|
-| 1      | AI NPC Roleplay Chat | AI NPCと自由に会話できるロールプレイチャット | NPC人格・会話履歴管理            |
-| 2      | Guess the Topic      | AIが考えたお題を質問で当てるゲーム   | 推論・質問応答                   |
-| 3      | Dialogue Battle      | 会話によってNPCを突破するゲーム | 状態管理・対話ゲーム             |
-| 4      | AI Story Generator   | AIと協力して物語を生成するゲーム     | 文章生成・コンテキスト管理       |
+`Tools > AIDrivenFW > Optional Packages`を開き、**Example Scene**と**AISetup**の両方を選択して**Install Selected**を押すと導入できます。現在のサンプルはAISetupのコンポーネントを参照しているため、Example Sceneだけを導入するとコンパイルできません。
+
+| Sample | 名前 | 概要 | サンプルが使用するExecutor |
+|---|---|---|---|
+| 1 | AI NPC Roleplay Chat | NPCの人格と会話履歴を保ちながら、AI NPCと自由に会話するサンプル | `OllamaHTTPExecutor` |
+| 2 | Guess the Topic | 質問を重ね、ゲームが選んだお題を当てるサンプル | `LlamaHTTPExecutor` |
+
+**企画中・現時点では未同梱：** Dialogue Battle、AI Story Generator
 
 ---
 
-## 🎯 最小公開API（V1）
+## 🎯 主要公開API（V1）
 
 ```csharp
-GenAI.Generate(string input, GenAIConfig config = null);
-AIDrivenInitializer.Initialize();
-GenAIConfig;
+using AIDrivenFW.API;
+using AIDrivenFW.Config;
+using UnityEngine;
+
+public sealed class AIExample : MonoBehaviour
+{
+    private async void Start()
+    {
+        var genAI = new GenAI();
+        var config = ScriptableObject.CreateInstance<GenAIConfig>();
+        config.sysPrompt = "親切なNPCとして応答してください。";
+
+        var isPrepared = await AIDrivenInitializer.Initialize(defaultGenAI: genAI);
+        if (!isPrepared) return;
+
+        var result = await genAI.Generate("こんにちは、AI！", config);
+        Debug.Log(result);
+    }
+}
 ```
 
-その他の構造は内部実装です。
+上記が推奨されるエントリーポイントです。上級者向けのExecutor実装も公開されていますが、今後の開発で変更される可能性があります。
 
 ---
 
@@ -168,7 +202,8 @@ GenAIConfig;
 実行レイヤーを差し替え可能：
 
 ```csharp
-GenAI.SetExecutor(customExecutor);
+var genAI = new GenAI();
+genAI.SetExecutor(customExecutor);
 ```
 
 デフォルト実装：
@@ -181,17 +216,7 @@ HTTP通信や独自プロセス管理も実装可能です。
 
 ---
 
-## 📦 インストール方法
-
-### ✅ OpenUPM（推奨）
-
-```bash
-openupm add com.hatomaru.ai.framework
-```
-
----
-
-### 🔧 必須依存パッケージ
+## 🔧 必須依存パッケージ
 
 - [UniTask](https://github.com/Cysharp/UniTask)（非同期処理）
 - [LitMotion](https://github.com/AnnulusGames/LitMotion/blob/main/README_JA.md)（UI / アニメーション制御）
@@ -201,9 +226,11 @@ openupm add com.hatomaru.ai.framework
 ## 🖥 動作環境
 
 ### 最低動作環境
-- Unity 2022.3 LTS 以上
+- Unity 6（6000.0）以上（現行のpackage manifestに準拠）
 - Windows 10 / 11（64bit）または macOS
 - RAM：8GB以上
+
+> 以前のUnityバージョンは、現行のpackage manifestに対する動作検証を行っていません。
 
 ### 推奨環境
 - RAM：16GB以上
