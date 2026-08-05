@@ -108,7 +108,7 @@ public class LlamaHTTPExecutor : IAIExecutor
         string llamaDir = AISoftwarePath;
         if (config == null)
         {
-            config = new GenAIConfig();
+            config = ScriptableObject.CreateInstance<GenAIConfig>();
         }
             config.arguments = $"-m {{ModelPath}} --host {ServerHost} --port {ServerPort} " +
               $"--gpu-layers 130 " +

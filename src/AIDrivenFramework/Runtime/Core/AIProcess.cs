@@ -57,7 +57,7 @@ namespace AIDrivenFW.Core
         {
             if (genAIConfig == null)
             {
-                genAIConfig = new GenAIConfig();
+                genAIConfig = ScriptableObject.CreateInstance<GenAIConfig>();
             }
             aiConfig = genAIConfig;
             _redirectStdIn = redirectStdIn;

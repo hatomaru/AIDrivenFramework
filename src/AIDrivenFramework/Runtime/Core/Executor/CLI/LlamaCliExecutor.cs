@@ -37,7 +37,7 @@ public class LlamaCliExecutor : IAIExecutor
         string llamaDir = AISoftwarePath;
         if (genAIConfig == null)
         {
-            genAIConfig = new GenAIConfig();
+            genAIConfig = UnityEngine.ScriptableObject.CreateInstance<GenAIConfig>();
         }
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数

@@ -172,12 +172,9 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             var genAI = new GenAI(executor);
-            UnityEngine.TestTools.LogAssert.Expect(
-                LogType.Exception,
-                new System.Text.RegularExpressions.Regex(
-                    "GetGraphicsMemorySize is not allowed to be called from a ScriptableObject constructor"));
             var config = ScriptableObject.CreateInstance<GenAIConfig>();
             config.sysPrompt = "system prompt";
+            Assert.AreNotEqual(AIDrivenConfig.autoDetect, config.arguments);
 
             try
             {

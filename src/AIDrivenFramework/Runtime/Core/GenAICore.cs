@@ -64,7 +64,7 @@ namespace AIDrivenFW.Core
 
                         if (effectiveConfig == null)
                         {
-                            var defaultConfig = new GenAIConfig();
+                            var defaultConfig = ScriptableObject.CreateInstance<GenAIConfig>();
                             defaultConfig.arguments = executor.SetDefaultArguments();
                             effectiveConfig = defaultConfig;
                         }

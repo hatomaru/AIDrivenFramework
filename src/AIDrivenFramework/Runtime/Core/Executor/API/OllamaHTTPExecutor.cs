@@ -79,11 +79,9 @@ public class OllamaHTTPExecutor : IAIExecutor
             try
             {
                 // Start Ollama via AIProcess so we have unified process management.
-                var gen = new GenAIConfig
-                {
-                    aiSoftwarePath = AISoftwarePath,
-                    arguments = "serve"
-                };
+                var gen = ScriptableObject.CreateInstance<GenAIConfig>();
+                gen.aiSoftwarePath = AISoftwarePath;
+                gen.arguments = "serve";
                 // Ollama serve does not use stdio for streaming, so disable redirection.
                 _ollamaProcess = new AIDrivenFW.Core.AIProcess(gen, redirectStdIn: false, redirectStdOut: false, redirectStdErr: true);
                 UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");

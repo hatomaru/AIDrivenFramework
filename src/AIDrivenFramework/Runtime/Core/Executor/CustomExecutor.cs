@@ -28,7 +28,7 @@ public class CustomExecutor : IAIExecutor
                 UnityEngine.Debug.Log("Existing process killed.");
             }
         }
-        if (genAIConfig == null) genAIConfig = new GenAIConfig();
+        if (genAIConfig == null) genAIConfig = UnityEngine.ScriptableObject.CreateInstance<GenAIConfig>();
 
         genAIConfig.aiSoftwarePath = AISoftwarePath;
         genAIConfig.arguments = SetArguments(genAIConfig.arguments, genAIConfig);
