@@ -11,6 +11,8 @@ namespace AIDrivenFW.Tests.Unit
     internal sealed class FakeAIExecutor : IAIExecutor
     {
         private readonly Queue<Exception> generateFailures = new Queue<Exception>();
+        private readonly Queue<Exception> receiveFailures = new Queue<Exception>();
+        private readonly Queue<Exception> extractFailures = new Queue<Exception>();
         private TaskCompletionSource<bool> generationCompletion;
         private TaskCompletionSource<bool> generationStarted;
         private TaskCompletionSource<bool> nextReceiveCompletion;
@@ -36,6 +38,7 @@ namespace AIDrivenFW.Tests.Unit
         public int KillProcessCallCount { get; private set; }
         public int ReceiveCallCount { get; private set; }
         public int CancellationObservedCount { get; private set; }
+        public int SetDefaultArgumentsCallCount { get; private set; }
         public int ActiveGenerateCallCount => Volatile.Read(ref activeGenerateCallCount);
         public int ActiveReceiveCallCount => Volatile.Read(ref activeReceiveCallCount);
         public string LastSystemInput { get; private set; }
@@ -47,6 +50,21 @@ namespace AIDrivenFW.Tests.Unit
         public void EnqueueGenerateFailure(Exception exception)
         {
             generateFailures.Enqueue(exception ?? throw new ArgumentNullException(nameof(exception)));
+        }
+
+        public void EnqueueReceiveFailure(Exception exception)
+        {
+            receiveFailures.Enqueue(exception ?? throw new ArgumentNullException(nameof(exception)));
+        }
+
+        public void EnqueueExtractFailure(Exception exception)
+        {
+            extractFailures.Enqueue(exception ?? throw new ArgumentNullException(nameof(exception)));
+        }
+
+        public void SetProcessAlive(bool processAlive)
+        {
+            ProcessAlive = processAlive;
         }
 
         public void BlockGeneration()
@@ -130,6 +148,11 @@ namespace AIDrivenFW.Tests.Unit
                 throw ReceiveException;
             }
 
+            if (receiveFailures.Count > 0)
+            {
+                throw receiveFailures.Dequeue();
+            }
+
             TaskCompletionSource<bool> completion = nextReceiveCompletion;
             if (completion != null)
             {
@@ -181,6 +204,7 @@ namespace AIDrivenFW.Tests.Unit
 
         public string SetDefaultArguments()
         {
+            SetDefaultArgumentsCallCount++;
             return string.Empty;
         }
 
@@ -206,6 +230,11 @@ namespace AIDrivenFW.Tests.Unit
             if (ExtractException != null)
             {
                 throw ExtractException;
+            }
+
+            if (extractFailures.Count > 0)
+            {
+                throw extractFailures.Dequeue();
             }
 
             return raw;

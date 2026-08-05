@@ -1,8 +1,11 @@
 using AIDrivenFW.API;
+using AIDrivenFW.Config;
 using AIDrivenFW.Core;
+using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace AIDrivenFW.Tests.Unit
 {
@@ -131,6 +134,67 @@ namespace AIDrivenFW.Tests.Unit
             var exception = Assert.Throws<ArgumentNullException>(() => new GenAICore(null));
 
             Assert.AreEqual("aiExecutor", exception.ParamName);
+        }
+
+        [Test]
+        public async Task KillProcess_AfterGeneration_RecreatesCoreAndRestartsExecutor()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            var genAI = new GenAI(executor);
+
+            Assert.AreEqual("response", await genAI.Generate("first", retryAfterInitialization: false).AsTask());
+            genAI.KillProcess();
+            Assert.AreEqual("response", await genAI.Generate("second", retryAfterInitialization: false).AsTask());
+
+            Assert.AreEqual(2, executor.GenerateCallCount);
+            Assert.AreEqual(2, executor.KillProcessCallCount);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task SetExecutor_BeforeCoreCreation_KillsOldExecutorAndUsesReplacement()
+        {
+            var oldExecutor = new FakeAIExecutor("old", "old response");
+            var replacement = new FakeAIExecutor("replacement", "replacement response");
+            var genAI = new GenAI(oldExecutor);
+
+            genAI.SetExecutor(replacement);
+            string result = await genAI.Generate("input", retryAfterInitialization: false).AsTask();
+
+            Assert.AreEqual("replacement response", result);
+            Assert.AreEqual(1, oldExecutor.KillProcessCallCount);
+            Assert.AreEqual(0, oldExecutor.GenerateCallCount);
+            Assert.AreEqual(1, replacement.GenerateCallCount);
+        }
+
+        [Test]
+        public async Task Generate_WithExplicitConfig_ForwardsPromptsWithoutRequestingDefaultArguments()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            var genAI = new GenAI(executor);
+            UnityEngine.TestTools.LogAssert.Expect(
+                LogType.Exception,
+                new System.Text.RegularExpressions.Regex(
+                    "GetGraphicsMemorySize is not allowed to be called from a ScriptableObject constructor"));
+            var config = ScriptableObject.CreateInstance<GenAIConfig>();
+            config.sysPrompt = "system prompt";
+
+            try
+            {
+                string result = await genAI.Generate(
+                    "user input",
+                    config,
+                    retryAfterInitialization: false).AsTask();
+
+                Assert.AreEqual("response", result);
+                Assert.AreEqual("system prompt", executor.LastSystemInput);
+                Assert.AreEqual("user input", executor.LastInput);
+                Assert.AreEqual(0, executor.SetDefaultArgumentsCallCount);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(config);
+            }
         }
     }
 }
