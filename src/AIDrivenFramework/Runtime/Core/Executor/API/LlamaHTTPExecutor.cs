@@ -66,6 +66,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     private string ServerUrl => $"http://{ServerHost}:{ServerPort}";
 
     private AIProcess aiProcess;
+    private GenAIConfig ownedConfig;
     private string _lastResponse = string.Empty;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
@@ -106,9 +107,11 @@ public class LlamaHTTPExecutor : IAIExecutor
             UnityEngine.Debug.Log("Starting new process...");
         }
         string llamaDir = AISoftwarePath;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
         if (config == null)
         {
-            config = ScriptableObject.CreateInstance<GenAIConfig>();
+            ownedConfig = GenAIConfigLifecycle.CreateOwned();
+            config = ownedConfig;
         }
             config.arguments = $"-m {{ModelPath}} --host {ServerHost} --port {ServerPort} " +
               $"--gpu-layers 130 " +
@@ -377,6 +380,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     {
         aiProcess?.KillProcess();
         aiProcess = null;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
     }
 
     public string IsFoundAISoftware()

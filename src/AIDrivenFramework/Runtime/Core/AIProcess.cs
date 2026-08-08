@@ -45,6 +45,7 @@ namespace AIDrivenFW.Core
         private readonly bool _redirectStdIn;
         private readonly bool _redirectStdOut;
         private readonly bool _redirectStdErr;
+        private GenAIConfig _ownedConfig;
 
         /// <summary>
         /// AIプロセスのコンストラクタ、プロセスを開始する
@@ -57,7 +58,8 @@ namespace AIDrivenFW.Core
         {
             if (genAIConfig == null)
             {
-                genAIConfig = ScriptableObject.CreateInstance<GenAIConfig>();
+                _ownedConfig = GenAIConfigLifecycle.CreateOwned();
+                genAIConfig = _ownedConfig;
             }
             aiConfig = genAIConfig;
             _redirectStdIn = redirectStdIn;
@@ -222,6 +224,7 @@ namespace AIDrivenFW.Core
         {
             if (persistentProc == null)
             {
+                GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
                 return;
             }
             lock (_lock)
@@ -250,6 +253,7 @@ namespace AIDrivenFW.Core
                 persistentProc = null;
                 procStdinStream = null;
             }
+            GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
         }
 
         /// <summary>

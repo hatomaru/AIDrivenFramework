@@ -13,6 +13,26 @@ namespace AIDrivenFW.Tests.Unit
     public class GenAIGenerationContractTests
     {
         [Test]
+        public async Task GenerateAsync_DefaultConfig_IsReusedAndDestroyedOnDispose()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.SetProcessAlive(false);
+            var core = new GenAICore(executor);
+
+            await core.GenerateAsync("first").AsTask();
+            GenAIConfig firstConfig = executor.LastStartConfig;
+
+            executor.SetProcessAlive(false);
+            await core.GenerateAsync("second").AsTask();
+
+            Assert.AreSame(firstConfig, executor.LastStartConfig);
+            Assert.AreEqual(1, executor.SetDefaultArgumentsCallCount);
+
+            core.Dispose();
+            Assert.IsTrue(firstConfig == null, "The internally created Unity object should be destroyed.");
+        }
+
+        [Test]
         public async Task GenerateAsync_WithNonPositiveTimeout_ThrowsBeforeCallingExecutor()
         {
             var executor = new FakeAIExecutor("fake", "response");
