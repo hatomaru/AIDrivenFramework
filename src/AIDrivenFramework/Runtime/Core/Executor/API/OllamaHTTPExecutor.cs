@@ -144,7 +144,17 @@ public class OllamaHTTPExecutor : IAIExecutor
         }
         // モデル指定
         ModelInfo modelInfo = ModelInfo.LoadFromFile();
-        modelName = modelInfo.Name;
+        if (!string.IsNullOrWhiteSpace(modelInfo?.Name))
+        {
+            modelName = modelInfo.Name;
+        }
+        else
+        {
+            // AISetup.json may not exist on first use or may be unreadable.
+            // Keep the documented fallback instead of failing before the request.
+            modelName = DefaultModel;
+            UnityEngine.Debug.LogWarning($"Model configuration was not found. Falling back to '{DefaultModel}'.");
+        }
 
         string model = modelName;
         string prompt = input;
