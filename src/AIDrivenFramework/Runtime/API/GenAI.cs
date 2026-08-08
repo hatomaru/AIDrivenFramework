@@ -72,6 +72,7 @@ namespace AIDrivenFW.API
             }
 
             executor?.KillProcess();
+            core?.Dispose();
             executor = aiExecutor;
             core = null;
         }
@@ -162,6 +163,7 @@ namespace AIDrivenFW.API
         public void KillProcess()
         {
             executor.KillProcess();
+            core?.Dispose();
             core = null;
         }
 

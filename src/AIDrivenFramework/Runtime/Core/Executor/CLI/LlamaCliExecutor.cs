@@ -10,6 +10,7 @@ using System.Threading;
 public class LlamaCliExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
+    private GenAIConfig ownedConfig;
     const int checkIntervalMs = 100; // 確認の間隔  
     string AISoftwarePath = "";
     int outStartIndex = 0;
@@ -35,9 +36,11 @@ public class LlamaCliExecutor : IAIExecutor
             UnityEngine.Debug.Log("Starting new process...");
         }
         string llamaDir = AISoftwarePath;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
         if (genAIConfig == null)
         {
-            genAIConfig = UnityEngine.ScriptableObject.CreateInstance<GenAIConfig>();
+            ownedConfig = GenAIConfigLifecycle.CreateOwned();
+            genAIConfig = ownedConfig;
         }
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
@@ -152,6 +155,8 @@ public class LlamaCliExecutor : IAIExecutor
     public void KillProcess()
     {
         aiProcess?.KillProcess();
+        aiProcess = null;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
     }
 
     public bool OnOutputMarkerReceived(string output)

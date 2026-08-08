@@ -42,6 +42,7 @@ public class OllamaHTTPExecutor : IAIExecutor
     private string modelName = DefaultModel;
 
     private AIProcess _ollamaProcess;
+    private GenAIConfig _ownedServerConfig;
     private bool _serverReady = false;
     private string _lastResponse = "";
     string AISoftwarePath = "";
@@ -71,6 +72,7 @@ public class OllamaHTTPExecutor : IAIExecutor
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
+        GenAIConfigLifecycle.DestroyOwned(ref _ownedServerConfig);
 
         // Ollama が既に起動しているか確認し、起動中でなければ ollama serve を起動
         bool alreadyRunning = await CheckOutput(ct);
@@ -79,7 +81,8 @@ public class OllamaHTTPExecutor : IAIExecutor
             try
             {
                 // Start Ollama via AIProcess so we have unified process management.
-                var gen = ScriptableObject.CreateInstance<GenAIConfig>();
+                _ownedServerConfig = GenAIConfigLifecycle.CreateOwned();
+                var gen = _ownedServerConfig;
                 gen.aiSoftwarePath = AISoftwarePath;
                 gen.arguments = "serve";
                 // Ollama serve does not use stdio for streaming, so disable redirection.
@@ -347,6 +350,7 @@ public class OllamaHTTPExecutor : IAIExecutor
         }
         _ollamaProcess = null;
         _serverReady = false;
+        GenAIConfigLifecycle.DestroyOwned(ref _ownedServerConfig);
     }
 
     public string IsFoundAISoftware()
