@@ -395,45 +395,4 @@ public class OllamaHTTPExecutor : IAIExecutor
         throw new NotImplementedException();
     }
 
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-    private static void ApplyMacOSPermissions(string filePath)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo("/bin/chmod", $"+x \"{filePath}\"")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true
-            })?.WaitForExit(3000);
-        }
-        catch (Exception ex)
-        {
-            UnityEngine.Debug.LogWarning($"[OllamaHTTPExecutor] chmod +x failed: {ex.Message}");
-        }
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-        try
-        {
-            Process.Start(new ProcessStartInfo("/usr/bin/xattr", $"-d com.apple.quarantine \"{filePath}\"")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true
-            })?.WaitForExit(3000);
-        }
-        catch (Exception ex)
-        {
-            UnityEngine.Debug.LogWarning($"[OllamaHTTPExecutor] xattr -d failed: {ex.Message}");
-        }
-#endif
-    }
-
-    private static void WrapWithBash(ProcessStartInfo psi)
-    {
-        string execPath = psi.FileName;
-        string execArgs = psi.Arguments;
-        string shellSafePath = "'" + execPath.Replace("'", "'\\''") + "'";
-        string shellSafeArgs = execArgs.Replace("\"", "\\\"");
-        psi.FileName = "/bin/bash";
-        psi.Arguments = $"-c \"exec {shellSafePath} {shellSafeArgs}\"";
-    }
-#endif
 }
