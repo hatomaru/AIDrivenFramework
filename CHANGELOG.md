@@ -4,14 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [3.2.1] - 2026-08-11
-### Fixed
-- AI Setup now stops after the first invalid AI configuration error instead of starting the process up to three times.
-- Llama CLI and HTTP executors now reject missing models before launch and use the configured model path for both client and server arguments.
-- AI process cleanup no longer reports an error when startup failed before an operating-system process was associated.
-- Restored the `GenAIConfig` namespace import required by the EditMode generation contract tests.
-
-## [3.2.0] - 2026-08-08
+## [3.2.0] - 2026-08-11
 ### Changed
 - `GenAI` now treats its `IAIExecutor` as an exclusively owned per-instance dependency.
 - `SetExecutor` synchronously stops the previous executor and switches only after successful cleanup; failures preserve the old references, but executor side effects cannot be rolled back.
@@ -22,6 +15,10 @@ All notable changes to this project will be documented in this file.
 - Updated the setup documentation and samples to match the current package layout and configuration workflow.
 
 ### Fixed
+- AI Setup now stops after the first invalid AI configuration error instead of starting the process up to three times.
+- Llama CLI and HTTP executors now reject missing models before launch and use the configured model path for both client and server arguments.
+- AI process cleanup no longer reports an error when startup failed before an operating-system process was associated.
+- Restored the `GenAIConfig` namespace import required by the EditMode generation contract tests.
 - Isolated temporary staging and cleanup for optional packages in the AI Setup Wizard.
 - Ensured `GenAIConfig` initializes correctly when enabled and framework-created configurations are disposed with their owners.
 - Allowed Ollama to complete its first-run setup when `AISetup.json` or model configuration is not yet available.
