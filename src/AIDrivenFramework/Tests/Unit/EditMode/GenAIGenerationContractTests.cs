@@ -197,6 +197,25 @@ namespace AIDrivenFW.Tests.Unit
         }
 
         [Test]
+        public async Task GenerateAsync_WhenProcessConfigurationIsInvalid_DoesNotRetry()
+        {
+            var configurationException = new GenAIConfigurationException("model is required");
+            var executor = new FakeAIExecutor("fake", "response")
+            {
+                StartProcessException = configurationException
+            };
+            executor.SetProcessAlive(false);
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<GenAIConfigurationException>(
+                core.GenerateAsync("input").AsTask());
+
+            Assert.AreSame(configurationException, exception);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+            Assert.AreEqual(0, executor.GenerateCallCount);
+        }
+
+        [Test]
         public async Task GenerateAsync_WhenExecutorThrowsTimeoutEarly_RetriesAsExecutorFailure()
         {
             var executor = new FakeAIExecutor("fake", "recovered");

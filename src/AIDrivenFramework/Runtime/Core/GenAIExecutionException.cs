@@ -3,6 +3,21 @@ using System;
 namespace AIDrivenFW.Core
 {
     /// <summary>
+    /// AI生成を開始できない構成不備を表す例外。
+    /// </summary>
+    public sealed class GenAIConfigurationException : InvalidOperationException
+    {
+        /// <summary>
+        /// 構成エラーの詳細から例外を作成する。
+        /// </summary>
+        /// <param name="message">構成エラーの詳細。</param>
+        public GenAIConfigurationException(string message)
+            : base(message)
+        {
+        }
+    }
+
+    /// <summary>
     /// AI生成処理が規定回数の試行後も完了できなかったことを表す例外。
     /// </summary>
     public sealed class GenAIExecutionException : Exception

@@ -50,7 +50,7 @@ namespace AIDrivenFW.Core
             if (string.IsNullOrWhiteSpace(modelPath) ||
                 string.Equals(modelPath, "null", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException(
+                throw new GenAIConfigurationException(
                     "A llama.cpp model file is required. Set GenAIConfig.modelFilePath to an existing model file or install a .gguf model for auto-detection.");
             }
 

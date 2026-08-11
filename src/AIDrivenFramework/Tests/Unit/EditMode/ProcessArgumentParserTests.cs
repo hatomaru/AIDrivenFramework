@@ -43,9 +43,9 @@ namespace AIDrivenFW.Tests.Unit
 
             try
             {
-                Assert.Throws<InvalidOperationException>(() =>
+                Assert.Throws<GenAIConfigurationException>(() =>
                     LlamaCliExecutor.BuildArguments("-m {ModelPath}", config));
-                Assert.Throws<InvalidOperationException>(() =>
+                Assert.Throws<GenAIConfigurationException>(() =>
                     LlamaHTTPExecutor.BuildArguments("-m {ModelPath}", config));
             }
             finally

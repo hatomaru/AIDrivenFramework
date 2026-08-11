@@ -31,6 +31,7 @@ namespace AIDrivenFW.Core
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeoutMs"/>が0以下の場合。</exception>
         /// <exception cref="OperationCanceledException"><paramref name="ct"/>がキャンセルされた場合。</exception>
         /// <exception cref="TimeoutException">処理が期限内に完了しなかった場合。</exception>
+        /// <exception cref="GenAIConfigurationException">AI生成を開始できない構成不備がある場合。</exception>
         /// <exception cref="GenAIExecutionException">3回の試行後も生成が失敗した場合。</exception>
         public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
         {
@@ -97,6 +98,10 @@ namespace AIDrivenFW.Core
                         return result;
                     }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested || operationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (GenAIConfigurationException)
                     {
                         throw;
                     }

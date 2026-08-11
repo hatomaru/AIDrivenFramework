@@ -29,6 +29,7 @@ namespace AIDrivenFW.Tests.Unit
         public string Id { get; }
         public string Response { get; set; }
         public Exception CleanupException { get; set; }
+        public Exception StartProcessException { get; set; }
         public Exception ReceiveException { get; set; }
         public Exception ExtractException { get; set; }
         public Action BeforeGenerateFailure { get; set; }
@@ -90,6 +91,12 @@ namespace AIDrivenFW.Tests.Unit
             ct.ThrowIfCancellationRequested();
             StartProcessCallCount++;
             LastStartConfig = genAIConfig;
+
+            if (StartProcessException != null)
+            {
+                throw StartProcessException;
+            }
+
             ProcessAlive = true;
             return UniTask.CompletedTask;
         }
