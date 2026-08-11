@@ -85,5 +85,31 @@ namespace AIDrivenFW.Tests.Unit
                 Directory.Delete(tempDirectory);
             }
         }
+
+        [TestCase("")]
+        [TestCase("--ctx-size 2048")]
+        [TestCase("-m null --ctx-size 2048")]
+        public void LlamaCliArguments_WithoutUsableModelArgument_ThrowBeforeProcessLaunch(string arguments)
+        {
+            string tempDirectory = Path.Combine(Path.GetTempPath(), $"AIDrivenFW-{Guid.NewGuid():N}");
+            string modelPath = Path.Combine(tempDirectory, "configured-model.gguf");
+            Directory.CreateDirectory(tempDirectory);
+            File.WriteAllBytes(modelPath, Array.Empty<byte>());
+
+            var config = ScriptableObject.CreateInstance<GenAIConfig>();
+            config.modelFilePath = modelPath;
+
+            try
+            {
+                Assert.Throws<GenAIConfigurationException>(() =>
+                    LlamaCliExecutor.BuildArguments(arguments, config));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(config);
+                File.Delete(modelPath);
+                Directory.Delete(tempDirectory);
+            }
+        }
     }
 }

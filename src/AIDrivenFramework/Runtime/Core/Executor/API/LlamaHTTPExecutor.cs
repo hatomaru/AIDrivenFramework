@@ -253,7 +253,8 @@ public class LlamaHTTPExecutor : IAIExecutor
         if (!httpResponse.IsSuccessStatusCode)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+            throw GenAIExceptionClassifier.CreateHttpStatusException(
+                "llama-server", (int)httpResponse.StatusCode, errorBody);
         }
 
         using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
@@ -317,7 +318,8 @@ public class LlamaHTTPExecutor : IAIExecutor
         if (!httpResponse.IsSuccessStatusCode)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+            throw GenAIExceptionClassifier.CreateHttpStatusException(
+                "llama-server", (int)httpResponse.StatusCode, errorBody);
         }
 
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
@@ -367,9 +369,7 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
     {
-        string args = raw;
-        string modelPath = ModelRepository.GetRequiredModelExecutablePath(genAIConfig);
-        args = args.Replace("{ModelPath}", $"\"{modelPath}\"");
+        string args = ModelRepository.ExpandRequiredModelArgument(raw, genAIConfig);
         args = args.Replace("{ServerHost}", $"\"{ServerHost}\"");
         args = args.Replace("{ServerPort}", $"\"{ServerPort}\"");
         return args;

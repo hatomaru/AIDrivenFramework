@@ -222,7 +222,7 @@ namespace AIDrivenFW.Core
                 }
                 else
                 {
-                    throw new InvalidOperationException("The process is not available.");
+                    throw new GenAIRetryableException("The process is not available.");
                 }
             }
         }

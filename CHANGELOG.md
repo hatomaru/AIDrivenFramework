@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
 - Updated the setup documentation and samples to match the current package layout and configuration workflow.
 
 ### Fixed
+- Limited generation retries to explicitly transient process, timeout, network, and stream failures; configuration, argument, missing-model, and implementation errors now fail immediately with an error log.
+- Validated llama.cpp model arguments before constructing the process so generation cannot start without a usable model path.
 - AI Setup now stops after the first invalid AI configuration error instead of starting the process up to three times.
 - Llama CLI and HTTP executors now reject missing models before launch and use the configured model path for both client and server arguments.
 - AI process cleanup no longer reports an error when startup failed before an operating-system process was associated.

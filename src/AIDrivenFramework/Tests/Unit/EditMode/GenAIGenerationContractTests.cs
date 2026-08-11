@@ -4,6 +4,7 @@ using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -164,9 +165,9 @@ namespace AIDrivenFW.Tests.Unit
         [Test]
         public async Task GenerateAsync_AfterThreeExecutorFailures_ThrowsTypedExceptionWithLastCause()
         {
-            var first = new InvalidOperationException("first");
-            var second = new InvalidOperationException("second");
-            var last = new InvalidOperationException("last");
+            var first = new GenAIRetryableException("first");
+            var second = new GenAIRetryableException("second");
+            var last = new GenAIRetryableException("last");
             var executor = new FakeAIExecutor("fake", "response");
             executor.EnqueueGenerateFailure(first);
             executor.EnqueueGenerateFailure(second);
@@ -186,7 +187,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_AfterTransientFailure_ReturnsSuccessfulRetry()
         {
             var executor = new FakeAIExecutor("fake", "recovered");
-            executor.EnqueueGenerateFailure(new InvalidOperationException("transient"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("transient"));
             var core = new GenAICore(executor);
 
             string result = await core.GenerateAsync("input").AsTask();
@@ -207,12 +208,69 @@ namespace AIDrivenFW.Tests.Unit
             executor.SetProcessAlive(false);
             var core = new GenAICore(executor);
 
+            LogAssert.Expect(
+                LogType.Error,
+                "AI generation failed without retry (GenAIConfigurationException): model is required");
             var exception = await CaptureExceptionAsync<GenAIConfigurationException>(
                 core.GenerateAsync("input").AsTask());
 
             Assert.AreSame(configurationException, exception);
             Assert.AreEqual(1, executor.StartProcessCallCount);
             Assert.AreEqual(0, executor.GenerateCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenFailureIsNotClassifiedAsRetryable_FailsImmediately()
+        {
+            Exception[] failures =
+            {
+                new ArgumentException("invalid parameter"),
+                new FileNotFoundException("file or model is missing"),
+                new FormatException("invalid format"),
+                new InvalidOperationException("implementation error"),
+                new NotImplementedException("not implemented")
+            };
+
+            foreach (Exception failure in failures)
+            {
+                var executor = new FakeAIExecutor("fake", "response");
+                executor.EnqueueGenerateFailure(failure);
+                var core = new GenAICore(executor);
+
+                LogAssert.Expect(
+                    LogType.Error,
+                    $"AI generation failed without retry ({failure.GetType().Name}): {failure.Message}");
+                Exception exception = await CaptureExceptionAsync<Exception>(
+                    core.GenerateAsync("input").AsTask());
+
+                Assert.AreSame(failure, exception);
+                Assert.AreEqual(1, executor.GenerateCallCount);
+                Assert.AreEqual(0, executor.StartProcessCallCount);
+            }
+        }
+
+        [TestCase(400, false)]
+        [TestCase(404, false)]
+        [TestCase(408, true)]
+        [TestCase(429, true)]
+        [TestCase(500, true)]
+        [TestCase(503, true)]
+        public void HttpStatusClassification_OnlyRetriesTransientFailures(int statusCode, bool retryable)
+        {
+            Exception exception = GenAIExceptionClassifier.CreateHttpStatusException(
+                "test service",
+                statusCode,
+                "response body");
+
+            Assert.AreEqual(retryable, GenAIExceptionClassifier.IsRetryable(exception));
+            if (retryable)
+            {
+                Assert.IsInstanceOf<GenAIRetryableException>(exception);
+            }
+            else
+            {
+                Assert.IsInstanceOf<GenAIConfigurationException>(exception);
+            }
         }
 
         [Test]
@@ -248,7 +306,7 @@ namespace AIDrivenFW.Tests.Unit
         [Test]
         public async Task GenerateAsync_WhenReceiveFails_WrapsLastReceiveFailure()
         {
-            var receiveFailure = new InvalidOperationException("receive failed");
+            var receiveFailure = new GenAIRetryableException("receive failed");
             var executor = new FakeAIExecutor("fake", "response")
             {
                 ReceiveException = receiveFailure
@@ -273,7 +331,7 @@ namespace AIDrivenFW.Tests.Unit
                 core.GenerateAsync("input").AsTask());
 
             Assert.AreEqual(3, exception.Attempts);
-            Assert.IsInstanceOf<InvalidOperationException>(exception.InnerException);
+            Assert.IsInstanceOf<GenAIRetryableException>(exception.InnerException);
         }
 
         [Test]
@@ -501,7 +559,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_AfterTransientReceiveFailure_RetriesWholeGeneration()
         {
             var executor = new FakeAIExecutor("fake", "recovered");
-            executor.EnqueueReceiveFailure(new InvalidOperationException("receive failed"));
+            executor.EnqueueReceiveFailure(new GenAIRetryableException("receive failed"));
             var core = new GenAICore(executor);
 
             string result = await core.GenerateAsync("input").AsTask();
@@ -517,7 +575,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_AfterTransientExtractionFailure_RetriesWholeGeneration()
         {
             var executor = new FakeAIExecutor("fake", "recovered");
-            executor.EnqueueExtractFailure(new InvalidOperationException("extract failed"));
+            executor.EnqueueExtractFailure(new GenAIRetryableException("extract failed"));
             var core = new GenAICore(executor);
 
             string result = await core.GenerateAsync("input").AsTask();
@@ -532,8 +590,8 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_AfterTwoGenerateFailures_SucceedsOnThirdAttempt()
         {
             var executor = new FakeAIExecutor("fake", "recovered");
-            executor.EnqueueGenerateFailure(new InvalidOperationException("first"));
-            executor.EnqueueGenerateFailure(new InvalidOperationException("second"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
             var core = new GenAICore(executor);
 
             string result = await core.GenerateAsync("input").AsTask();
@@ -562,10 +620,10 @@ namespace AIDrivenFW.Tests.Unit
         [Test]
         public async Task Generate_WithInitializationRetryDisabled_ThrowsTypedLastCauseWithoutExtraGeneration()
         {
-            var last = new InvalidOperationException("last");
+            var last = new GenAIRetryableException("last");
             var executor = new FakeAIExecutor("fake", "response");
-            executor.EnqueueGenerateFailure(new InvalidOperationException("first"));
-            executor.EnqueueGenerateFailure(new InvalidOperationException("second"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
             executor.EnqueueGenerateFailure(last);
             var genAI = new GenAI(executor);
 
@@ -580,9 +638,9 @@ namespace AIDrivenFW.Tests.Unit
         private static FakeAIExecutor CreateExecutorThatBlocksDuringInitialization()
         {
             var executor = new FakeAIExecutor("fake", "response");
-            executor.EnqueueGenerateFailure(new InvalidOperationException("first"));
-            executor.EnqueueGenerateFailure(new InvalidOperationException("second"));
-            executor.EnqueueGenerateFailure(new InvalidOperationException("third"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("third"));
             executor.BlockGeneration();
             return executor;
         }

@@ -101,8 +101,10 @@ namespace AIDrivenFW.Core
                     {
                         throw;
                     }
-                    catch (GenAIConfigurationException)
+                    catch (Exception ex) when (!GenAIExceptionClassifier.IsRetryable(ex))
                     {
+                        operationToken.ThrowIfCancellationRequested();
+                        Debug.LogError($"AI generation failed without retry ({ex.GetType().Name}): {ex.Message}");
                         throw;
                     }
                     catch (Exception ex)
@@ -182,7 +184,7 @@ namespace AIDrivenFW.Core
 
             if (string.IsNullOrWhiteSpace(result))
             {
-                throw new InvalidOperationException("The AI executor returned an empty response.");
+                throw new GenAIRetryableException("The AI executor returned an empty response.");
             }
 
             return result;
@@ -226,7 +228,7 @@ namespace AIDrivenFW.Core
 
                 if (!executor.IsProcessAlive())
                 {
-                    throw new InvalidOperationException("The AI executor process terminated unexpectedly.");
+                    throw new GenAIRetryableException("The AI executor process terminated unexpectedly.");
                 }
 
                 await UniTask.Delay(CheckIntervalMs, cancellationToken: ct);

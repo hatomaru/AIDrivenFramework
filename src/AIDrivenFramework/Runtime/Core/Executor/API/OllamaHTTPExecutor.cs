@@ -231,9 +231,14 @@ public class OllamaHTTPExecutor : IAIExecutor
         if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
+            throw new GenAIConfigurationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
         }
-        httpResponse.EnsureSuccessStatusCode();
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            string errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw GenAIExceptionClassifier.CreateHttpStatusException(
+                "Ollama", (int)httpResponse.StatusCode, errorBody);
+        }
 
         using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
         using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
@@ -290,9 +295,14 @@ public class OllamaHTTPExecutor : IAIExecutor
         if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new InvalidOperationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
+            throw new GenAIConfigurationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
         }
-        httpResponse.EnsureSuccessStatusCode();
+        if (!httpResponse.IsSuccessStatusCode)
+        {
+            string errorBody = await httpResponse.Content.ReadAsStringAsync();
+            throw GenAIExceptionClassifier.CreateHttpStatusException(
+                "Ollama", (int)httpResponse.StatusCode, errorBody);
+        }
 
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
         var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);

@@ -1,4 +1,7 @@
 using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Sockets;
 
 namespace AIDrivenFW.Core
 {
@@ -14,6 +17,55 @@ namespace AIDrivenFW.Core
         public GenAIConfigurationException(string message)
             : base(message)
         {
+        }
+    }
+
+    /// <summary>
+    /// プロセス再起動後の再試行で回復する可能性がある一時的なAI実行エラーを表す例外。
+    /// </summary>
+    public sealed class GenAIRetryableException : Exception
+    {
+        public GenAIRetryableException(string message)
+            : base(message)
+        {
+        }
+
+        public GenAIRetryableException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
+
+    internal static class GenAIExceptionClassifier
+    {
+        internal static bool IsRetryable(Exception exception)
+        {
+            if (exception == null)
+            {
+                return false;
+            }
+
+            return exception is GenAIRetryableException ||
+                   exception is TimeoutException ||
+                   exception is OperationCanceledException ||
+                   exception is HttpRequestException ||
+                   exception is SocketException ||
+                   (exception is IOException &&
+                    exception is not FileNotFoundException &&
+                    exception is not DirectoryNotFoundException &&
+                    exception is not DriveNotFoundException &&
+                    exception is not PathTooLongException);
+        }
+
+        internal static Exception CreateHttpStatusException(string service, int statusCode, string details)
+        {
+            string message = $"{service} returned HTTP {statusCode}: {details}";
+            if (statusCode == 408 || statusCode == 429 || statusCode >= 500)
+            {
+                return new GenAIRetryableException(message);
+            }
+
+            return new GenAIConfigurationException(message);
         }
     }
 

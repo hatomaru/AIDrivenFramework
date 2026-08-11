@@ -23,6 +23,21 @@ public class LlamaCliExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        string llamaDir = AISoftwarePath;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
+        if (genAIConfig == null)
+        {
+            ownedConfig = GenAIConfigLifecycle.CreateOwned();
+            genAIConfig = ownedConfig;
+            genAIConfig.arguments = SetDefaultArguments();
+        }
+        else if (genAIConfig.arguments == AIDrivenConfig.autoDetect)
+        {
+            genAIConfig.arguments = SetDefaultArguments();
+        }
+
+        string args = SetArguments(genAIConfig.arguments, genAIConfig);
+
         if (aiProcess != null && aiProcess.IsProcessAlive())
         {
             aiProcess.KillProcess();
@@ -35,16 +50,8 @@ public class LlamaCliExecutor : IAIExecutor
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
-        string llamaDir = AISoftwarePath;
-        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
-        if (genAIConfig == null)
-        {
-            ownedConfig = GenAIConfigLifecycle.CreateOwned();
-            genAIConfig = ownedConfig;
-        }
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
-        string args = SetArguments(genAIConfig.arguments, genAIConfig);
         UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
         UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
         genAIConfig.arguments = args;
@@ -342,9 +349,7 @@ public class LlamaCliExecutor : IAIExecutor
 
     internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
     {
-        string args = raw;
-        string modelPath = ModelRepository.GetRequiredModelExecutablePath(genAIConfig);
-        args = args.Replace("{ModelPath}", $"\"{modelPath}\"");
+        string args = ModelRepository.ExpandRequiredModelArgument(raw, genAIConfig);
         args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
         return args;
     }
