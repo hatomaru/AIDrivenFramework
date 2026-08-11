@@ -3,6 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [3.2.0] - 2026-08-08
 ### Changed
 - `GenAI` now treats its `IAIExecutor` as an exclusively owned per-instance dependency.
 - `SetExecutor` synchronously stops the previous executor and switches only after successful cleanup; failures preserve the old references, but executor side effects cannot be rolled back.
@@ -10,6 +12,16 @@ All notable changes to this project will be documented in this file.
 - Generation and setup-initialization cancellation now propagate `OperationCanceledException`; the real-time request deadline is independent of Unity time scale, covers initialization/retry, propagates `TimeoutException`, and stops the active Executor on a best-effort basis.
 - Executor failures are retried up to three times and then propagate `GenAIExecutionException` with the final cause in `InnerException`; initialization retry no longer depends on matching symbols in generated text.
 - Migration: callers that previously inspected emoji-prefixed error strings should catch the typed exceptions instead.
+- Updated the setup documentation and samples to match the current package layout and configuration workflow.
+
+### Fixed
+- Isolated temporary staging and cleanup for optional packages in the AI Setup Wizard.
+- Ensured `GenAIConfig` initializes correctly when enabled and framework-created configurations are disposed with their owners.
+- Allowed Ollama to complete its first-run setup when `AISetup.json` or model configuration is not yet available.
+
+### Security
+- Prevented path traversal while extracting AI Setup archives.
+- Launches macOS and Linux child processes directly without a shell and parses configured arguments into a structured argument list.
 
 ## [3.1.1] - 2026-04-26
 ### Changed

@@ -42,6 +42,7 @@ public class OllamaHTTPExecutor : IAIExecutor
     private string modelName = DefaultModel;
 
     private AIProcess _ollamaProcess;
+    private GenAIConfig _ownedServerConfig;
     private bool _serverReady = false;
     private string _lastResponse = "";
     string AISoftwarePath = "";
@@ -71,6 +72,7 @@ public class OllamaHTTPExecutor : IAIExecutor
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
+        GenAIConfigLifecycle.DestroyOwned(ref _ownedServerConfig);
 
         // Ollama が既に起動しているか確認し、起動中でなければ ollama serve を起動
         bool alreadyRunning = await CheckOutput(ct);
@@ -79,7 +81,8 @@ public class OllamaHTTPExecutor : IAIExecutor
             try
             {
                 // Start Ollama via AIProcess so we have unified process management.
-                var gen = ScriptableObject.CreateInstance<GenAIConfig>();
+                _ownedServerConfig = GenAIConfigLifecycle.CreateOwned();
+                var gen = _ownedServerConfig;
                 gen.aiSoftwarePath = AISoftwarePath;
                 gen.arguments = "serve";
                 // Ollama serve does not use stdio for streaming, so disable redirection.
@@ -144,7 +147,17 @@ public class OllamaHTTPExecutor : IAIExecutor
         }
         // モデル指定
         ModelInfo modelInfo = ModelInfo.LoadFromFile();
-        modelName = modelInfo.Name;
+        if (!string.IsNullOrWhiteSpace(modelInfo?.Name))
+        {
+            modelName = modelInfo.Name;
+        }
+        else
+        {
+            // AISetup.json may not exist on first use or may be unreadable.
+            // Keep the documented fallback instead of failing before the request.
+            modelName = DefaultModel;
+            UnityEngine.Debug.LogWarning($"Model configuration was not found. Falling back to '{DefaultModel}'.");
+        }
 
         string model = modelName;
         string prompt = input;
@@ -347,6 +360,7 @@ public class OllamaHTTPExecutor : IAIExecutor
         }
         _ollamaProcess = null;
         _serverReady = false;
+        GenAIConfigLifecycle.DestroyOwned(ref _ownedServerConfig);
     }
 
     public string IsFoundAISoftware()
@@ -385,45 +399,4 @@ public class OllamaHTTPExecutor : IAIExecutor
         throw new NotImplementedException();
     }
 
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-    private static void ApplyMacOSPermissions(string filePath)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo("/bin/chmod", $"+x \"{filePath}\"")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true
-            })?.WaitForExit(3000);
-        }
-        catch (Exception ex)
-        {
-            UnityEngine.Debug.LogWarning($"[OllamaHTTPExecutor] chmod +x failed: {ex.Message}");
-        }
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-        try
-        {
-            Process.Start(new ProcessStartInfo("/usr/bin/xattr", $"-d com.apple.quarantine \"{filePath}\"")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true
-            })?.WaitForExit(3000);
-        }
-        catch (Exception ex)
-        {
-            UnityEngine.Debug.LogWarning($"[OllamaHTTPExecutor] xattr -d failed: {ex.Message}");
-        }
-#endif
-    }
-
-    private static void WrapWithBash(ProcessStartInfo psi)
-    {
-        string execPath = psi.FileName;
-        string execArgs = psi.Arguments;
-        string shellSafePath = "'" + execPath.Replace("'", "'\\''") + "'";
-        string shellSafeArgs = execArgs.Replace("\"", "\\\"");
-        psi.FileName = "/bin/bash";
-        psi.Arguments = $"-c \"exec {shellSafePath} {shellSafeArgs}\"";
-    }
-#endif
 }

@@ -6,12 +6,13 @@ using UnityEngine;
 
 namespace AIDrivenFW.Core
 {
-    public class GenAICore
+    public class GenAICore : IDisposable
     {
         private const int MaxGenerationAttempts = 3;
         private const int CheckIntervalMs = 500;
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
         private readonly IAIExecutor executor;
+        private GenAIConfig defaultConfig;
 
         public GenAICore(IAIExecutor aiExecutor)
         {
@@ -64,8 +65,11 @@ namespace AIDrivenFW.Core
 
                         if (effectiveConfig == null)
                         {
-                            var defaultConfig = ScriptableObject.CreateInstance<GenAIConfig>();
-                            defaultConfig.arguments = executor.SetDefaultArguments();
+                            if (defaultConfig == null)
+                            {
+                                defaultConfig = GenAIConfigLifecycle.CreateOwned();
+                                defaultConfig.arguments = executor.SetDefaultArguments();
+                            }
                             effectiveConfig = defaultConfig;
                         }
 
@@ -238,6 +242,11 @@ namespace AIDrivenFW.Core
             {
                 Debug.LogWarning($"Failed to stop the AI executor after {reason}: {ex.Message}");
             }
+        }
+
+        public void Dispose()
+        {
+            GenAIConfigLifecycle.DestroyOwned(ref defaultConfig);
         }
     }
 }

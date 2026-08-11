@@ -43,6 +43,7 @@ namespace AIDrivenFW.Tests.Unit
         public int ActiveReceiveCallCount => Volatile.Read(ref activeReceiveCallCount);
         public string LastSystemInput { get; private set; }
         public string LastInput { get; private set; }
+        public GenAIConfig LastStartConfig { get; private set; }
         public bool ProcessAlive { get; private set; } = true;
         public Task GenerationStarted => generationStarted?.Task ?? Task.CompletedTask;
         public Task ReceiveStarted => receiveStarted?.Task ?? Task.CompletedTask;
@@ -88,6 +89,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             ct.ThrowIfCancellationRequested();
             StartProcessCallCount++;
+            LastStartConfig = genAIConfig;
             ProcessAlive = true;
             return UniTask.CompletedTask;
         }
