@@ -7,12 +7,23 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace AIDrivenFW.Tests.Unit
 {
     [Timeout(10000)]
     public class GenAIGenerationContractTests
     {
+        [Test]
+        public void TryTerminateProcess_WhenProcessWasNeverStarted_DoesNotLogError()
+        {
+            using var process = new System.Diagnostics.Process();
+
+            AIProcess.TryTerminateProcess(process);
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
         [Test]
         public async Task GenerateAsync_DefaultConfig_IsReusedAndDestroyedOnDispose()
         {

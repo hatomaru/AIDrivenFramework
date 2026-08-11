@@ -122,9 +122,9 @@ namespace AIDrivenFW.Core
             {
                 persistentProc.ErrorDataReceived += OnErrorDataReceived;
             }
-            Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
+            Application.quitting += KillProcess;
             if (_redirectStdErr)
             {
                 persistentProc.BeginErrorReadLine();
@@ -193,7 +193,17 @@ namespace AIDrivenFW.Core
         {
             lock (_lock)
             {
-                return persistentProc != null && !persistentProc.HasExited && state >= AIState.Running;
+                if (persistentProc == null || state != AIState.Running)
+                    return false;
+
+                try
+                {
+                    return !persistentProc.HasExited;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
             }
         }
 
@@ -230,30 +240,44 @@ namespace AIDrivenFW.Core
             lock (_lock)
             {
                 state = AIState.Stopped;
-                try
-                {
-                    if (!persistentProc.HasExited)
-                    {
-                        persistentProc.Kill();
-                        UnityEngine.Debug.Log("❌ The process has been forcibly terminated.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
-                }
+                Process process = persistentProc;
+                persistentProc = null;
+                Application.quitting -= KillProcess;
+
+                TryTerminateProcess(process);
 
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
                 try { reader?.Dispose(); } catch { }
                 try { procStdinStream?.Dispose(); } catch { }
-                try { persistentProc?.Dispose(); } catch { }
-                Application.quitting -= KillProcess;
+                try { process?.Dispose(); } catch { }
 
-                persistentProc = null;
                 procStdinStream = null;
             }
             GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
+        }
+
+        internal static void TryTerminateProcess(Process process)
+        {
+            if (process == null)
+                return;
+
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    UnityEngine.Debug.Log("❌ The process has been forcibly terminated.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The process was never started or is no longer associated with an OS process.
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
+            }
         }
 
         /// <summary>
