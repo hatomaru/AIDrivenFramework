@@ -24,12 +24,37 @@ namespace AIDrivenFW.Core
             requestFile.Reload();
             if (genAIConfig != null && genAIConfig.modelFilePath != AIDrivenConfig.autoDetect)
             {
-                return requestFile.Contains(genAIConfig.modelFilePath);
+                string configuredPath = genAIConfig.modelFilePath;
+                if (string.IsNullOrWhiteSpace(configuredPath) ||
+                    string.Equals(configuredPath, "null", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "null";
+                }
+
+                if (File.Exists(configuredPath))
+                {
+                    return Path.GetFullPath(configuredPath);
+                }
+
+                return requestFile.Contains(configuredPath);
             }
             else
             {
                 return requestFile.Contains(".gguf");
             }
+        }
+
+        public static string GetRequiredModelExecutablePath(GenAIConfig genAIConfig)
+        {
+            string modelPath = GetModelExecutablePath(genAIConfig);
+            if (string.IsNullOrWhiteSpace(modelPath) ||
+                string.Equals(modelPath, "null", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "A llama.cpp model file is required. Set GenAIConfig.modelFilePath to an existing model file or install a .gguf model for auto-detection.");
+            }
+
+            return modelPath;
         }
     }
 }

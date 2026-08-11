@@ -119,13 +119,6 @@ public class LlamaHTTPExecutor : IAIExecutor
               $"--parallel 1 " +
               $"--mlock";
 
-        string modelPath = ModelRepository.GetModelExecutablePath();
-        string modelArg = string.Empty;
-        if (!string.IsNullOrEmpty(modelPath) && modelPath != "null")
-        {
-            modelArg = $"-m \"{modelPath}\" ";
-        }
-
         config.arguments = SetArguments(config.arguments, config);
         config.aiSoftwarePath = AISoftwarePath;
         aiProcess = new AIProcess(config);
@@ -360,7 +353,7 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public string SetDefaultArguments()
     {
-        return "-m {modelArg} --host {ServerHost} --port {ServerPort} " +
+        return "-m {ModelPath} --host {ServerHost} --port {ServerPort} " +
               "--gpu-layers 130 " +
               "--ctx-size 2048 " +
               "--parallel 1 " +
@@ -369,8 +362,14 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public string SetArguments(string raw, GenAIConfig genAIConfig)
     {
+        return BuildArguments(raw, genAIConfig);
+    }
+
+    internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
+    {
         string args = raw;
-        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        string modelPath = ModelRepository.GetRequiredModelExecutablePath(genAIConfig);
+        args = args.Replace("{ModelPath}", $"\"{modelPath}\"");
         args = args.Replace("{ServerHost}", $"\"{ServerHost}\"");
         args = args.Replace("{ServerPort}", $"\"{ServerPort}\"");
         return args;
