@@ -8,6 +8,7 @@ using System.Threading;
 public class CustomExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
+    private GenAIConfig ownedConfig;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
     int outStartIndex = 0;
@@ -28,7 +29,12 @@ public class CustomExecutor : IAIExecutor
                 UnityEngine.Debug.Log("Existing process killed.");
             }
         }
-        if (genAIConfig == null) genAIConfig = new GenAIConfig();
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
+        if (genAIConfig == null)
+        {
+            ownedConfig = GenAIConfigLifecycle.CreateOwned();
+            genAIConfig = ownedConfig;
+        }
 
         genAIConfig.aiSoftwarePath = AISoftwarePath;
         genAIConfig.arguments = SetArguments(genAIConfig.arguments, genAIConfig);
@@ -127,6 +133,8 @@ public class CustomExecutor : IAIExecutor
     public void KillProcess()
     {
         aiProcess?.KillProcess();
+        aiProcess = null;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
     }
 
     public string IsFoundAISoftware()

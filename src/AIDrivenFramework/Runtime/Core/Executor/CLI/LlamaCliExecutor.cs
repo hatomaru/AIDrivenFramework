@@ -10,6 +10,7 @@ using System.Threading;
 public class LlamaCliExecutor : IAIExecutor
 {
     private AIProcess aiProcess;
+    private GenAIConfig ownedConfig;
     const int checkIntervalMs = 100; // 確認の間隔  
     string AISoftwarePath = "";
     int outStartIndex = 0;
@@ -22,6 +23,21 @@ public class LlamaCliExecutor : IAIExecutor
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        string llamaDir = AISoftwarePath;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
+        if (genAIConfig == null)
+        {
+            ownedConfig = GenAIConfigLifecycle.CreateOwned();
+            genAIConfig = ownedConfig;
+            genAIConfig.arguments = SetDefaultArguments();
+        }
+        else if (genAIConfig.arguments == AIDrivenConfig.autoDetect)
+        {
+            genAIConfig.arguments = SetDefaultArguments();
+        }
+
+        string args = SetArguments(genAIConfig.arguments, genAIConfig);
+
         if (aiProcess != null && aiProcess.IsProcessAlive())
         {
             aiProcess.KillProcess();
@@ -34,14 +50,8 @@ public class LlamaCliExecutor : IAIExecutor
         {
             UnityEngine.Debug.Log("Starting new process...");
         }
-        string llamaDir = AISoftwarePath;
-        if (genAIConfig == null)
-        {
-            genAIConfig = new GenAIConfig();
-        }
         genAIConfig.aiSoftwarePath = llamaDir;
         // コマンド引数
-        string args = SetArguments(genAIConfig.arguments, genAIConfig);
         UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
         UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {args}");
         genAIConfig.arguments = args;
@@ -152,6 +162,8 @@ public class LlamaCliExecutor : IAIExecutor
     public void KillProcess()
     {
         aiProcess?.KillProcess();
+        aiProcess = null;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
     }
 
     public bool OnOutputMarkerReceived(string output)
@@ -332,8 +344,12 @@ public class LlamaCliExecutor : IAIExecutor
 
     public string SetArguments(string raw,GenAIConfig genAIConfig)
     {
-        string args = raw;
-        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        return BuildArguments(raw, genAIConfig);
+    }
+
+    internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
+    {
+        string args = ModelRepository.ExpandRequiredModelArgument(raw, genAIConfig);
         args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
         return args;
     }

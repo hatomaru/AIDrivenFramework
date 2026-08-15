@@ -66,6 +66,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     private string ServerUrl => $"http://{ServerHost}:{ServerPort}";
 
     private AIProcess aiProcess;
+    private GenAIConfig ownedConfig;
     private string _lastResponse = string.Empty;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
@@ -106,22 +107,17 @@ public class LlamaHTTPExecutor : IAIExecutor
             UnityEngine.Debug.Log("Starting new process...");
         }
         string llamaDir = AISoftwarePath;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
         if (config == null)
         {
-            config = new GenAIConfig();
+            ownedConfig = GenAIConfigLifecycle.CreateOwned();
+            config = ownedConfig;
         }
             config.arguments = $"-m {{ModelPath}} --host {ServerHost} --port {ServerPort} " +
               $"--gpu-layers 130 " +
               $"--ctx-size 2048 " +
               $"--parallel 1 " +
               $"--mlock";
-
-        string modelPath = ModelRepository.GetModelExecutablePath();
-        string modelArg = string.Empty;
-        if (!string.IsNullOrEmpty(modelPath) && modelPath != "null")
-        {
-            modelArg = $"-m \"{modelPath}\" ";
-        }
 
         config.arguments = SetArguments(config.arguments, config);
         config.aiSoftwarePath = AISoftwarePath;
@@ -257,7 +253,8 @@ public class LlamaHTTPExecutor : IAIExecutor
         if (!httpResponse.IsSuccessStatusCode)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+            throw GenAIExceptionClassifier.CreateHttpStatusException(
+                "llama-server", (int)httpResponse.StatusCode, errorBody);
         }
 
         using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
@@ -321,7 +318,8 @@ public class LlamaHTTPExecutor : IAIExecutor
         if (!httpResponse.IsSuccessStatusCode)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
+            throw GenAIExceptionClassifier.CreateHttpStatusException(
+                "llama-server", (int)httpResponse.StatusCode, errorBody);
         }
 
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
@@ -357,7 +355,7 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public string SetDefaultArguments()
     {
-        return "-m {modelArg} --host {ServerHost} --port {ServerPort} " +
+        return "-m {ModelPath} --host {ServerHost} --port {ServerPort} " +
               "--gpu-layers 130 " +
               "--ctx-size 2048 " +
               "--parallel 1 " +
@@ -366,8 +364,12 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public string SetArguments(string raw, GenAIConfig genAIConfig)
     {
-        string args = raw;
-        args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
+        return BuildArguments(raw, genAIConfig);
+    }
+
+    internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
+    {
+        string args = ModelRepository.ExpandRequiredModelArgument(raw, genAIConfig);
         args = args.Replace("{ServerHost}", $"\"{ServerHost}\"");
         args = args.Replace("{ServerPort}", $"\"{ServerPort}\"");
         return args;
@@ -377,6 +379,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     {
         aiProcess?.KillProcess();
         aiProcess = null;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
     }
 
     public string IsFoundAISoftware()

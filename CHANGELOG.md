@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+## [3.2.0] - 2026-08-11
+### Changed
+- `GenAI` now treats its `IAIExecutor` as an exclusively owned per-instance dependency.
+- `SetExecutor` synchronously stops the previous executor and switches only after successful cleanup; failures preserve the old references, but executor side effects cannot be rolled back.
+- Migration: create a separate executor for each `GenAI`; sharing one executor instance is discouraged because lifecycle operations can stop resources used by another `GenAI`.
+- Generation and setup-initialization cancellation now propagate `OperationCanceledException`; the real-time request deadline is independent of Unity time scale, covers initialization/retry, propagates `TimeoutException`, and stops the active Executor on a best-effort basis.
+- Executor failures are retried up to three times and then propagate `GenAIExecutionException` with the final cause in `InnerException`; initialization retry no longer depends on matching symbols in generated text.
+- Migration: callers that previously inspected emoji-prefixed error strings should catch the typed exceptions instead.
+- Updated the setup documentation and samples to match the current package layout and configuration workflow.
+
+### Fixed
+- Limited generation retries to explicitly transient process, timeout, network, and stream failures; configuration, argument, missing-model, and implementation errors now fail immediately with an error log.
+- Validated llama.cpp model arguments before constructing the process so generation cannot start without a usable model path.
+- AI Setup now stops after the first invalid AI configuration error instead of starting the process up to three times.
+- Llama CLI and HTTP executors now reject missing models before launch and use the configured model path for both client and server arguments.
+- AI process cleanup no longer reports an error when startup failed before an operating-system process was associated.
+- Restored the `GenAIConfig` namespace import required by the EditMode generation contract tests.
+- Isolated temporary staging and cleanup for optional packages in the AI Setup Wizard.
+- Ensured `GenAIConfig` initializes correctly when enabled and framework-created configurations are disposed with their owners.
+- Allowed Ollama to complete its first-run setup when `AISetup.json` or model configuration is not yet available.
+
+### Security
+- Prevented path traversal while extracting AI Setup archives.
+- Launches macOS and Linux child processes directly without a shell and parses configured arguments into a structured argument list.
+
 ## [3.1.1] - 2026-04-26
 ### Changed
 - Updated the AISetup package and fixed an issue where scenes were not included.

@@ -45,6 +45,7 @@ namespace AIDrivenFW.Core
         private readonly bool _redirectStdIn;
         private readonly bool _redirectStdOut;
         private readonly bool _redirectStdErr;
+        private GenAIConfig _ownedConfig;
 
         /// <summary>
         /// AIプロセスのコンストラクタ、プロセスを開始する
@@ -57,7 +58,8 @@ namespace AIDrivenFW.Core
         {
             if (genAIConfig == null)
             {
-                genAIConfig = new GenAIConfig();
+                _ownedConfig = GenAIConfigLifecycle.CreateOwned();
+                genAIConfig = _ownedConfig;
             }
             aiConfig = genAIConfig;
             _redirectStdIn = redirectStdIn;
@@ -67,7 +69,6 @@ namespace AIDrivenFW.Core
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = aiConfig.aiSoftwarePath,    // 呼び出しファイル名
-                Arguments = aiConfig.arguments,
                 WorkingDirectory = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath),
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -77,14 +78,17 @@ namespace AIDrivenFW.Core
                 RedirectStandardError = redirectStdErr,
                 // StandardOutputEncoding/StandardErrorEncoding are set below only when redirection is enabled
             };
-            UnityEngine.Debug.Log($"{psi.FileName} {psi.Arguments}");
+            foreach (string argument in ProcessArgumentParser.Parse(aiConfig.arguments))
+            {
+                psi.ArgumentList.Add(argument);
+            }
+            UnityEngine.Debug.Log($"{psi.FileName} {string.Join(" ", psi.ArgumentList)}");
             state = AIState.Prepare;
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-            // UTF-8 ロケールを明示的に設定（bash 経由起動時に日本語が文字化けする対策）
+            // UTF-8 ロケールを明示的に設定
             psi.Environment["LANG"] = "en_US.UTF-8";
             psi.Environment["LC_ALL"] = "en_US.UTF-8";
-            ApplyMacOSPermissions(psi.FileName);
-            WrapWithBash(psi);
+            EnsureExecutablePermission(psi.FileName);
 #endif
             // エンコーディングはリダイレクトが有効な場合のみ設定（無効だと例外になるため）
             if (redirectStdOut)
@@ -118,9 +122,9 @@ namespace AIDrivenFW.Core
             {
                 persistentProc.ErrorDataReceived += OnErrorDataReceived;
             }
-            Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
+            Application.quitting += KillProcess;
             if (_redirectStdErr)
             {
                 persistentProc.BeginErrorReadLine();
@@ -189,7 +193,17 @@ namespace AIDrivenFW.Core
         {
             lock (_lock)
             {
-                return persistentProc != null && !persistentProc.HasExited && state >= AIState.Running;
+                if (persistentProc == null || state != AIState.Running)
+                    return false;
+
+                try
+                {
+                    return !persistentProc.HasExited;
+                }
+                catch (InvalidOperationException)
+                {
+                    return false;
+                }
             }
         }
 
@@ -208,7 +222,7 @@ namespace AIDrivenFW.Core
                 }
                 else
                 {
-                    throw new InvalidOperationException("The process is not available.");
+                    throw new GenAIRetryableException("The process is not available.");
                 }
             }
         }
@@ -220,33 +234,49 @@ namespace AIDrivenFW.Core
         {
             if (persistentProc == null)
             {
+                GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
                 return;
             }
             lock (_lock)
             {
                 state = AIState.Stopped;
-                try
-                {
-                    if (!persistentProc.HasExited)
-                    {
-                        persistentProc.Kill();
-                        UnityEngine.Debug.Log("❌ The process has been forcibly terminated.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
-                }
+                Process process = persistentProc;
+                persistentProc = null;
+                Application.quitting -= KillProcess;
+
+                TryTerminateProcess(process);
 
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
                 try { reader?.Dispose(); } catch { }
                 try { procStdinStream?.Dispose(); } catch { }
-                try { persistentProc?.Dispose(); } catch { }
-                Application.quitting -= KillProcess;
+                try { process?.Dispose(); } catch { }
 
-                persistentProc = null;
                 procStdinStream = null;
+            }
+            GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
+        }
+
+        internal static void TryTerminateProcess(Process process)
+        {
+            if (process == null)
+                return;
+
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    UnityEngine.Debug.Log("❌ The process has been forcibly terminated.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The process was never started or is no longer associated with an OS process.
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
             }
         }
 
@@ -349,51 +379,25 @@ namespace AIDrivenFW.Core
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
         /// <summary>
-        /// macOS: 実行権限の付与とGatekeeperの隔離属性を除去する
+        /// macOS/Linux: 実行権限を付与する。Gatekeeperの隔離属性は変更しない。
         /// </summary>
-        private static void ApplyMacOSPermissions(string filePath)
+        private static void EnsureExecutablePermission(string filePath)
         {
             try
             {
-                Process.Start(new ProcessStartInfo("/bin/chmod", $"+x \"{filePath}\"")
+                var chmodStartInfo = new ProcessStartInfo("/bin/chmod")
                 {
                     UseShellExecute = false,
                     CreateNoWindow = true
-                })?.WaitForExit(3000);
+                };
+                chmodStartInfo.ArgumentList.Add("+x");
+                chmodStartInfo.ArgumentList.Add(filePath);
+                Process.Start(chmodStartInfo)?.WaitForExit(3000);
             }
             catch (Exception ex)
             {
                 UnityEngine.Debug.LogWarning($"[AIProcess] chmod +x failed: {ex.Message}");
             }
-#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-            try
-            {
-                Process.Start(new ProcessStartInfo("/usr/bin/xattr", $"-d com.apple.quarantine \"{filePath}\"")
-                {
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                })?.WaitForExit(3000);
-            }
-            catch (Exception ex)
-            {
-                UnityEngine.Debug.LogWarning($"[AIProcess] xattr -d failed: {ex.Message}");
-            }
-#endif
-        }
-
-        /// <summary>
-        /// macOS: /bin/bash 経由でプロセスを起動するように ProcessStartInfo を書き換える
-        /// (Unity の Process.Start() が非 .app バイナリを直接起動できないケースへの対処)
-        /// </summary>
-        private static void WrapWithBash(ProcessStartInfo psi)
-        {
-            string execPath = psi.FileName;
-            string execArgs = psi.Arguments;
-            // exec でbashを置き換えることで、persistentProcがllama-cliのPIDを直接指す
-            string shellSafePath = "'" + execPath.Replace("'", "'\\''") + "'";
-            string shellSafeArgs = execArgs.Replace("\"", "\\\"");
-            psi.FileName = "/bin/bash";
-            psi.Arguments = $"-c \"exec {shellSafePath} {shellSafeArgs}\"";
         }
 #endif
     }

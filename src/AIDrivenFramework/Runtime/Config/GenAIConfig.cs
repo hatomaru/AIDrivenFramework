@@ -13,7 +13,7 @@ namespace AIDrivenFW.Config
         public string sysPrompt = "";
         public string arguments = AIDrivenConfig.autoDetect;
 
-        public GenAIConfig()
+        private void OnEnable()
         {
             if (arguments == AIDrivenConfig.autoDetect)
             {
