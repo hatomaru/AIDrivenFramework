@@ -22,16 +22,7 @@ internal class OllamaGenerateResponse
     public bool done;
 }
 
-[Serializable]
-internal class OllamaPayload
-{
-    public string model;
-    public string prompt;
-    public string system;
-    public bool stream;
-}
-
-public class OllamaHTTPExecutor : IAIExecutor
+public class OllamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
 {
     private HttpClient httpClient;
     private const string ServerHost = "127.0.0.1";
@@ -45,6 +36,7 @@ public class OllamaHTTPExecutor : IAIExecutor
     private GenAIConfig _ownedServerConfig;
     private bool _serverReady = false;
     private string _lastResponse = "";
+    private StructuredOutputDefinition _structuredOutput;
     string AISoftwarePath = "";
 
     public OllamaHTTPExecutor()
@@ -185,8 +177,7 @@ public class OllamaHTTPExecutor : IAIExecutor
 
         bool stream = onUpdate != null;
         // Ollama APIに送るペイロードを構築
-        var payload = new OllamaPayload { model = model, prompt = prompt, system = system, stream = stream };
-        string requestJson = JsonUtility.ToJson(payload);
+        string requestJson = BuildRequestJson(model, prompt, system, stream, _structuredOutput);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -223,6 +214,32 @@ public class OllamaHTTPExecutor : IAIExecutor
             UnityEngine.Debug.LogError($"Error during generation: {ex.Message}");
             throw;
         }
+    }
+
+    internal static string BuildRequestJson(
+        string model,
+        string prompt,
+        string system,
+        bool stream,
+        StructuredOutputDefinition structuredOutput)
+    {
+        var builder = new StringBuilder();
+        builder.Append('{')
+            .Append("\"model\":").Append(StructuredOutputJson.Quote(model))
+            .Append(",\"prompt\":").Append(StructuredOutputJson.Quote(prompt))
+            .Append(",\"system\":").Append(StructuredOutputJson.Quote(system))
+            .Append(",\"stream\":").Append(stream ? "true" : "false");
+        if (structuredOutput != null)
+        {
+            builder.Append(",\"format\":").Append(structuredOutput.JsonSchema);
+        }
+        return builder.Append('}').ToString();
+    }
+
+    public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+    {
+        _structuredOutput = definition;
+        return false;
     }
 
     private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate, string model)

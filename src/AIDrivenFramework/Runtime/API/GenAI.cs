@@ -86,6 +86,7 @@ namespace AIDrivenFW.API
         /// <param name="progress">生成の進行度を受け取るコールバック</param>
         /// <param name="timeoutMs">初回生成、必要な初期化、再試行を含む呼び出し全体の実時間タイムアウト（ミリ秒）。ゲームのtime scaleには依存しない。</param>
         /// <param name="retryAfterInitialization"><see cref="GenAIExecutionException"/>発生時に初期化を実行後、1回再試行するかどうか (デフォルト:true)</param>
+        /// <param name="structuredOutput">JSON Schemaによる出力制約。JSONまたはYAMLでスキーマを記述できる。</param>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeoutMs"/>が0以下の場合。</exception>
         /// <exception cref="OperationCanceledException"><paramref name="ct"/>がキャンセルされた場合。</exception>
         /// <exception cref="TimeoutException">生成処理が<paramref name="timeoutMs"/>以内に完了しなかった場合。</exception>
@@ -98,7 +99,7 @@ namespace AIDrivenFW.API
         /// 生成中に<see cref="SetExecutor"/>または<see cref="KillProcess"/>を呼び出した場合の動作は保証されません。
         /// </para>
         /// </remarks>
-        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, bool retryAfterInitialization = true)
+        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, bool retryAfterInitialization = true, StructuredOutputOptions structuredOutput = null)
         {
             if (timeoutMs <= 0)
             {
@@ -123,13 +124,13 @@ namespace AIDrivenFW.API
                 string result;
                 try
                 {
-                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
+                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs, structuredOutput);
                 }
                 catch (GenAIExecutionException ex) when (retryAfterInitialization)
                 {
                     Debug.LogWarning($"AI generation failed after {ex.Attempts} attempts. Initializing and retrying once: {ex.Message}");
                     await AIDrivenInitializer.Initialize(requestToken, this);
-                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
+                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs, structuredOutput);
                 }
 
                 requestToken.ThrowIfCancellationRequested();

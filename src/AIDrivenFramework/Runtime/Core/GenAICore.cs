@@ -12,11 +12,13 @@ namespace AIDrivenFW.Core
         private const int CheckIntervalMs = 500;
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
         private readonly IAIExecutor executor;
+        private readonly StructuredOutputSchemaNormalizer schemaNormalizer;
         private GenAIConfig defaultConfig;
 
-        public GenAICore(IAIExecutor aiExecutor)
+        public GenAICore(IAIExecutor aiExecutor, StructuredOutputSchemaNormalizer schemaNormalizer = null)
         {
             executor = aiExecutor ?? throw new ArgumentNullException(nameof(aiExecutor));
+            this.schemaNormalizer = schemaNormalizer ?? new StructuredOutputSchemaNormalizer();
         }
 
         /// <summary>
@@ -28,12 +30,13 @@ namespace AIDrivenFW.Core
         /// <param name="progress">生成進捗を受け取るコールバック。</param>
         /// <param name="ct">呼び出し元からのキャンセルトークン。</param>
         /// <param name="timeoutMs">ロック待機、プロセス準備、全試行を含む実時間の期限（ミリ秒）。</param>
+        /// <param name="structuredOutput">JSON Schemaによる出力制約。YAMLはExecutorを呼び出す前にJSONへ正規化する。</param>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeoutMs"/>が0以下の場合。</exception>
         /// <exception cref="OperationCanceledException"><paramref name="ct"/>がキャンセルされた場合。</exception>
         /// <exception cref="TimeoutException">処理が期限内に完了しなかった場合。</exception>
         /// <exception cref="GenAIConfigurationException">AI生成を開始できない構成不備がある場合。</exception>
         /// <exception cref="GenAIExecutionException">3回の試行後も生成が失敗した場合。</exception>
-        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, StructuredOutputOptions structuredOutput = null)
         {
             if (timeoutMs <= 0)
             {
@@ -54,6 +57,8 @@ namespace AIDrivenFW.Core
                 await _generateLock.WaitAsync(operationToken);
                 lockTaken = true;
 
+                StructuredOutputDefinition outputDefinition = schemaNormalizer.Normalize(structuredOutput);
+                bool structuredOutputRequiresRestart = ConfigureStructuredOutput(outputDefinition);
                 GenAIConfig effectiveConfig = genAIConfig;
                 bool needRestart = false;
                 Exception lastException = null;
@@ -76,7 +81,7 @@ namespace AIDrivenFW.Core
 
                         if (attempt == 1)
                         {
-                            needRestart = !executor.IsProcessAlive();
+                            needRestart = !executor.IsProcessAlive() || structuredOutputRequiresRestart;
                         }
 
                         if (attempt > 1 && AIDrivenConfig.Instance.IsDeepDebug)
@@ -149,6 +154,23 @@ namespace AIDrivenFW.Core
                     _generateLock.Release();
                 }
             }
+        }
+
+        private bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+        {
+            if (executor is IStructuredOutputExecutor structuredExecutor)
+            {
+                return structuredExecutor.ConfigureStructuredOutput(definition);
+            }
+
+            if (definition != null)
+            {
+                throw new GenAIConfigurationException(
+                    $"Executor '{executor.GetType().Name}' does not support structured output. " +
+                    $"Implement {nameof(IStructuredOutputExecutor)} or use a built-in llama.cpp/Ollama executor.");
+            }
+
+            return false;
         }
 
         private async UniTask<string> GenerateOnceAsync(string systemPrompt, string input, Action<string> onUpdate, IProgress<float> progress, CancellationToken ct, int timeoutMs)

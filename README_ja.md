@@ -108,6 +108,31 @@ var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
 ```
 
+JSON Schemaで出力を制約する場合は、最後のオプションに`StructuredOutputOptions`を渡します。スキーマはJSONまたはYAMLで記述できます。
+
+```csharp
+using AIDrivenFW.API;
+using AIDrivenFW.Core;
+
+const string schema = @"
+type: object
+properties:
+  name:
+    type: string
+  score:
+    type: integer
+required: [name, score]
+";
+
+var result = await genAI.Generate(
+    "キャラクターを1人作成してください。",
+    structuredOutput: StructuredOutputOptions.FromYaml(schema));
+```
+
+YAMLスキーマは生成前にCoreでJSONへ正規化されます。組み込みのllama.cpp ExecutorではJSON SchemaをGBNFへ変換し、Ollama Executorでは`format`フィールドへJSON Schemaを渡します。独自Executorは`IStructuredOutputExecutor`を実装することで対応できます。
+
+組み込みGBNF変換は、構造化生成で一般的に使う`type`、`properties`、`required`、`items`、`enum`、`const`、`oneOf`、`anyOf`、ローカルの`$defs` / `definitions`参照に対応します。未対応の制約は生成される文法には反映されません。
+
 これで準備完了です 🎉
 
 ---

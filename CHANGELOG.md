@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### Added
+- Added request-level structured output control using JSON Schema sources written in JSON or YAML.
+- Added Core-side YAML-to-JSON Schema normalization before generation.
+- Added JSON Schema-to-GBNF conversion for llama.cpp CLI and server executors.
+- Added native JSON Schema forwarding through Ollama's `format` request field.
+
 
 ## [3.2.0] - 2026-08-11
 ### Changed

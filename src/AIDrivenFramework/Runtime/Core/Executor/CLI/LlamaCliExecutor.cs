@@ -7,13 +7,15 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-public class LlamaCliExecutor : IAIExecutor
+public class LlamaCliExecutor : IAIExecutor, IStructuredOutputExecutor
 {
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;
     const int checkIntervalMs = 100; // 確認の間隔  
     string AISoftwarePath = "";
     int outStartIndex = 0;
+    private string gbnfGrammar;
+    private string appliedGbnfGrammar;
 
     public LlamaCliExecutor()
     {
@@ -344,7 +346,39 @@ public class LlamaCliExecutor : IAIExecutor
 
     public string SetArguments(string raw,GenAIConfig genAIConfig)
     {
-        return BuildArguments(raw, genAIConfig);
+        if (!string.IsNullOrEmpty(appliedGbnfGrammar))
+        {
+            string previousSuffix = " --grammar " + QuoteProcessArgument(appliedGbnfGrammar);
+            if (raw.EndsWith(previousSuffix, StringComparison.Ordinal))
+            {
+                raw = raw.Substring(0, raw.Length - previousSuffix.Length);
+            }
+        }
+
+        string args = BuildArguments(raw, genAIConfig);
+        if (!string.IsNullOrEmpty(gbnfGrammar))
+        {
+            args += " --grammar " + QuoteProcessArgument(gbnfGrammar);
+        }
+        appliedGbnfGrammar = gbnfGrammar;
+        return args;
+    }
+
+    public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+    {
+        string nextGrammar = definition == null
+            ? null
+            : JsonSchemaToGbnfConverter.Convert(definition.JsonSchema);
+        bool changed = !string.Equals(gbnfGrammar, nextGrammar, StringComparison.Ordinal);
+        gbnfGrammar = nextGrammar;
+        return changed;
+    }
+
+    internal static string QuoteProcessArgument(string value)
+    {
+        return "\"" + (value ?? string.Empty)
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"") + "\"";
     }
 
     internal static string BuildArguments(string raw, GenAIConfig genAIConfig)

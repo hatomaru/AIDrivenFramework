@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AIDrivenFW.Tests.Unit
 {
-    internal sealed class FakeAIExecutor : IAIExecutor
+    internal sealed class FakeAIExecutor : IAIExecutor, IStructuredOutputExecutor
     {
         private readonly Queue<Exception> generateFailures = new Queue<Exception>();
         private readonly Queue<Exception> receiveFailures = new Queue<Exception>();
@@ -45,6 +45,8 @@ namespace AIDrivenFW.Tests.Unit
         public string LastSystemInput { get; private set; }
         public string LastInput { get; private set; }
         public GenAIConfig LastStartConfig { get; private set; }
+        public StructuredOutputDefinition LastStructuredOutput { get; private set; }
+        public int ConfigureStructuredOutputCallCount { get; private set; }
         public bool ProcessAlive { get; private set; } = true;
         public Task GenerationStarted => generationStarted?.Task ?? Task.CompletedTask;
         public Task ReceiveStarted => receiveStarted?.Task ?? Task.CompletedTask;
@@ -247,6 +249,17 @@ namespace AIDrivenFW.Tests.Unit
             }
 
             return raw;
+        }
+
+        public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+        {
+            ConfigureStructuredOutputCallCount++;
+            bool changed = !string.Equals(
+                LastStructuredOutput?.JsonSchema,
+                definition?.JsonSchema,
+                StringComparison.Ordinal);
+            LastStructuredOutput = definition;
+            return changed;
         }
 
         private static TaskCompletionSource<bool> CreateCompletionSource()

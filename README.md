@@ -102,6 +102,31 @@ var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
 ```
 
+To constrain the response with a JSON Schema, pass `StructuredOutputOptions` as the final option. The schema source can be JSON or YAML:
+
+```csharp
+using AIDrivenFW.API;
+using AIDrivenFW.Core;
+
+const string schema = @"
+type: object
+properties:
+  name:
+    type: string
+  score:
+    type: integer
+required: [name, score]
+";
+
+var result = await genAI.Generate(
+    "Create one character.",
+    structuredOutput: StructuredOutputOptions.FromYaml(schema));
+```
+
+YAML schemas are normalized to JSON in Core before generation. Built-in llama.cpp executors convert the JSON Schema to GBNF; the Ollama executor sends the JSON Schema through its `format` field. Custom executors can opt in by implementing `IStructuredOutputExecutor`.
+
+The built-in GBNF converter supports the common JSON Schema subset used for structured generation: `type`, `properties`, `required`, `items`, `enum`, `const`, `oneOf`, `anyOf`, and local `$defs` / `definitions` references. Unsupported constraints are not enforced by the generated grammar.
+
 You're all set 🎉
 
 ---

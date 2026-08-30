@@ -18,6 +18,11 @@ namespace AIDrivenFW.Core
             : base(message)
         {
         }
+
+        public GenAIConfigurationException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
     }
 
     /// <summary>

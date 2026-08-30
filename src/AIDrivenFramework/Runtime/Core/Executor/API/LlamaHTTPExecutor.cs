@@ -48,14 +48,7 @@ internal class Message
     public string content;
 }
 
-[Serializable]
-internal class RequestPayload
-{
-    public Message[] messages;
-    public bool stream;
-}
-
-public class LlamaHTTPExecutor : IAIExecutor
+public class LlamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
 {
 
     // HTTPクライアント
@@ -68,6 +61,7 @@ public class LlamaHTTPExecutor : IAIExecutor
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;
     private string _lastResponse = string.Empty;
+    private string _gbnfGrammar;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
 
@@ -207,8 +201,7 @@ public class LlamaHTTPExecutor : IAIExecutor
             ? new Message[] { new Message { role = "user", content = prompt } }
             : new Message[] { new Message { role = "system", content = systemPrompt }, new Message { role = "user", content = prompt } };
 
-        var payload = new RequestPayload { messages = messages, stream = stream };
-        string requestJson = JsonUtility.ToJson(payload);
+        string requestJson = BuildRequestJson(messages, stream, _gbnfGrammar);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -245,6 +238,34 @@ public class LlamaHTTPExecutor : IAIExecutor
             UnityEngine.Debug.LogError($"Error during generation: {ex.Message}");
             throw;
         }
+    }
+
+    internal static string BuildRequestJson(Message[] messages, bool stream, string grammar)
+    {
+        var builder = new StringBuilder("{\"messages\":[");
+        for (int i = 0; i < messages.Length; i++)
+        {
+            if (i > 0) builder.Append(',');
+            builder.Append("{\"role\":")
+                .Append(StructuredOutputJson.Quote(messages[i].role))
+                .Append(",\"content\":")
+                .Append(StructuredOutputJson.Quote(messages[i].content))
+                .Append('}');
+        }
+        builder.Append("],\"stream\":").Append(stream ? "true" : "false");
+        if (!string.IsNullOrEmpty(grammar))
+        {
+            builder.Append(",\"grammar\":").Append(StructuredOutputJson.Quote(grammar));
+        }
+        return builder.Append('}').ToString();
+    }
+
+    public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+    {
+        _gbnfGrammar = definition == null
+            ? null
+            : JsonSchemaToGbnfConverter.Convert(definition.JsonSchema);
+        return false;
     }
 
     private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate)
