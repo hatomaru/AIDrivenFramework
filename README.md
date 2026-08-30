@@ -127,6 +127,14 @@ YAML schemas are normalized to JSON in Core before generation. Built-in llama.cp
 
 The built-in GBNF converter supports the common JSON Schema subset used for structured generation: `type`, `properties`, `required`, `items`, `enum`, `const`, `oneOf`, `anyOf`, and local `$defs` / `definitions` references. Unsupported constraints are not enforced by the generated grammar.
 
+Provider-specific formats can also be inspected or tested directly:
+
+```csharp
+var source = StructuredOutputOptions.FromJson(jsonSchema);
+string llamaGbnf = StructuredOutputFormatConverter.ToLlamaCppGbnf(source);
+string ollamaFormatJson = StructuredOutputFormatConverter.ToOllamaFormatJson(source);
+```
+
 You're all set 🎉
 
 ---

@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Added Core-side YAML-to-JSON Schema normalization before generation.
 - Added JSON Schema-to-GBNF conversion for llama.cpp CLI and server executors.
 - Added native JSON Schema forwarding through Ollama's `format` request field.
+- Added `StructuredOutputFormatConverter` for explicitly converting JSON/YAML schema sources to llama.cpp GBNF or Ollama format JSON.
 
 
 ## [3.2.0] - 2026-08-11

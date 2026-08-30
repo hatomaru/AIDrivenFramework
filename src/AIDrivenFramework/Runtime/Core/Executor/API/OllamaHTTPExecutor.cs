@@ -36,7 +36,7 @@ public class OllamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
     private GenAIConfig _ownedServerConfig;
     private bool _serverReady = false;
     private string _lastResponse = "";
-    private StructuredOutputDefinition _structuredOutput;
+    private string _ollamaFormatJson;
     string AISoftwarePath = "";
 
     public OllamaHTTPExecutor()
@@ -177,7 +177,7 @@ public class OllamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
 
         bool stream = onUpdate != null;
         // Ollama APIに送るペイロードを構築
-        string requestJson = BuildRequestJson(model, prompt, system, stream, _structuredOutput);
+        string requestJson = BuildRequestJson(model, prompt, system, stream, _ollamaFormatJson);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -221,7 +221,7 @@ public class OllamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
         string prompt,
         string system,
         bool stream,
-        StructuredOutputDefinition structuredOutput)
+        string formatJson)
     {
         var builder = new StringBuilder();
         builder.Append('{')
@@ -229,16 +229,16 @@ public class OllamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
             .Append(",\"prompt\":").Append(StructuredOutputJson.Quote(prompt))
             .Append(",\"system\":").Append(StructuredOutputJson.Quote(system))
             .Append(",\"stream\":").Append(stream ? "true" : "false");
-        if (structuredOutput != null)
+        if (!string.IsNullOrEmpty(formatJson))
         {
-            builder.Append(",\"format\":").Append(structuredOutput.JsonSchema);
+            builder.Append(",\"format\":").Append(formatJson);
         }
         return builder.Append('}').ToString();
     }
 
     public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
     {
-        _structuredOutput = definition;
+        _ollamaFormatJson = StructuredOutputFormatConverter.ToOllamaFormatJson(definition);
         return false;
     }
 

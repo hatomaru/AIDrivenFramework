@@ -133,6 +133,14 @@ YAMLスキーマは生成前にCoreでJSONへ正規化されます。組み込�
 
 組み込みGBNF変換は、構造化生成で一般的に使う`type`、`properties`、`required`、`items`、`enum`、`const`、`oneOf`、`anyOf`、ローカルの`$defs` / `definitions`参照に対応します。未対応の制約は生成される文法には反映されません。
 
+各ランタイム向けの変換結果は、直接取得してテストすることもできます。
+
+```csharp
+var source = StructuredOutputOptions.FromJson(jsonSchema);
+string llamaGbnf = StructuredOutputFormatConverter.ToLlamaCppGbnf(source);
+string ollamaFormatJson = StructuredOutputFormatConverter.ToOllamaFormatJson(source);
+```
+
 これで準備完了です 🎉
 
 ---

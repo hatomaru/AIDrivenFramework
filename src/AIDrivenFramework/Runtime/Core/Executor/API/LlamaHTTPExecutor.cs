@@ -264,7 +264,7 @@ public class LlamaHTTPExecutor : IAIExecutor, IStructuredOutputExecutor
     {
         _gbnfGrammar = definition == null
             ? null
-            : JsonSchemaToGbnfConverter.Convert(definition.JsonSchema);
+            : StructuredOutputFormatConverter.ToLlamaCppGbnf(definition);
         return false;
     }
 

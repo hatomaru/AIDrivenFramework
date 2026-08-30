@@ -356,10 +356,7 @@ public class LlamaCliExecutor : IAIExecutor, IStructuredOutputExecutor
         }
 
         string args = BuildArguments(raw, genAIConfig);
-        if (!string.IsNullOrEmpty(gbnfGrammar))
-        {
-            args += " --grammar " + QuoteProcessArgument(gbnfGrammar);
-        }
+        args = AppendGrammarArgument(args, gbnfGrammar);
         appliedGbnfGrammar = gbnfGrammar;
         return args;
     }
@@ -368,7 +365,7 @@ public class LlamaCliExecutor : IAIExecutor, IStructuredOutputExecutor
     {
         string nextGrammar = definition == null
             ? null
-            : JsonSchemaToGbnfConverter.Convert(definition.JsonSchema);
+            : StructuredOutputFormatConverter.ToLlamaCppGbnf(definition);
         bool changed = !string.Equals(gbnfGrammar, nextGrammar, StringComparison.Ordinal);
         gbnfGrammar = nextGrammar;
         return changed;
@@ -379,6 +376,16 @@ public class LlamaCliExecutor : IAIExecutor, IStructuredOutputExecutor
         return "\"" + (value ?? string.Empty)
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"") + "\"";
+    }
+
+    internal static string AppendGrammarArgument(string arguments, string grammar)
+    {
+        if (string.IsNullOrEmpty(grammar))
+        {
+            return arguments;
+        }
+
+        return arguments + " --grammar " + QuoteProcessArgument(grammar);
     }
 
     internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
