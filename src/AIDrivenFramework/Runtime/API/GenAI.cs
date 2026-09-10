@@ -1,5 +1,5 @@
-using AIDrivenFW.Core;
 using AIDrivenFW.Config;
+using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Threading;
@@ -14,6 +14,31 @@ namespace AIDrivenFW.API
 
         public GenAI(IAIExecutor aiExecutor = null)
         {
+            // aiExecutor が指定されていない場合は保存された設定を読み込み、実行モードに応じてルーティングする
+            if (aiExecutor == null)
+            {
+                try
+                {
+                    var saved = AIDrivenFW.Config.ModelInfo.LoadFromFile();
+                    if (saved != null && !string.IsNullOrEmpty(saved.Mode) && saved.Mode.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Ollama モード
+                        SetExecutor(new OllamaHTTPExecutor());
+                    }
+                    else
+                    {
+                        // デフォルトは llama.cpp
+                        SetExecutor(new LlamaHTTPExecutor());
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogWarning($"Failed to auto routing: {ex.Message}");
+                    // フォールバック
+                    SetExecutor(new LlamaHTTPExecutor());
+                }
+            }
             SetExecutor(aiExecutor ?? new LlamaCliExecutor());
         }
 
