@@ -32,14 +32,17 @@ namespace AIDrivenFW.Core
         private readonly object _outputLock = new object();
         // 出力を受け取るビルダー
         StreamReader reader = null;  // stdout 読み取り用
+        StreamReader errorReader = null; // stderr 読み取り用
         StringBuilder outputBuilder = new StringBuilder();
         StringBuilder errorBuilder = new StringBuilder();
         private Stream procStdinStream = null;  // 標準入力ストリーム
         private static readonly UTF8Encoding _utf8NoBom = new UTF8Encoding(false);
         private Thread _stdoutThread = null;           // stdout 読み取りスレッド
+        private Thread _stderrThread = null;           // stderr 読み取りスレッド
         private volatile bool _stopReading = false;    // 読み取り停止フラグ
         // 出力イベント
         public event Action<string> onPartialOutput;
+        public event Action<string> onPartialError;
 
         public Process persistentProc { get; private set; } = null;  // 常駐プロセス
         private readonly bool _redirectStdIn;
@@ -113,19 +116,9 @@ namespace AIDrivenFW.Core
                 outputBuilder.Clear();
                 errorBuilder.Clear();
             }
-            // レシーブ設定 (マーカー判定)
-            if (_redirectStdErr)
-            {
-                persistentProc.ErrorDataReceived += OnErrorDataReceived;
-            }
             Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
-            if (_redirectStdErr)
-            {
-                persistentProc.BeginErrorReadLine();
-            }
-
             // stdout を BaseStream から直接読み取るスレッドを起動
             if (_redirectStdOut)
             {
@@ -136,6 +129,18 @@ namespace AIDrivenFW.Core
                     Name = "AIProcess_StdoutReader"
                 };
                 _stdoutThread.Start();
+            }
+
+            // Ollama's pull progress is updated with carriage returns on stderr.
+            // Read the stream directly so every rewritten progress line can be observed.
+            if (_redirectStdErr)
+            {
+                _stderrThread = new Thread(ReadStderrLoop)
+                {
+                    IsBackground = true,
+                    Name = "AIProcess_StderrReader"
+                };
+                _stderrThread.Start();
             }
 
             // 標準入力ストリームを取得（StreamWriter を介さず BaseStream を直接使用）
@@ -170,6 +175,44 @@ namespace AIDrivenFW.Core
         public void RegisterOutputListener(Action<string> listener)
         {
             onPartialOutput += listener;
+        }
+
+        public void UnregisterOutputListener(Action<string> listener)
+        {
+            onPartialOutput -= listener;
+        }
+
+        public void RegisterErrorListener(Action<string> listener)
+        {
+            onPartialError += listener;
+        }
+
+        public void UnregisterErrorListener(Action<string> listener)
+        {
+            onPartialError -= listener;
+        }
+
+        public string GetErrorSnapshot()
+        {
+            lock (_outputLock)
+            {
+                return errorBuilder.ToString();
+            }
+        }
+
+        public bool TryGetExitCode(out int exitCode)
+        {
+            lock (_lock)
+            {
+                if (persistentProc == null || !persistentProc.HasExited)
+                {
+                    exitCode = default;
+                    return false;
+                }
+
+                exitCode = persistentProc.ExitCode;
+                return true;
+            }
         }
 
         /// <summary>
@@ -241,6 +284,7 @@ namespace AIDrivenFW.Core
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
                 try { reader?.Dispose(); } catch { }
+                try { errorReader?.Dispose(); } catch { }
                 try { procStdinStream?.Dispose(); } catch { }
                 try { persistentProc?.Dispose(); } catch { }
                 Application.quitting -= KillProcess;
@@ -334,6 +378,58 @@ namespace AIDrivenFW.Core
             if (AIDrivenConfig.Instance.IsDeepDebug)
             {
                 UnityEngine.Debug.Log($"[llama stderr] {e.Data}");
+            }
+        }
+
+        /// <summary>
+        /// stderr is read character by character because CLI progress is commonly rendered with '\r'.
+        /// Each completed or rewritten line is published immediately to listeners.
+        /// </summary>
+        private void ReadStderrLoop()
+        {
+            try
+            {
+                errorReader = new StreamReader(
+                    persistentProc.StandardError.BaseStream,
+                    new UTF8Encoding(false));
+
+                var lineBuffer = new StringBuilder();
+                int character;
+                while (!_stopReading && (character = errorReader.Read()) != -1)
+                {
+                    if (character == '\r' || character == '\n')
+                    {
+                        PublishErrorLine(lineBuffer.ToString());
+                        lineBuffer.Clear();
+                    }
+                    else
+                    {
+                        lineBuffer.Append((char)character);
+                    }
+                }
+
+                if (lineBuffer.Length > 0)
+                {
+                    PublishErrorLine(lineBuffer.ToString());
+                }
+            }
+            catch (Exception ex) when (!_stopReading)
+            {
+                UnityEngine.Debug.LogError($"[AIProcess] stderr read error: {ex.Message}");
+            }
+        }
+
+        private void PublishErrorLine(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            lock (_outputLock)
+            {
+                errorBuilder.AppendLine(line);
+                onPartialError?.Invoke(line);
+            }
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log($"[AIProcess stderr] {line}");
             }
         }
 
