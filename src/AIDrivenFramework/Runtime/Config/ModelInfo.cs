@@ -12,6 +12,8 @@ namespace AIDrivenFW.Config
 
         // JsonUtility serializes fields, so use a public field instead of a property
         public string Name = "";
+        // 保存する実行モード: "Ollama" または "Llama"
+        public string Mode = "Llama";
 
         public ModelInfo() { }
 
