@@ -38,6 +38,7 @@ namespace AIDrivenFW.API
                     // フォールバック
                     SetExecutor(new LlamaHTTPExecutor());
                 }
+                return;   
             }
             SetExecutor(aiExecutor ?? new LlamaCliExecutor());
         }
