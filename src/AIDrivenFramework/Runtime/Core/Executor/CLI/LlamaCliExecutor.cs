@@ -344,6 +344,10 @@ public class LlamaCliExecutor : IAIExecutor
 
     public string SetArguments(string raw,GenAIConfig genAIConfig)
     {
+        if (string.IsNullOrWhiteSpace(raw) || raw == AIDrivenConfig.autoDetect)
+        {
+            raw = SetDefaultArguments();
+        }
         return BuildArguments(raw, genAIConfig);
     }
 

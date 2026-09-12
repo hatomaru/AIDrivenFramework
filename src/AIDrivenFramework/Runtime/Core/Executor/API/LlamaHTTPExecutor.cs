@@ -66,7 +66,6 @@ public class LlamaHTTPExecutor : IAIExecutor
     private string ServerUrl => $"http://{ServerHost}:{ServerPort}";
 
     private AIProcess aiProcess;
-    private GenAIConfig ownedConfig;
     private string _lastResponse = string.Empty;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
@@ -79,112 +78,92 @@ public class LlamaHTTPExecutor : IAIExecutor
         httpClient.Timeout = TimeSpan.FromMinutes(5);
         httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
 
-        AISoftwarePath = Path.Combine(
-            UnityEngine.Application.persistentDataPath,
-            AIDrivenConfig.baseFilePath,
-            "llama-server.exe"
-        );
+        AISoftwarePath = FindServerExecutable();
+    }
 
-        if (!File.Exists(AISoftwarePath))
-        {
-            UnityEngine.Debug.LogError($"❌ サーバー実行ファイルが見つかりません: {AISoftwarePath}");
-            return;
-        }
+    private static string FindServerExecutable()
+    {
+        string root = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath);
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+        const string name = "llama-server";
+#else
+        const string name = "llama-server.exe";
+#endif
+        string directPath = Path.Combine(root, name);
+        if (File.Exists(directPath) || !Directory.Exists(root)) return directPath;
+        var files = Directory.GetFiles(root, name, SearchOption.AllDirectories);
+        Array.Sort(files, StringComparer.Ordinal);
+        return files.Length > 0 ? files[0] : directPath;
     }
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        if (aiProcess != null && aiProcess.IsProcessAlive())
-        {
-            aiProcess.KillProcess();
-            if (AIDrivenConfig.Instance.IsDeepDebug)
-            {
-                UnityEngine.Debug.Log("Existing process killed.");
-            }
-        }
-        if (AIDrivenConfig.Instance.IsDeepDebug)
-        {
-            UnityEngine.Debug.Log("Starting new process...");
-        }
-        string llamaDir = AISoftwarePath;
-        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
-        if (config == null)
-        {
-            ownedConfig = GenAIConfigLifecycle.CreateOwned();
-            config = ownedConfig;
-        }
-            config.arguments = $"-m {{ModelPath}} --host {ServerHost} --port {ServerPort} " +
-              $"--gpu-layers 130 " +
-              $"--ctx-size 2048 " +
-              $"--parallel 1 " +
-              $"--mlock";
+        ct.ThrowIfCancellationRequested();
+        KillProcess();
+        AISoftwarePath = !string.IsNullOrEmpty(config?.aiSoftwarePath)
+            ? config.aiSoftwarePath : FindServerExecutable();
+        if (!File.Exists(AISoftwarePath))
+            throw new FileNotFoundException("llama-server executable was not found.", AISoftwarePath);
 
-        config.arguments = SetArguments(config.arguments, config);
-        config.aiSoftwarePath = AISoftwarePath;
-        aiProcess = new AIProcess(config);
-
-        await UniTask.WaitUntil(
-            () => aiProcess.IsProcessAlive(),
-            cancellationToken: ct
-        );
-
-        UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
-        UnityEngine.Debug.Log($"Starting process with command: {llamaDir} {config.arguments}");
-        await WaitUntilReadyAsync(ct);
+        // Keep the caller's asset and argument template unchanged.
+        var processConfig = new GenAIConfig();
+        processConfig.aiSoftwarePath = AISoftwarePath;
+        processConfig.modelFilePath = config?.modelFilePath ?? AIDrivenConfig.autoDetect;
+        processConfig.sysPrompt = config?.sysPrompt ?? "";
+        processConfig.arguments = SetArguments(config?.arguments, processConfig);
+        try
+        {
+            aiProcess = new AIProcess(processConfig, redirectStdIn: false);
+            await WaitUntilReadyAsync(ct, progress, timeoutMs);
+        }
+        catch
+        {
+            KillProcess();
+            throw;
+        }
     }
 
     public async UniTask WaitUntilReadyAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 120000)
     {
-        // ここでプロセスが準備できるまで待機する処理を実装  
-        await WaitModelLoadAsync(ct);
-    }
-
-    private async UniTask WaitModelLoadAsync(CancellationToken ct)
-    {
-        // ここでモデルのロードが完了するまで待機する処理を実装  
-        if (AIDrivenConfig.Instance.IsDeepDebug)
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(timeoutMs);
+        try
         {
-            UnityEngine.Debug.Log("Model Loading...");
-        }
-        // Wait for server to be ready (poll health endpoint)
-        int maxWaitMs = 180000; // 3 minutes for model loading
-        int elapsedMs = 0;
-        const int pollIntervalMs = 1000;
-
-        while (elapsedMs < maxWaitMs && !ct.IsCancellationRequested)
-        {
-            try
+            while (true)
             {
-                var response = await httpClient.GetAsync($"{ServerUrl}/health", ct);
-                if (response.IsSuccessStatusCode)
+                timeout.Token.ThrowIfCancellationRequested();
+                if (!IsProcessAlive())
+                    throw new InvalidOperationException("llama-server exited before becoming ready. Check the server log.");
+                try
                 {
-                    if (AIDrivenConfig.Instance.IsDeepDebug)
+                    using var response = await httpClient.GetAsync($"{ServerUrl}/health", timeout.Token);
+                    if (response.IsSuccessStatusCode)
                     {
-                        UnityEngine.Debug.Log("ModelLoad Complete");
+                        progress?.Report(1f);
+                        return;
                     }
-                    return;
                 }
+                catch (HttpRequestException)
+                {
+                    // The listening socket may not exist yet while the model loads.
+                }
+                await UniTask.Delay(checkIntervalMs, cancellationToken: timeout.Token);
             }
-            catch (Exception)
-            {
-                // サーバーがまだ起動していない
-            }
-
-            await UniTask.Delay(pollIntervalMs, cancellationToken: ct);
-            elapsedMs += pollIntervalMs;
         }
-
-        throw new TimeoutException("Model loading timed out");
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException($"llama-server startup timed out ({timeoutMs}ms).");
+        }
     }
-
     public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
             UnityEngine.Debug.LogWarning("AIProcess is not initialized. Call StartProcessAsync first.");
-            await StartProcessAsync(ct, null);
+            await StartProcessAsync(ct, null, progress, timeoutMs);
         }
         // プロンプトをJSON形式で受け取る場合とプレーンテキストで受け取る場合の両方に対応
+        _lastResponse = string.Empty;
         string prompt = input;
         string systemPrompt = sysInput;
         try
@@ -214,7 +193,7 @@ public class LlamaHTTPExecutor : IAIExecutor
         cts.CancelAfter(timeoutMs);
 
         var responseBuilder = new StringBuilder();
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/v1/chat/completions")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/v1/chat/completions")
         {
             Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
         };
@@ -249,19 +228,18 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate)
     {
-        var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
         if (!httpResponse.IsSuccessStatusCode)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw GenAIExceptionClassifier.CreateHttpStatusException(
-                "llama-server", (int)httpResponse.StatusCode, errorBody);
+            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
         }
 
         using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
         using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
 
         // SSE形式でデータを逐次的に読み取る
-        while (!reader.EndOfStream)
+        while (true)
         {
             // キャンセルチェック
             if (ct.IsCancellationRequested)
@@ -269,13 +247,14 @@ public class LlamaHTTPExecutor : IAIExecutor
                 ct.ThrowIfCancellationRequested();
             }
 
-            string line = await reader.ReadLineAsync();
+            string line = await reader.ReadLineAsync().AsUniTask().AttachExternalCancellation(ct);
+            if (line == null) break;
             if (string.IsNullOrEmpty(line)) continue;
 
             // SSE format: "data: {...}" or "data: [DONE]"
-            if (!line.StartsWith("data: ")) continue;
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
 
-            string data = line.Substring(6).Trim();
+            string data = line.Substring(5).Trim();
             if (data == "[DONE]")
             {
                 if (AIDrivenConfig.Instance.IsDeepDebug)
@@ -285,46 +264,33 @@ public class LlamaHTTPExecutor : IAIExecutor
                 break;
             }
 
-            try
-            {
-                var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
-                if (chunk?.choices == null || chunk.choices.Length == 0) continue;
+            var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
+            if (chunk?.choices == null || chunk.choices.Length == 0) continue;
 
-                string content = chunk.choices[0].delta?.content;
-                if (!string.IsNullOrEmpty(content))
-                {
-                    responseBuilder.Append(content);
-                    onUpdate?.Invoke(content);
-
-                    // Yield to allow Unity to process other tasks
-                    await UniTask.Yield();
-                }
-            }
-            catch (Exception ex)
+            string content = chunk.choices[0]?.delta?.content;
+            if (!string.IsNullOrEmpty(content))
             {
-                if (AIDrivenConfig.Instance.IsDeepDebug)
-                {
-                    UnityEngine.Debug.LogWarning($"Failed to parse SSE chunk: {data}. Error: {ex.Message}");
-                }
-                // Continue processing next chunks even if one fails
-                continue;
+                responseBuilder.Append(content);
+                onUpdate?.Invoke(content);
+                await UniTask.Yield();
             }
         }
     }
 
     private async UniTask ProcessNonStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder)
     {
-        var httpResponse = await httpClient.SendAsync(httpRequest, ct);
+        using var httpResponse = await httpClient.SendAsync(httpRequest, ct);
         if (!httpResponse.IsSuccessStatusCode)
         {
             string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw GenAIExceptionClassifier.CreateHttpStatusException(
-                "llama-server", (int)httpResponse.StatusCode, errorBody);
+            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
         }
 
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
         var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
-        string content = result?.choices?[0]?.message?.content ?? "";
+        if (result?.choices == null || result.choices.Length == 0 || result.choices[0]?.message?.content == null)
+            throw new InvalidDataException("llama-server returned no assistant message: " + responseJson);
+        string content = result.choices[0].message.content;
         responseBuilder.Append(content);
 
         if (AIDrivenConfig.Instance.IsDeepDebug)
@@ -350,40 +316,40 @@ public class LlamaHTTPExecutor : IAIExecutor
 
     public bool IsDifferentAIConfig(GenAIConfig newAiConfig)
     {
-        return aiProcess != null && aiProcess.aiConfig.arguments != newAiConfig.arguments;
+        return aiProcess != null && (aiProcess.aiConfig.arguments != SetArguments(newAiConfig?.arguments, newAiConfig)
+            || (!string.IsNullOrEmpty(newAiConfig?.aiSoftwarePath) && aiProcess.aiConfig.aiSoftwarePath != newAiConfig.aiSoftwarePath));
     }
 
     public string SetDefaultArguments()
     {
         return "-m {ModelPath} --host {ServerHost} --port {ServerPort} " +
-              "--gpu-layers 130 " +
-              "--ctx-size 2048 " +
-              "--parallel 1 " +
-              "--mlock";
+               $"--gpu-layers {AIDrivenConfig.RecommendedGpuLayers} " +
+               $"--batch-size {AIDrivenConfig.RecommendedBatchSize} --ctx-size 4096 --parallel 1";
     }
 
     public string SetArguments(string raw, GenAIConfig genAIConfig)
     {
-        return BuildArguments(raw, genAIConfig);
-    }
-
-    internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
-    {
-        string args = ModelRepository.ExpandRequiredModelArgument(raw, genAIConfig);
-        args = args.Replace("{ServerHost}", $"\"{ServerHost}\"");
-        args = args.Replace("{ServerPort}", $"\"{ServerPort}\"");
-        return args;
+        if (string.IsNullOrWhiteSpace(raw) || raw == AIDrivenConfig.autoDetect || raw == AIDrivenConfig.defaultArguments)
+            raw = SetDefaultArguments();
+        string modelPath = genAIConfig?.modelFilePath;
+        if (string.IsNullOrWhiteSpace(modelPath) || modelPath == AIDrivenConfig.autoDetect)
+            modelPath = ModelRepository.GetModelExecutablePath();
+        return raw.Replace("{ModelPath}", $"\"{modelPath}\"")
+            .Replace("{modelArg}", $"\"{modelPath}\"")
+            .Replace("{ServerHost}", ServerHost)
+            .Replace("{ServerPort}", ServerPort.ToString());
     }
 
     public void KillProcess()
     {
         aiProcess?.KillProcess();
         aiProcess = null;
-        GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
+        _lastResponse = string.Empty;
     }
 
     public string IsFoundAISoftware()
     {
+        AISoftwarePath = FindServerExecutable();
         return File.Exists(AISoftwarePath) ? AISoftwarePath : "null";
     }
 

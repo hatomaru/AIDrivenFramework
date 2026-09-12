@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-09-12
+### Changed
+- Added support for selecting Ollama or Llama.cpp during setup when Ollama is installed.
+
 ## [3.2.0] - 2026-08-11
 ### Changed
 - `GenAI` now treats its `IAIExecutor` as an exclusively owned per-instance dependency.
