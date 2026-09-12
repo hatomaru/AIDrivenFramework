@@ -338,8 +338,7 @@ public class LlamaCliExecutor : IAIExecutor
               return "-m {ModelPath} --system-prompt {sysPrompt} " +
               "--gpu-layers 130 " +
               "--ctx-size 2048 " +
-              "--parallel 1 " +
-              "--mlock";
+              "--parallel 1";
     }
 
     public string SetArguments(string raw,GenAIConfig genAIConfig)
