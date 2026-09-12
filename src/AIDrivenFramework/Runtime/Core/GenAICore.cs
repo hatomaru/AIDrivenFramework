@@ -19,7 +19,7 @@ namespace AIDrivenFW.Core
             executor = aiExecutor;
         }
 
-        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 1000000)
         {
             // 設定の初期化
             if (genAIConfig == null)
@@ -134,7 +134,7 @@ namespace AIDrivenFW.Core
         /// </summary>
         /// <param name="progress">プログレス</param>
         /// <param name="timeoutMs">タイムアウトまでの秒数</param>
-        private async UniTask LoadingAsync(CancellationToken ct, IProgress<float> progress = null, float timeoutMs = 120000)
+        private async UniTask LoadingAsync(CancellationToken ct, IProgress<float> progress = null, float timeoutMs = 0)
         {
             // 生成完了を待機
             int elapsedMs = 0;

@@ -29,7 +29,7 @@ namespace AIDrivenFW.API
                     else
                     {
                         // デフォルトは llama.cpp
-                        SetExecutor(new LlamaHTTPExecutor());
+                        SetExecutor(new LlamaCliExecutor());
                     }
 
                 }
@@ -37,7 +37,7 @@ namespace AIDrivenFW.API
                 {
                     UnityEngine.Debug.LogWarning($"Failed to auto routing: {ex.Message}");
                     // フォールバック
-                    SetExecutor(new LlamaHTTPExecutor());
+                    SetExecutor(new LlamaCliExecutor());
                 }
                 return;   
             }
