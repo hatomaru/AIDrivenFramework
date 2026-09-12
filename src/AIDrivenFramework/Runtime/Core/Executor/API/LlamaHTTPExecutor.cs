@@ -331,11 +331,12 @@ public class LlamaHTTPExecutor : IAIExecutor
     {
         if (string.IsNullOrWhiteSpace(raw) || raw == AIDrivenConfig.autoDetect || raw == AIDrivenConfig.defaultArguments)
             raw = SetDefaultArguments();
-        string modelPath = genAIConfig?.modelFilePath;
-        if (string.IsNullOrWhiteSpace(modelPath) || modelPath == AIDrivenConfig.autoDetect)
-            modelPath = ModelRepository.GetModelExecutablePath();
-        return raw.Replace("{ModelPath}", $"\"{modelPath}\"")
-            .Replace("{modelArg}", $"\"{modelPath}\"")
+        return BuildArguments(raw, genAIConfig);
+    }
+
+    internal static string BuildArguments(string raw, GenAIConfig genAIConfig)
+    {
+        return ModelRepository.ExpandRequiredModelArgument(raw?.Replace("{modelArg}", "{ModelPath}"), genAIConfig)
             .Replace("{ServerHost}", ServerHost)
             .Replace("{ServerPort}", ServerPort.ToString());
     }
