@@ -332,7 +332,8 @@ public class LlamaCliExecutor : IAIExecutor
 
     public string SetArguments(string raw,GenAIConfig genAIConfig)
     {
-        string args = raw;
+        string args = string.IsNullOrWhiteSpace(raw) || raw == AIDrivenConfig.autoDetect
+            ? AIDrivenConfig.defaultArguments : raw;
         args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
         args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
         return args;

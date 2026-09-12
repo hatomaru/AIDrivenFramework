@@ -118,7 +118,8 @@ public class CustomExecutor : IAIExecutor
 
     public string SetArguments(string raw, GenAIConfig genAIConfig)
     {
-        string args = raw;
+        string args = raw == AIDrivenConfig.autoDetect
+            ? AIDrivenConfig.defaultArguments : raw ?? SetDefaultArguments();
         args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
         args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
         return args;
