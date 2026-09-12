@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.1.2] - 2026-09-12
+## [3.2.1] - 2026-09-12
 ### Changed
 - Added support for selecting Ollama or Llama.cpp during setup when Ollama is installed.
 
