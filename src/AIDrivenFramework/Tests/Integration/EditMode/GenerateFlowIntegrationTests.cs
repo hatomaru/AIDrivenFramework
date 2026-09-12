@@ -1,5 +1,4 @@
 using AIDrivenFW.API;
-using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using System.Threading.Tasks;
 
@@ -12,7 +11,7 @@ public class GenerateFlowIntegrationTests
     {
         testAI = new GenAI();
 
-        var result = await testAI.Generate("Hello").AsTask();
+        var result = await testAI.Generate("Hello");
 
         Assert.IsFalse(string.IsNullOrEmpty(result) || result.Contains("✖"));
     }

@@ -1,0 +1,665 @@
+using AIDrivenFW.API;
+using AIDrivenFW.Config;
+using AIDrivenFW.Core;
+using Cysharp.Threading.Tasks;
+using NUnit.Framework;
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.TestTools;
+
+namespace AIDrivenFW.Tests.Unit
+{
+    [Timeout(10000)]
+    public class GenAIGenerationContractTests
+    {
+        [Test]
+        public void TryTerminateProcess_WhenProcessWasNeverStarted_DoesNotLogError()
+        {
+            using var process = new System.Diagnostics.Process();
+
+            AIProcess.TryTerminateProcess(process);
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        [Test]
+        public async Task GenerateAsync_DefaultConfig_IsReusedAndDestroyedOnDispose()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.SetProcessAlive(false);
+            var core = new GenAICore(executor);
+
+            await core.GenerateAsync("first").AsTask();
+            GenAIConfig firstConfig = executor.LastStartConfig;
+
+            executor.SetProcessAlive(false);
+            await core.GenerateAsync("second").AsTask();
+
+            Assert.AreSame(firstConfig, executor.LastStartConfig);
+            Assert.AreEqual(1, executor.SetDefaultArgumentsCallCount);
+
+            core.Dispose();
+            Assert.IsTrue(firstConfig == null, "The internally created Unity object should be destroyed.");
+        }
+
+        [Test]
+        public async Task GenerateAsync_WithNonPositiveTimeout_ThrowsBeforeCallingExecutor()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<ArgumentOutOfRangeException>(
+                core.GenerateAsync("input", timeoutMs: 0).AsTask());
+
+            Assert.AreEqual("timeoutMs", exception.ParamName);
+            Assert.AreEqual(0, executor.GenerateCallCount);
+            Assert.AreEqual(0, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WithPreCancelledToken_DoesNotCallExecutor()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            var core = new GenAICore(executor);
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await CaptureExceptionAsync<OperationCanceledException>(
+                core.GenerateAsync("input", ct: cts.Token).AsTask());
+
+            Assert.AreEqual(0, executor.GenerateCallCount);
+            Assert.AreEqual(0, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenCallerCancels_PropagatesCancellationAndStopsOnce()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockGeneration();
+            var core = new GenAICore(executor);
+            using var cts = new CancellationTokenSource();
+
+            Task<string> generation = core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask();
+            await executor.GenerationStarted;
+            cts.Cancel();
+
+            var exception = await CaptureExceptionAsync<OperationCanceledException>(generation);
+            Assert.AreEqual(cts.Token, exception.CancellationToken);
+            Assert.AreEqual(1, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.CancellationObservedCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(0, executor.ActiveGenerateCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenDeadlineExpires_ThrowsTimeoutAndStopsOnce()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockGeneration();
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<TimeoutException>(
+                core.GenerateAsync("input", timeoutMs: 200).AsTask());
+
+            StringAssert.Contains("200", exception.Message);
+            Assert.AreEqual(1, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.CancellationObservedCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(0, executor.ActiveGenerateCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenTimeScaleIsZero_DeadlineStillUsesRealtime()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockGeneration();
+            var core = new GenAICore(executor);
+            float originalTimeScale = Time.timeScale;
+
+            try
+            {
+                Time.timeScale = 0f;
+                await CaptureExceptionAsync<TimeoutException>(
+                    core.GenerateAsync("input", timeoutMs: 200).AsTask());
+            }
+            finally
+            {
+                Time.timeScale = originalTimeScale;
+            }
+
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task Generate_WhenCallerCancels_DoesNotConvertCancellationToTimeout()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockGeneration();
+            var genAI = new GenAI(executor);
+            using var cts = new CancellationTokenSource();
+
+            Task<string> generation = genAI.Generate("input", ct: cts.Token, timeoutMs: 5000).AsTask();
+            await executor.GenerationStarted;
+            cts.Cancel();
+
+            var exception = await CaptureExceptionAsync<OperationCanceledException>(generation);
+            Assert.AreEqual(cts.Token, exception.CancellationToken);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task Generate_WhenRequestDeadlineExpires_ConvertsLinkedCancellationToTimeout()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockGeneration();
+            var genAI = new GenAI(executor);
+
+            await CaptureExceptionAsync<TimeoutException>(
+                genAI.Generate("input", timeoutMs: 200).AsTask());
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_AfterThreeExecutorFailures_ThrowsTypedExceptionWithLastCause()
+        {
+            var first = new GenAIRetryableException("first");
+            var second = new GenAIRetryableException("second");
+            var last = new GenAIRetryableException("last");
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.EnqueueGenerateFailure(first);
+            executor.EnqueueGenerateFailure(second);
+            executor.EnqueueGenerateFailure(last);
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<GenAIExecutionException>(
+                core.GenerateAsync("input").AsTask());
+
+            Assert.AreEqual(3, exception.Attempts);
+            Assert.AreSame(last, exception.InnerException);
+            Assert.AreEqual(3, executor.GenerateCallCount);
+            Assert.AreEqual(2, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_AfterTransientFailure_ReturnsSuccessfulRetry()
+        {
+            var executor = new FakeAIExecutor("fake", "recovered");
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("transient"));
+            var core = new GenAICore(executor);
+
+            string result = await core.GenerateAsync("input").AsTask();
+
+            Assert.AreEqual("recovered", result);
+            Assert.AreEqual(2, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenProcessConfigurationIsInvalid_DoesNotRetry()
+        {
+            var configurationException = new GenAIConfigurationException("model is required");
+            var executor = new FakeAIExecutor("fake", "response")
+            {
+                StartProcessException = configurationException
+            };
+            executor.SetProcessAlive(false);
+            var core = new GenAICore(executor);
+
+            LogAssert.Expect(
+                LogType.Error,
+                "AI generation failed without retry (GenAIConfigurationException): model is required");
+            var exception = await CaptureExceptionAsync<GenAIConfigurationException>(
+                core.GenerateAsync("input").AsTask());
+
+            Assert.AreSame(configurationException, exception);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+            Assert.AreEqual(0, executor.GenerateCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenFailureIsNotClassifiedAsRetryable_FailsImmediately()
+        {
+            Exception[] failures =
+            {
+                new ArgumentException("invalid parameter"),
+                new FileNotFoundException("file or model is missing"),
+                new FormatException("invalid format"),
+                new InvalidOperationException("implementation error"),
+                new NotImplementedException("not implemented")
+            };
+
+            foreach (Exception failure in failures)
+            {
+                var executor = new FakeAIExecutor("fake", "response");
+                executor.EnqueueGenerateFailure(failure);
+                var core = new GenAICore(executor);
+
+                LogAssert.Expect(
+                    LogType.Error,
+                    $"AI generation failed without retry ({failure.GetType().Name}): {failure.Message}");
+                Exception exception = await CaptureExceptionAsync<Exception>(
+                    core.GenerateAsync("input").AsTask());
+
+                Assert.AreSame(failure, exception);
+                Assert.AreEqual(1, executor.GenerateCallCount);
+                Assert.AreEqual(0, executor.StartProcessCallCount);
+            }
+        }
+
+        [TestCase(400, false)]
+        [TestCase(404, false)]
+        [TestCase(408, true)]
+        [TestCase(429, true)]
+        [TestCase(500, true)]
+        [TestCase(503, true)]
+        public void HttpStatusClassification_OnlyRetriesTransientFailures(int statusCode, bool retryable)
+        {
+            Exception exception = GenAIExceptionClassifier.CreateHttpStatusException(
+                "test service",
+                statusCode,
+                "response body");
+
+            Assert.AreEqual(retryable, GenAIExceptionClassifier.IsRetryable(exception));
+            if (retryable)
+            {
+                Assert.IsInstanceOf<GenAIRetryableException>(exception);
+            }
+            else
+            {
+                Assert.IsInstanceOf<GenAIConfigurationException>(exception);
+            }
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenExecutorThrowsTimeoutEarly_RetriesAsExecutorFailure()
+        {
+            var executor = new FakeAIExecutor("fake", "recovered");
+            executor.EnqueueGenerateFailure(new TimeoutException("executor startup timed out early"));
+            var core = new GenAICore(executor);
+
+            string result = await core.GenerateAsync("input", timeoutMs: 5000).AsTask();
+
+            Assert.AreEqual("recovered", result);
+            Assert.AreEqual(2, executor.GenerateCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenCallerCancelsAsExecutorThrowsTimeout_PrefersCancellation()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.EnqueueGenerateFailure(new TimeoutException("executor timeout"));
+            using var cts = new CancellationTokenSource();
+            executor.BeforeGenerateFailure = cts.Cancel;
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<OperationCanceledException>(
+                core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask());
+
+            Assert.AreEqual(cts.Token, exception.CancellationToken);
+            Assert.AreEqual(1, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenReceiveFails_WrapsLastReceiveFailure()
+        {
+            var receiveFailure = new GenAIRetryableException("receive failed");
+            var executor = new FakeAIExecutor("fake", "response")
+            {
+                ReceiveException = receiveFailure
+            };
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<GenAIExecutionException>(
+                core.GenerateAsync("input").AsTask());
+
+            Assert.AreEqual(3, exception.Attempts);
+            Assert.AreSame(receiveFailure, exception.InnerException);
+            Assert.AreEqual(3, executor.ReceiveCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenOutputIsEmpty_ThrowsTypedException()
+        {
+            var executor = new FakeAIExecutor("fake", "   ");
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<GenAIExecutionException>(
+                core.GenerateAsync("input").AsTask());
+
+            Assert.AreEqual(3, exception.Attempts);
+            Assert.IsInstanceOf<GenAIRetryableException>(exception.InnerException);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenCancellationCleanupFails_PreservesCancellation()
+        {
+            var executor = new FakeAIExecutor("fake", "response")
+            {
+                CleanupException = new InvalidOperationException("cleanup failed")
+            };
+            executor.BlockGeneration();
+            var core = new GenAICore(executor);
+            using var cts = new CancellationTokenSource();
+
+            Task<string> generation = core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask();
+            await executor.GenerationStarted;
+            cts.Cancel();
+
+            await CaptureExceptionAsync<OperationCanceledException>(generation);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenTimeoutCleanupFails_PreservesTimeout()
+        {
+            var executor = new FakeAIExecutor("fake", "response")
+            {
+                CleanupException = new InvalidOperationException("cleanup failed")
+            };
+            executor.BlockGeneration();
+            var core = new GenAICore(executor);
+
+            await CaptureExceptionAsync<TimeoutException>(
+                core.GenerateAsync("input", timeoutMs: 200).AsTask());
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_AwaitsGenerationMonitorBeforeReturning()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockGeneration();
+            executor.BlockNextReceive();
+            var core = new GenAICore(executor);
+
+            Task<string> generation = core.GenerateAsync("input", timeoutMs: 5000).AsTask();
+            await executor.GenerationStarted;
+            await executor.ReceiveStarted;
+            Assert.AreEqual(1, executor.ActiveReceiveCallCount);
+
+            executor.CompleteGeneration();
+            string result = await generation;
+
+            Assert.AreEqual("response", result);
+            Assert.AreEqual(0, executor.ActiveGenerateCallCount);
+            Assert.AreEqual(0, executor.ActiveReceiveCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenCallerCancelsDuringExtraction_DoesNotReturnSuccess()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            using var cts = new CancellationTokenSource();
+            executor.BeforeExtract = cts.Cancel;
+            var core = new GenAICore(executor);
+
+            var exception = await CaptureExceptionAsync<OperationCanceledException>(
+                core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask());
+
+            Assert.AreEqual(cts.Token, exception.CancellationToken);
+            Assert.AreEqual(1, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+        }
+
+        [Test]
+        public async Task Generate_WhenCancelledDuringInitialization_PropagatesCancellation()
+        {
+            var executor = CreateExecutorThatBlocksDuringInitialization();
+            var genAI = new GenAI(executor);
+            using var cts = new CancellationTokenSource();
+
+            Task<string> generation = genAI.Generate("input", ct: cts.Token, timeoutMs: 5000).AsTask();
+            await executor.GenerationStarted;
+            cts.Cancel();
+
+            var exception = await CaptureExceptionAsync<OperationCanceledException>(generation);
+            Assert.AreEqual(cts.Token, exception.CancellationToken);
+        }
+
+        [Test]
+        public async Task Generate_WhenDeadlineExpiresDuringInitialization_ThrowsTimeout()
+        {
+            var executor = CreateExecutorThatBlocksDuringInitialization();
+            var genAI = new GenAI(executor);
+
+            Task<string> generation = genAI.Generate("input", timeoutMs: 1000).AsTask();
+            await executor.GenerationStarted;
+
+            await CaptureExceptionAsync<TimeoutException>(generation);
+        }
+
+        [Test]
+        public async Task Initialize_WhenFinalCallbackCancels_PropagatesCancellation()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            var genAI = new GenAI(executor);
+            using var cts = new CancellationTokenSource();
+            UnityEngine.Events.UnityAction<bool> handler = _ => cts.Cancel();
+            AIDrivenInitializer.onPreparationFinished += handler;
+
+            try
+            {
+                var exception = await CaptureExceptionAsync<OperationCanceledException>(
+                    AIDrivenInitializer.Initialize(cts.Token, genAI).AsTask());
+                Assert.AreEqual(cts.Token, exception.CancellationToken);
+            }
+            finally
+            {
+                AIDrivenInitializer.onPreparationFinished -= handler;
+                genAI.KillProcess();
+            }
+        }
+
+        [Test]
+        public async Task Generate_WithErrorSymbolInSuccessfulOutput_DoesNotInitializeOrRetry()
+        {
+            var executor = new FakeAIExecutor("fake", "Use ❌ to render the failure icon.");
+            var genAI = new GenAI(executor);
+
+            string result = await genAI.Generate("input").AsTask();
+
+            Assert.AreEqual("Use ❌ to render the failure icon.", result);
+            Assert.AreEqual(1, executor.GenerateCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenCallerCancelsDuringFinalReceive_PropagatesOriginalTokenAndStopsOnce()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockNextReceive();
+            var core = new GenAICore(executor);
+            using var cts = new CancellationTokenSource();
+
+            Task<string> generation = core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask();
+            await executor.ReceiveStarted;
+            cts.Cancel();
+
+            var exception = await CaptureExceptionAsync<OperationCanceledException>(generation);
+            Assert.AreEqual(cts.Token, exception.CancellationToken);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(0, executor.ActiveReceiveCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenDeadlineExpiresDuringFinalReceive_ThrowsTimeoutAndStopsOnce()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.BlockNextReceive();
+            var core = new GenAICore(executor);
+
+            Task<string> generation = core.GenerateAsync("input", timeoutMs: 300).AsTask();
+            await executor.ReceiveStarted;
+
+            await CaptureExceptionAsync<TimeoutException>(generation);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(0, executor.ActiveReceiveCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenCallerCancelsWhileWaitingForLock_DoesNotTouchWaitingExecutor()
+        {
+            var activeExecutor = new FakeAIExecutor("active", "first response");
+            activeExecutor.BlockGeneration();
+            var waitingExecutor = new FakeAIExecutor("waiting", "second response");
+            var activeCore = new GenAICore(activeExecutor);
+            var waitingCore = new GenAICore(waitingExecutor);
+            using var cts = new CancellationTokenSource();
+            Task<string> activeGeneration = activeCore.GenerateAsync("first", timeoutMs: 5000).AsTask();
+
+            try
+            {
+                await activeExecutor.GenerationStarted;
+                Task<string> waitingGeneration = waitingCore.GenerateAsync("second", ct: cts.Token, timeoutMs: 5000).AsTask();
+                cts.Cancel();
+
+                var exception = await CaptureExceptionAsync<OperationCanceledException>(waitingGeneration);
+                Assert.AreEqual(cts.Token, exception.CancellationToken);
+                Assert.AreEqual(0, waitingExecutor.GenerateCallCount);
+                Assert.AreEqual(0, waitingExecutor.KillProcessCallCount);
+            }
+            finally
+            {
+                activeExecutor.CompleteGeneration();
+            }
+
+            Assert.AreEqual("first response", await activeGeneration);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenDeadlineExpiresWhileWaitingForLock_DoesNotTouchWaitingExecutor()
+        {
+            var activeExecutor = new FakeAIExecutor("active", "first response");
+            activeExecutor.BlockGeneration();
+            var waitingExecutor = new FakeAIExecutor("waiting", "second response");
+            var activeCore = new GenAICore(activeExecutor);
+            var waitingCore = new GenAICore(waitingExecutor);
+            Task<string> activeGeneration = activeCore.GenerateAsync("first", timeoutMs: 5000).AsTask();
+
+            try
+            {
+                await activeExecutor.GenerationStarted;
+                await CaptureExceptionAsync<TimeoutException>(
+                    waitingCore.GenerateAsync("second", timeoutMs: 300).AsTask());
+                Assert.AreEqual(0, waitingExecutor.GenerateCallCount);
+                Assert.AreEqual(0, waitingExecutor.KillProcessCallCount);
+            }
+            finally
+            {
+                activeExecutor.CompleteGeneration();
+            }
+
+            Assert.AreEqual("first response", await activeGeneration);
+        }
+
+        [Test]
+        public async Task GenerateAsync_AfterTransientReceiveFailure_RetriesWholeGeneration()
+        {
+            var executor = new FakeAIExecutor("fake", "recovered");
+            executor.EnqueueReceiveFailure(new GenAIRetryableException("receive failed"));
+            var core = new GenAICore(executor);
+
+            string result = await core.GenerateAsync("input").AsTask();
+
+            Assert.AreEqual("recovered", result);
+            Assert.AreEqual(2, executor.GenerateCallCount);
+            Assert.AreEqual(2, executor.ReceiveCallCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_AfterTransientExtractionFailure_RetriesWholeGeneration()
+        {
+            var executor = new FakeAIExecutor("fake", "recovered");
+            executor.EnqueueExtractFailure(new GenAIRetryableException("extract failed"));
+            var core = new GenAICore(executor);
+
+            string result = await core.GenerateAsync("input").AsTask();
+
+            Assert.AreEqual("recovered", result);
+            Assert.AreEqual(2, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_AfterTwoGenerateFailures_SucceedsOnThirdAttempt()
+        {
+            var executor = new FakeAIExecutor("fake", "recovered");
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
+            var core = new GenAICore(executor);
+
+            string result = await core.GenerateAsync("input").AsTask();
+
+            Assert.AreEqual("recovered", result);
+            Assert.AreEqual(3, executor.GenerateCallCount);
+            Assert.AreEqual(2, executor.KillProcessCallCount);
+            Assert.AreEqual(2, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task GenerateAsync_WhenProcessIsInitiallyDead_RestartsBeforeGenerating()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.SetProcessAlive(false);
+            var core = new GenAICore(executor);
+
+            string result = await core.GenerateAsync("input").AsTask();
+
+            Assert.AreEqual("response", result);
+            Assert.AreEqual(1, executor.GenerateCallCount);
+            Assert.AreEqual(1, executor.KillProcessCallCount);
+            Assert.AreEqual(1, executor.StartProcessCallCount);
+        }
+
+        [Test]
+        public async Task Generate_WithInitializationRetryDisabled_ThrowsTypedLastCauseWithoutExtraGeneration()
+        {
+            var last = new GenAIRetryableException("last");
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
+            executor.EnqueueGenerateFailure(last);
+            var genAI = new GenAI(executor);
+
+            var exception = await CaptureExceptionAsync<GenAIExecutionException>(
+                genAI.Generate("input", retryAfterInitialization: false).AsTask());
+
+            Assert.AreEqual(3, exception.Attempts);
+            Assert.AreSame(last, exception.InnerException);
+            Assert.AreEqual(3, executor.GenerateCallCount);
+        }
+
+        private static FakeAIExecutor CreateExecutorThatBlocksDuringInitialization()
+        {
+            var executor = new FakeAIExecutor("fake", "response");
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
+            executor.EnqueueGenerateFailure(new GenAIRetryableException("third"));
+            executor.BlockGeneration();
+            return executor;
+        }
+
+        private static async Task<TException> CaptureExceptionAsync<TException>(Task task)
+            where TException : Exception
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception ex)
+            {
+                Assert.IsInstanceOf<TException>(ex);
+                return (TException)ex;
+            }
+
+            Assert.Fail($"Expected an exception of type {typeof(TException).Name}.");
+            return null;
+        }
+    }
+}

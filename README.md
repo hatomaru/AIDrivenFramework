@@ -14,7 +14,7 @@ A setup & execution framework for safely integrating local LLMs into Unity.
 ---
 ## 🎞 Demo
 
-## Model Setup Demo
+### Model Setup Demo
 <img src="https://github.com/hatomaru/AIDrivenFramework/blob/main/Docs/en/AISetupWalkthrough.gif" width="800">
 
 ---
@@ -28,7 +28,7 @@ AIDrivenFramework connects Unity games with Local LLM environments through a fle
 ## ✨ Main Features
 
 - 🎯 **Designed for Unity**: Seamlessly integrates into games with full support for Play Mode and builds
-- 🧠 **Simple Integration**: Embed a local LLM into your game with just a 3 lines of code
+- 🧠 **Simple Integration**: Embed a local LLM into your game with just three lines of code
 - 💬 **Streaming Generation Support**: Receive and display generated text in real time, ideal for chat and interactive experiences
 - 🔁 **Automatic Retry Mechanism**: Automatically retries up to three times if generation fails
 - 🛠 **Integrated Setup Wizard**: Easy GUI-based setup with no need for Ollama
@@ -46,11 +46,20 @@ Unity interacts only with a minimal, clean API.
 
 ### 1️⃣ Install
 
-Add via Unity Package Manager:
+OpenUPM is the recommended installation path:
+
+```bash
+openupm add com.hatomaru.ai.framework
+```
+
+Alternatively, add the package through Unity Package Manager using the Git URL:
 
 ```
 https://github.com/hatomaru/AIDrivenFramework.git?path=src/AIDrivenFramework
 ```
+
+> [!IMPORTANT]
+> When installing from the Git URL, make sure the required dependencies listed below are available in the project first. They are not bundled in this repository.
 
 ---
 
@@ -65,7 +74,7 @@ Download separately:
 
 > [!TIP]
 > Use pre-built llama.cpp binaries from https://github.com/ggerganov/llama.cpp/releases  
-> Recommended starting model: [https://huggingface.co/bartowski/Llama-3.1-8B-Instruct-GGUF (Q4_K_M)](https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF)
+> Recommended starting model: [Llama-3-ELYZA-JP-8B-GGUF](https://huggingface.co/elyza/Llama-3-ELYZA-JP-8B-GGUF)
 ---
 
 ### 3️⃣ Initialization
@@ -98,9 +107,10 @@ You're all set 🎉
 ---
 ## Supported LLM runtimes
 
-✔ Ollama
-✔ llama.cpp CLI
-✔ llama.cpp server
+- Ollama (HTTP)
+- llama.cpp CLI (default Executor)
+- llama.cpp server (HTTP)
+
 ---
 
 ## 🧙 Setup Wizard (AISetup Component)
@@ -113,7 +123,7 @@ provides a setup wizard for beginners.
 - .gguf model file selection GUI
 
 > [!TIP]
-> One-click installation of the sample scene (optional)
+> Installation of the optional sample scenes
 > 
 > Manual launch from the menu:
 > `Tools > AIDrivenFW > Optional Packages`
@@ -123,29 +133,46 @@ It can be installed from the setup window (optional dependency).
 > This greatly simplifies the initial setup, especially recommended for beginners.
 
 ---
-## 🎮 Sample Games (Coming Soon)
+## 🎮 Sample Games
 
-Currently under development.  
-They will be included in the Example package soon.
+Two sample games are currently included in the optional **Example** package.
 
-| Sample | Name                 | Overview                                      | AI Features You Can Experience        |
-|--------|----------------------|-----------------------------------------------|---------------------------------------|
-| 1      | AI NPC Roleplay Chat | A roleplay chat where you can freely talk with AI NPCs | NPC personality and conversation history management |
-| 2      | Guess the Topic      | A game where you guess the topic the AI is thinking of by asking questions | Reasoning and question answering |
-| 3      | Dialogue Battle      | A game where you overcome NPCs through conversation | State management and dialogue gameplay |
-| 4      | AI Story Generator   | A game where you generate stories together with AI | Text generation and context management |
+To install them, open `Tools > AIDrivenFW > Optional Packages`, select both **Example Scene** and **AISetup**, and click **Install Selected**. The current samples reference components from AISetup and will not compile if Example Scene is installed by itself.
+
+| Sample | Name | Overview | Executor used by the sample |
+|---|---|---|---|
+| 1 | AI NPC Roleplay Chat | Freely talk with an AI NPC while maintaining its personality and conversation history | `OllamaHTTPExecutor` |
+| 2 | Guess the Topic | Ask questions and guess the hidden topic selected by the game | `LlamaHTTPExecutor` |
+
+**Planned, not currently included:** Dialogue Battle and AI Story Generator.
 
 ---
 
-## 🎯 Minimal Public API (V1)
+## 🎯 Primary Public API (V1)
 
 ```csharp
-GenAI.Generate(string input, GenAIConfig config = null);
-AIDrivenInitializer.Initialize();
-GenAIConfig;
+using AIDrivenFW.API;
+using AIDrivenFW.Config;
+using UnityEngine;
+
+public sealed class AIExample : MonoBehaviour
+{
+    private async void Start()
+    {
+        var genAI = new GenAI();
+        var config = ScriptableObject.CreateInstance<GenAIConfig>();
+        config.sysPrompt = "You are a helpful NPC.";
+
+        var isPrepared = await AIDrivenInitializer.Initialize(defaultGenAI: genAI);
+        if (!isPrepared) return;
+
+        var result = await genAI.Generate("Hello AI", config);
+        Debug.Log(result);
+    }
+}
 ```
 
-Everything else is internal.
+These are the recommended entry points. Advanced Executor implementations are also public and may evolve as the framework develops.
 
 ---
 
@@ -167,7 +194,8 @@ Designed for **long-term Unity × AI architecture**, not just quick calls.
 You can replace the execution layer:
 
 ```csharp
-GenAI.SetExecutor(customExecutor);
+var genAI = new GenAI();
+genAI.SetExecutor(customExecutor);
 ```
 
 Default implementation:
@@ -180,17 +208,7 @@ This allows HTTP executors or custom process handlers.
 
 ---
 
-## 📦 Installation Options
-
-### ✅ OpenUPM (Recommended)
-
-```bash
-openupm add com.hatomaru.ai.framework
-```
-
----
-
-### 🔧 Required Dependencies
+## 🔧 Required Dependencies
 
 The following packages are required:
 
@@ -202,9 +220,11 @@ The following packages are required:
 ## 🖥 System Requirements
 
 ### Minimum
-- Unity 2022.3 LTS or later
+- Unity 6 (6000.0) or later, matching the current package manifest
 - Windows 10 / 11 (64-bit) or macOS
 - RAM: 8 GB or more
+
+> Earlier Unity versions have not been validated against the current package manifest.
 
 ### Recommended
 - RAM: 16 GB or more
@@ -243,5 +263,4 @@ https://discord.gg/dfzwqCHSW2
 AIDrivenFramework was created to provide  
 a **safe entry point for local LLM integration in Unity**.
 
-Issues, PRs, and feedback are welcome.# AIDrivenFramework 🚀  
-**Unity × Local LLM Safe Framework**
+Issues, PRs, and feedback are welcome.
