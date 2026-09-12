@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.2] - 2026-09-12
+### Changed
+- Added support for selecting Ollama or Llama.cpp during setup when Ollama is installed.
+
 ## [3.1.1] - 2026-04-26
 ### Changed
 - Updated the AISetup package and fixed an issue where scenes were not included.

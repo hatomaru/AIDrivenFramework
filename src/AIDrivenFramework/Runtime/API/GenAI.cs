@@ -19,6 +19,7 @@ namespace AIDrivenFW.API
             {
                 try
                 {
+                    Debug.Log("Auto routing AI executor based on saved configuration.");
                     var saved = AIDrivenFW.Config.ModelInfo.LoadFromFile();
                     if (saved != null && !string.IsNullOrEmpty(saved.Mode) && saved.Mode.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
                     {
