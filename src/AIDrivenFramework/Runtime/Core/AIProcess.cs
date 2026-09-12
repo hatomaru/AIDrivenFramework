@@ -268,18 +268,7 @@ namespace AIDrivenFW.Core
             lock (_lock)
             {
                 state = AIState.Stopped;
-                try
-                {
-                    if (!persistentProc.HasExited)
-                    {
-                        persistentProc.Kill();
-                        UnityEngine.Debug.Log("❌ The process has been forcibly terminated.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
-                }
+                TryTerminateProcess(persistentProc);
 
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
@@ -291,6 +280,28 @@ namespace AIDrivenFW.Core
 
                 persistentProc = null;
                 procStdinStream = null;
+            }
+        }
+
+        internal static void TryTerminateProcess(Process process)
+        {
+            if (process == null) return;
+
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    UnityEngine.Debug.Log("❌ The process has been forcibly terminated.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // No process is associated, or it exited during termination.
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"❌ Failed to force quit the process: {ex.Message}");
             }
         }
 

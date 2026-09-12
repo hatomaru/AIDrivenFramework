@@ -54,8 +54,9 @@ namespace AIDrivenFW.Tests.Unit
             }
         }
 
-        [Test]
-        public void LlamaCppArguments_WithConfiguredModel_UseItForServerAndClient()
+        [TestCase("{ModelPath}")]
+        [TestCase("{modelArg}")]
+        public void LlamaCppArguments_WithConfiguredModel_UseItForServerAndClient(string serverModelPlaceholder)
         {
             string tempDirectory = Path.Combine(Path.GetTempPath(), $"AIDrivenFW-{Guid.NewGuid():N}");
             string modelPath = Path.Combine(tempDirectory, "configured-model.gguf");
@@ -70,7 +71,7 @@ namespace AIDrivenFW.Tests.Unit
                 string clientArguments = LlamaCliExecutor.BuildArguments(
                     "-m {ModelPath} --system-prompt {sysPrompt}", config);
                 string serverArguments = LlamaHTTPExecutor.BuildArguments(
-                    "-m {ModelPath} --host {ServerHost} --port {ServerPort}", config);
+                    "-m " + serverModelPlaceholder + " --host {ServerHost} --port {ServerPort}", config);
                 string quotedModelPath = $"\"{Path.GetFullPath(modelPath)}\"";
 
                 StringAssert.Contains(quotedModelPath, clientArguments);
