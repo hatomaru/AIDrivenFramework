@@ -55,7 +55,7 @@ internal class RequestPayload
     public bool stream;
 }
 
-public class LlamaHTTPExecutor : IAIExecutor
+public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IAArgumentsExecutor, IExtractExecutor
 {
 
     // HTTPクライアント
@@ -304,7 +304,7 @@ public class LlamaHTTPExecutor : IAIExecutor
         return UniTask.FromResult(_lastResponse);
     }
 
-    public UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate = null)
+    public UniTask<bool> IsGenerated(CancellationToken token, Action<string> onUpdate = null)
     {
         return UniTask.FromResult(!string.IsNullOrEmpty(_lastResponse));
     }

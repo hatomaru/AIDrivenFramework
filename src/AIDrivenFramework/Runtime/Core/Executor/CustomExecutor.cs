@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Threading;
 
-public class CustomExecutor : IAIExecutor
+public class CustomExecutor : IProcessExecutor, IGenerateExecutor, IAArgumentsExecutor, IExtractExecutor
 {
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;
@@ -81,7 +81,7 @@ public class CustomExecutor : IAIExecutor
 
         aiProcess.SendStdin(input);
 
-        while (!await CheckOutput(ct,onUpdate))
+        while (!await IsGenerated(ct,onUpdate))
         {
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
         }
@@ -92,7 +92,7 @@ public class CustomExecutor : IAIExecutor
         return UniTask.FromResult("mock response");
     }
 
-    public async UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate)
+    public async UniTask<bool> IsGenerated(CancellationToken token, Action<string> onUpdate)
     {
         string output = await ReceiveAsync(token);
         // ストリーミング出力の更新を処理

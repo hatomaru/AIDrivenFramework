@@ -12,7 +12,7 @@ namespace AIDrivenFW.API
     /// </summary>
     /// <remarks>
     /// <para>
-    /// このクラスは、渡された<see cref="IAIExecutor"/>を排他的に所有する前提でライフサイクルを管理します。
+    /// このクラスは、渡された<see cref="AIProcessCoordinator"/>を排他的に所有する前提でライフサイクルを管理します。
     /// </para>
     /// <para>
     /// 同じ実行器オブジェクトを複数の<see cref="GenAI"/>で共有すると、一方の<see cref="SetExecutor"/>または
@@ -21,7 +21,7 @@ namespace AIDrivenFW.API
     /// </remarks>
     public class GenAI
     {
-        private IAIExecutor executor;
+        private AIProcessCoordinator executor;
         private GenAICore core;
 
         /// <summary>
@@ -35,8 +35,10 @@ namespace AIDrivenFW.API
         /// 同じ実行器オブジェクトを複数の<see cref="GenAI"/>へ渡すと、一方のライフサイクル操作が
         /// 他方の生成資源を停止する可能性があるため、インスタンスごとに異なる実行器を渡してください。
         /// </remarks>
-        public GenAI(IAIExecutor aiExecutor = null)
+        public GenAI(AIProcessCoordinator aiExecutor = null)
         {
+            var fallbackExecutor = new LlamaHTTPExecutor();
+
             // aiExecutor が指定されていない場合は保存された設定を読み込み、実行モードに応じてルーティングする
             if (aiExecutor == null)
             {
@@ -47,12 +49,12 @@ namespace AIDrivenFW.API
                     if (saved != null && !string.IsNullOrEmpty(saved.Mode) && saved.Mode.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
                     {
                         // Ollama モード
-                        SetExecutor(new OllamaHTTPExecutor());
+                        SetExecutor(new AIProcessCoordinator(new OllamaHTTPExecutor()));
                     }
                     else
                     {
                         // デフォルトは llama.cpp
-                        SetExecutor(new LlamaHTTPExecutor());
+                        SetExecutor(new AIProcessCoordinator(new LlamaHTTPExecutor()));
                     }
 
                 }
@@ -60,11 +62,11 @@ namespace AIDrivenFW.API
                 {
                     UnityEngine.Debug.LogWarning($"Failed to auto routing: {ex.Message}");
                     // フォールバック
-                    SetExecutor(new LlamaHTTPExecutor());
+                    SetExecutor(new AIProcessCoordinator(fallbackExecutor));
                 }
                 return;   
             }
-            SetExecutor(aiExecutor ?? new LlamaHTTPExecutor());
+            SetExecutor(aiExecutor ?? new AIProcessCoordinator(fallbackExecutor));
         }
 
         /// <summary>
@@ -75,10 +77,10 @@ namespace AIDrivenFW.API
         /// <remarks>
         /// <para>
         /// 現在の実行器と同じオブジェクトを渡した場合は何もしません。異なるオブジェクトを渡した場合は、
-        /// 旧実行器の<see cref="IAIExecutor.KillProcess"/>を同期的に実行し、成功した後に実行器を切り替えて生成コアを破棄します。
+        /// 旧実行器の<see cref="AIProcessCoordinator.ProcessExecutor.KillProcess"/>を同期的に実行し、成功した後に実行器を切り替えて生成コアを破棄します。
         /// </para>
         /// <para>
-        /// 旧実行器の<see cref="IAIExecutor.KillProcess"/>が例外を送出した場合、例外をそのまま伝播し、実行器と生成コアの参照は
+        /// 旧実行器の<see cref="AIProcessCoordinator.ProcessExecutor.KillProcess"/>が例外を送出した場合、例外をそのまま伝播し、実行器と生成コアの参照は
         /// 旧状態のまま維持します。ただし、例外までに旧実行器が外部プロセスなどへ与えた副作用はロールバックできません。
         /// </para>
         /// <para>
@@ -86,7 +88,7 @@ namespace AIDrivenFW.API
         /// また、<see cref="Generate"/>の実行中に呼び出した場合の動作は保証されません。
         /// </para>
         /// </remarks>
-        public void SetExecutor(IAIExecutor aiExecutor)
+        public void SetExecutor(AIProcessCoordinator aiExecutor)
         {
             if (aiExecutor == null)
             {
@@ -98,7 +100,7 @@ namespace AIDrivenFW.API
                 return;
             }
 
-            executor?.KillProcess();
+            executor?.ProcessExecutor.KillProcess();
             core?.Dispose();
             executor = aiExecutor;
             core = null;
@@ -179,7 +181,7 @@ namespace AIDrivenFW.API
         /// </summary>
         /// <remarks>
         /// <para>
-        /// 所有する実行器の<see cref="IAIExecutor.KillProcess"/>を同期的に実行します。同じ実行器オブジェクトを
+        /// 所有する実行器の<see cref="AIProcessCoordinator.ProcessExecutor.KillProcess"/>を同期的に実行します。同じ実行器オブジェクトを
         /// 他の<see cref="GenAI"/>と共有している場合、その生成資源も停止する可能性があります。
         /// </para>
         /// <para>
@@ -189,7 +191,7 @@ namespace AIDrivenFW.API
         /// </remarks>
         public void KillProcess()
         {
-            executor.KillProcess();
+            executor.ProcessExecutor.KillProcess();
             core?.Dispose();
             core = null;
         }
@@ -214,7 +216,7 @@ namespace AIDrivenFW.API
 
         public string IsFoundAISoftware()
         {
-            return executor.IsFoundAISoftware();
+            return executor.ArgumentsExecutor.IsFoundAISoftware();
         }
     }
 }

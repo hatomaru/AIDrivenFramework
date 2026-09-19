@@ -11,10 +11,10 @@ namespace AIDrivenFW.Core
         private const int MaxGenerationAttempts = 3;
         private const int CheckIntervalMs = 500;
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
-        private readonly IAIExecutor executor;
+        private readonly AIProcessCoordinator executor;
         private GenAIConfig defaultConfig;
 
-        public GenAICore(IAIExecutor aiExecutor)
+        public GenAICore(AIProcessCoordinator aiExecutor)
         {
             executor = aiExecutor ?? throw new ArgumentNullException(nameof(aiExecutor));
         }
@@ -69,14 +69,14 @@ namespace AIDrivenFW.Core
                             if (defaultConfig == null)
                             {
                                 defaultConfig = GenAIConfigLifecycle.CreateOwned();
-                                defaultConfig.arguments = executor.SetDefaultArguments();
+                                defaultConfig.arguments = executor.ArgumentsExecutor.SetDefaultArguments();
                             }
                             effectiveConfig = defaultConfig;
                         }
 
                         if (attempt == 1)
                         {
-                            needRestart = !executor.IsProcessAlive();
+                            needRestart = !executor.ProcessExecutor.IsProcessAlive();
                         }
 
                         if (attempt > 1 && AIDrivenConfig.Instance.IsDeepDebug)
@@ -87,8 +87,8 @@ namespace AIDrivenFW.Core
                         if (needRestart || attempt > 1)
                         {
                             executorOperationStarted = true;
-                            executor.KillProcess();
-                            await executor.StartProcessAsync(operationToken, effectiveConfig, progress, timeoutMs);
+                            executor.ProcessExecutor.KillProcess();
+                            await executor.ProcessExecutor.StartProcessAsync(operationToken, effectiveConfig, progress, timeoutMs);
                             needRestart = false;
                         }
 
@@ -167,7 +167,7 @@ namespace AIDrivenFW.Core
             try
             {
                 Debug.Log("Generation started, waiting for completion...");
-                await executor.GenerateAsync(systemPrompt, input, ct, onUpdate, timeoutMs: timeoutMs);
+                await executor.GenerateExecutor.GenerateAsync(systemPrompt, input, ct, onUpdate, timeoutMs: timeoutMs);
             }
             catch
             {
@@ -179,8 +179,8 @@ namespace AIDrivenFW.Core
             Debug.Log("Generation completed, finalizing output...");
 
             await UniTask.Delay(100, cancellationToken: ct);
-            string fullOutput = await executor.ReceiveAsync(ct);
-            string result = executor.ExtractAssistantOutput(fullOutput);
+            string fullOutput = await executor.ProcessExecutor.ReceiveAsync(ct);
+            string result = executor.ExtractExecutor.ExtractAssistantOutput(fullOutput);
 
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -226,7 +226,7 @@ namespace AIDrivenFW.Core
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (!executor.IsProcessAlive())
+                if (!executor.ProcessExecutor.IsProcessAlive())
                 {
                     throw new GenAIRetryableException("The AI executor process terminated unexpectedly.");
                 }
@@ -234,7 +234,7 @@ namespace AIDrivenFW.Core
                 await UniTask.Delay(CheckIntervalMs, cancellationToken: ct);
                 elapsedMs += CheckIntervalMs;
 
-                _ = await executor.ReceiveAsync(ct);
+                _ = await executor.ProcessExecutor.ReceiveAsync(ct);
                 progress?.Report(Mathf.Clamp01((float)elapsedMs / timeoutMs) * 100f);
             }
         }
@@ -243,7 +243,7 @@ namespace AIDrivenFW.Core
         {
             try
             {
-                executor.KillProcess();
+                executor.ProcessExecutor.KillProcess();
             }
             catch (Exception ex)
             {
