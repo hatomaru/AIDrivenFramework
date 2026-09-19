@@ -30,7 +30,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.SetProcessAlive(false);
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             await core.GenerateAsync("first").AsTask();
             GenAIConfig firstConfig = executor.LastStartConfig;
@@ -49,7 +49,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_WithNonPositiveTimeout_ThrowsBeforeCallingExecutor()
         {
             var executor = new FakeAIExecutor("fake", "response");
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<ArgumentOutOfRangeException>(
                 core.GenerateAsync("input", timeoutMs: 0).AsTask());
@@ -63,7 +63,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_WithPreCancelledToken_DoesNotCallExecutor()
         {
             var executor = new FakeAIExecutor("fake", "response");
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
             using var cts = new CancellationTokenSource();
             cts.Cancel();
 
@@ -79,7 +79,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockGeneration();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
             using var cts = new CancellationTokenSource();
 
             Task<string> generation = core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask();
@@ -99,7 +99,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockGeneration();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<TimeoutException>(
                 core.GenerateAsync("input", timeoutMs: 200).AsTask());
@@ -116,7 +116,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockGeneration();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
             float originalTimeScale = Time.timeScale;
 
             try
@@ -138,7 +138,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockGeneration();
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
             using var cts = new CancellationTokenSource();
 
             Task<string> generation = genAI.Generate("input", ct: cts.Token, timeoutMs: 5000).AsTask();
@@ -155,7 +155,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockGeneration();
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
             await CaptureExceptionAsync<TimeoutException>(
                 genAI.Generate("input", timeoutMs: 200).AsTask());
@@ -172,7 +172,7 @@ namespace AIDrivenFW.Tests.Unit
             executor.EnqueueGenerateFailure(first);
             executor.EnqueueGenerateFailure(second);
             executor.EnqueueGenerateFailure(last);
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<GenAIExecutionException>(
                 core.GenerateAsync("input").AsTask());
@@ -188,7 +188,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "recovered");
             executor.EnqueueGenerateFailure(new GenAIRetryableException("transient"));
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             string result = await core.GenerateAsync("input").AsTask();
 
@@ -206,7 +206,7 @@ namespace AIDrivenFW.Tests.Unit
                 StartProcessException = configurationException
             };
             executor.SetProcessAlive(false);
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             LogAssert.Expect(
                 LogType.Error,
@@ -235,7 +235,7 @@ namespace AIDrivenFW.Tests.Unit
             {
                 var executor = new FakeAIExecutor("fake", "response");
                 executor.EnqueueGenerateFailure(failure);
-                var core = new GenAICore(executor);
+                var core = new GenAICore(new AIExecutorContext(executor));
 
                 LogAssert.Expect(
                     LogType.Error,
@@ -278,7 +278,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "recovered");
             executor.EnqueueGenerateFailure(new TimeoutException("executor startup timed out early"));
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             string result = await core.GenerateAsync("input", timeoutMs: 5000).AsTask();
 
@@ -293,7 +293,7 @@ namespace AIDrivenFW.Tests.Unit
             executor.EnqueueGenerateFailure(new TimeoutException("executor timeout"));
             using var cts = new CancellationTokenSource();
             executor.BeforeGenerateFailure = cts.Cancel;
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<OperationCanceledException>(
                 core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask());
@@ -311,7 +311,7 @@ namespace AIDrivenFW.Tests.Unit
             {
                 ReceiveException = receiveFailure
             };
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<GenAIExecutionException>(
                 core.GenerateAsync("input").AsTask());
@@ -325,7 +325,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task GenerateAsync_WhenOutputIsEmpty_ThrowsTypedException()
         {
             var executor = new FakeAIExecutor("fake", "   ");
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<GenAIExecutionException>(
                 core.GenerateAsync("input").AsTask());
@@ -342,7 +342,7 @@ namespace AIDrivenFW.Tests.Unit
                 CleanupException = new InvalidOperationException("cleanup failed")
             };
             executor.BlockGeneration();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
             using var cts = new CancellationTokenSource();
 
             Task<string> generation = core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask();
@@ -361,7 +361,7 @@ namespace AIDrivenFW.Tests.Unit
                 CleanupException = new InvalidOperationException("cleanup failed")
             };
             executor.BlockGeneration();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             await CaptureExceptionAsync<TimeoutException>(
                 core.GenerateAsync("input", timeoutMs: 200).AsTask());
@@ -374,7 +374,7 @@ namespace AIDrivenFW.Tests.Unit
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockGeneration();
             executor.BlockNextReceive();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             Task<string> generation = core.GenerateAsync("input", timeoutMs: 5000).AsTask();
             await executor.GenerationStarted;
@@ -395,7 +395,7 @@ namespace AIDrivenFW.Tests.Unit
             var executor = new FakeAIExecutor("fake", "response");
             using var cts = new CancellationTokenSource();
             executor.BeforeExtract = cts.Cancel;
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<OperationCanceledException>(
                 core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask());
@@ -424,7 +424,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task Generate_WhenDeadlineExpiresDuringInitialization_ThrowsTimeout()
         {
             var executor = CreateExecutorThatBlocksDuringInitialization();
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
             Task<string> generation = genAI.Generate("input", timeoutMs: 1000).AsTask();
             await executor.GenerationStarted;
@@ -436,7 +436,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task Initialize_WhenFinalCallbackCancels_PropagatesCancellation()
         {
             var executor = new FakeAIExecutor("fake", "response");
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
             using var cts = new CancellationTokenSource();
             UnityEngine.Events.UnityAction<bool> handler = _ => cts.Cancel();
             AIDrivenInitializer.onPreparationFinished += handler;
@@ -458,7 +458,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task Generate_WithErrorSymbolInSuccessfulOutput_DoesNotInitializeOrRetry()
         {
             var executor = new FakeAIExecutor("fake", "Use ❌ to render the failure icon.");
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
             string result = await genAI.Generate("input").AsTask();
 
@@ -471,7 +471,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockNextReceive();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
             using var cts = new CancellationTokenSource();
 
             Task<string> generation = core.GenerateAsync("input", ct: cts.Token, timeoutMs: 5000).AsTask();
@@ -489,7 +489,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.BlockNextReceive();
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             Task<string> generation = core.GenerateAsync("input", timeoutMs: 300).AsTask();
             await executor.ReceiveStarted;
@@ -505,8 +505,8 @@ namespace AIDrivenFW.Tests.Unit
             var activeExecutor = new FakeAIExecutor("active", "first response");
             activeExecutor.BlockGeneration();
             var waitingExecutor = new FakeAIExecutor("waiting", "second response");
-            var activeCore = new GenAICore(activeExecutor);
-            var waitingCore = new GenAICore(waitingExecutor);
+            var activeCore = new GenAICore(new AIExecutorContext(activeExecutor));
+            var waitingCore = new GenAICore(new AIExecutorContext(waitingExecutor));
             using var cts = new CancellationTokenSource();
             Task<string> activeGeneration = activeCore.GenerateAsync("first", timeoutMs: 5000).AsTask();
 
@@ -535,8 +535,8 @@ namespace AIDrivenFW.Tests.Unit
             var activeExecutor = new FakeAIExecutor("active", "first response");
             activeExecutor.BlockGeneration();
             var waitingExecutor = new FakeAIExecutor("waiting", "second response");
-            var activeCore = new GenAICore(activeExecutor);
-            var waitingCore = new GenAICore(waitingExecutor);
+            var activeCore = new GenAICore(new AIExecutorContext(activeExecutor));
+            var waitingCore = new GenAICore(new AIExecutorContext(waitingExecutor));
             Task<string> activeGeneration = activeCore.GenerateAsync("first", timeoutMs: 5000).AsTask();
 
             try
@@ -560,7 +560,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "recovered");
             executor.EnqueueReceiveFailure(new GenAIRetryableException("receive failed"));
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             string result = await core.GenerateAsync("input").AsTask();
 
@@ -576,7 +576,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "recovered");
             executor.EnqueueExtractFailure(new GenAIRetryableException("extract failed"));
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             string result = await core.GenerateAsync("input").AsTask();
 
@@ -592,7 +592,7 @@ namespace AIDrivenFW.Tests.Unit
             var executor = new FakeAIExecutor("fake", "recovered");
             executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
             executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             string result = await core.GenerateAsync("input").AsTask();
 
@@ -607,7 +607,7 @@ namespace AIDrivenFW.Tests.Unit
         {
             var executor = new FakeAIExecutor("fake", "response");
             executor.SetProcessAlive(false);
-            var core = new GenAICore(executor);
+            var core = new GenAICore(new AIExecutorContext(executor));
 
             string result = await core.GenerateAsync("input").AsTask();
 
@@ -625,7 +625,7 @@ namespace AIDrivenFW.Tests.Unit
             executor.EnqueueGenerateFailure(new GenAIRetryableException("first"));
             executor.EnqueueGenerateFailure(new GenAIRetryableException("second"));
             executor.EnqueueGenerateFailure(last);
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
             var exception = await CaptureExceptionAsync<GenAIExecutionException>(
                 genAI.Generate("input", retryAfterInitialization: false).AsTask());

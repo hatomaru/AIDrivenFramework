@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace AIDrivenFW.Tests.Unit
 {
-    internal sealed class FakeAIExecutor : IAIExecutor
+    internal sealed class FakeAIExecutor : IProcessExecutor, IGenerateExecutor, IExtractExecutor, IArgumentsExecutor
     {
         private readonly Queue<Exception> generateFailures = new Queue<Exception>();
         private readonly Queue<Exception> receiveFailures = new Queue<Exception>();
@@ -184,7 +184,7 @@ namespace AIDrivenFW.Tests.Unit
             return Response;
         }
 
-        public UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate = null)
+        public UniTask<bool> IsGenerated(CancellationToken token, Action<string> onUpdate = null)
         {
             token.ThrowIfCancellationRequested();
             return UniTask.FromResult(true);

@@ -78,7 +78,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task SetExecutor_WithSameInstance_IsNoOp()
         {
             var executor = new FakeAIExecutor("same", "same response");
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
             await genAI.Generate("before no-op", retryAfterInitialization: false);
             genAI.SetExecutor(executor);
@@ -93,9 +93,9 @@ namespace AIDrivenFW.Tests.Unit
         public async Task SetExecutor_WithNull_ThrowsAndKeepsCurrentExecutor()
         {
             var executor = new FakeAIExecutor("current", "current response");
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
-            var exception = Assert.Throws<ArgumentNullException>(() => genAI.SetExecutor(null));
+            var exception = Assert.Throws<ArgumentNullException>(() => genAI.SetExecutor((IGenerateExecutor)null));
             string result = await genAI.Generate("after null", retryAfterInitialization: false);
 
             Assert.AreEqual("aiExecutor", exception.ParamName);
@@ -140,7 +140,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task KillProcess_AfterGeneration_RecreatesCoreAndRestartsExecutor()
         {
             var executor = new FakeAIExecutor("fake", "response");
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
 
             Assert.AreEqual("response", await genAI.Generate("first", retryAfterInitialization: false).AsTask());
             genAI.KillProcess();
@@ -171,7 +171,7 @@ namespace AIDrivenFW.Tests.Unit
         public async Task Generate_WithExplicitConfig_ForwardsPromptsWithoutRequestingDefaultArguments()
         {
             var executor = new FakeAIExecutor("fake", "response");
-            var genAI = new GenAI(executor);
+            var genAI = new GenAI(new AIExecutorContext(executor));
             var config = ScriptableObject.CreateInstance<GenAIConfig>();
             config.sysPrompt = "system prompt";
             Assert.AreNotEqual(AIDrivenConfig.autoDetect, config.arguments);

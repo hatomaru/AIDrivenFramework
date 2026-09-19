@@ -137,6 +137,15 @@ namespace AIDrivenFW.API
                 throw new ArgumentNullException(nameof(aiExecutor));
             }
 
+            // If the currently owned executor already wraps the same underlying
+            // IGenerateExecutor instance, treat this as a no-op (do not kill or
+            // replace the underlying resources). Tests expect setting the same
+            // executor instance to be ignored.
+            if (executor != null && ReferenceEquals(executor.GenerateExecutor, aiExecutor))
+            {
+                return;
+            }
+
             SetExecutor(new AIExecutorContext(aiExecutor));
         }
 
