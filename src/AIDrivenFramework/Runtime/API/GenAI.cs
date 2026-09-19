@@ -1,5 +1,5 @@
-using AIDrivenFW.Core;
 using AIDrivenFW.Config;
+using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
 using System.Threading;
@@ -12,7 +12,7 @@ namespace AIDrivenFW.API
     /// </summary>
     /// <remarks>
     /// <para>
-    /// このクラスは、渡された<see cref="IAIExecutor"/>を排他的に所有する前提でライフサイクルを管理します。
+    /// このクラスは、渡された<see cref="AIExecutorContext"/>を排他的に所有する前提でライフサイクルを管理します。
     /// </para>
     /// <para>
     /// 同じ実行器オブジェクトを複数の<see cref="GenAI"/>で共有すると、一方の<see cref="SetExecutor"/>または
@@ -21,8 +21,20 @@ namespace AIDrivenFW.API
     /// </remarks>
     public class GenAI
     {
-        private IAIExecutor executor;
+        private AIExecutorContext executor;
         private GenAICore core;
+
+        // Accept a raw executor used in tests and for convenience. Wrap into AIProcessCoordinator.
+        public GenAI(IGenerateExecutor generateExecutor)
+            : this(new AIExecutorContext(generateExecutor))
+        {
+        }
+
+        // Convenience overload for tests/internals that pass AIExecutorContext as a named argument.
+        public GenAI(AIExecutorContext executorContext, bool _ = false)
+            : this(executorContext)
+        {
+        }
 
         /// <summary>
         /// 指定したAI実行クラスを所有する生成APIを作成する。
@@ -35,9 +47,43 @@ namespace AIDrivenFW.API
         /// 同じ実行器オブジェクトを複数の<see cref="GenAI"/>へ渡すと、一方のライフサイクル操作が
         /// 他方の生成資源を停止する可能性があるため、インスタンスごとに異なる実行器を渡してください。
         /// </remarks>
-        public GenAI(IAIExecutor aiExecutor = null)
+        public GenAI()
+            : this((AIExecutorContext)null)
         {
-            SetExecutor(aiExecutor ?? new LlamaCliExecutor());
+        }
+
+        public GenAI(AIExecutorContext aiExecutor)
+        {
+            var fallbackExecutor = new LlamaHTTPExecutor();
+
+            // aiExecutor が指定されていない場合は保存された設定を読み込み、実行モードに応じてルーティングする
+            if (aiExecutor == null)
+            {
+                try
+                {
+                    Debug.Log("Auto routing AI executor based on saved configuration.");
+                    var saved = AIDrivenFW.Config.ModelInfo.LoadFromFile();
+                    if (saved != null && !string.IsNullOrEmpty(saved.Mode) && saved.Mode.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Ollama モード
+                        SetExecutor(new AIExecutorContext(new OllamaHTTPExecutor()));
+                    }
+                    else
+                    {
+                        // デフォルトは llama.cpp
+                        SetExecutor(new AIExecutorContext(new LlamaHTTPExecutor()));
+                    }
+
+                }
+                catch (Exception ex)
+                {
+                    UnityEngine.Debug.LogWarning($"Failed to auto routing: {ex.Message}");
+                    // フォールバック
+                    SetExecutor(new AIExecutorContext(fallbackExecutor));
+                }
+                return;   
+            }
+            SetExecutor(aiExecutor ?? new AIExecutorContext(fallbackExecutor));
         }
 
         /// <summary>
@@ -48,10 +94,10 @@ namespace AIDrivenFW.API
         /// <remarks>
         /// <para>
         /// 現在の実行器と同じオブジェクトを渡した場合は何もしません。異なるオブジェクトを渡した場合は、
-        /// 旧実行器の<see cref="IAIExecutor.KillProcess"/>を同期的に実行し、成功した後に実行器を切り替えて生成コアを破棄します。
+        /// 旧実行器の<see cref="AIExecutorContext.ProcessExecutor.KillProcess"/>を同期的に実行し、成功した後に実行器を切り替えて生成コアを破棄します。
         /// </para>
         /// <para>
-        /// 旧実行器の<see cref="IAIExecutor.KillProcess"/>が例外を送出した場合、例外をそのまま伝播し、実行器と生成コアの参照は
+        /// 旧実行器の<see cref="AIExecutorContext.ProcessExecutor.KillProcess"/>が例外を送出した場合、例外をそのまま伝播し、実行器と生成コアの参照は
         /// 旧状態のまま維持します。ただし、例外までに旧実行器が外部プロセスなどへ与えた副作用はロールバックできません。
         /// </para>
         /// <para>
@@ -59,7 +105,7 @@ namespace AIDrivenFW.API
         /// また、<see cref="Generate"/>の実行中に呼び出した場合の動作は保証されません。
         /// </para>
         /// </remarks>
-        public void SetExecutor(IAIExecutor aiExecutor)
+        public void SetExecutor(AIExecutorContext aiExecutor)
         {
             if (aiExecutor == null)
             {
@@ -71,10 +117,36 @@ namespace AIDrivenFW.API
                 return;
             }
 
-            executor?.KillProcess();
+            executor?.ProcessExecutor.KillProcess();
             core?.Dispose();
             executor = aiExecutor;
             core = null;
+        }
+
+        // Convenience overload for tests/internals that pass AIExecutorContext as a named argument.
+        public void SetExecutor(AIExecutorContext executorContext, bool _ = false)
+        {
+            SetExecutor(executorContext);
+        }
+
+        // Convenience overload used by tests and callers that hold a raw executor implementation.
+        public void SetExecutor(IGenerateExecutor aiExecutor)
+        {
+            if (aiExecutor == null)
+            {
+                throw new ArgumentNullException(nameof(aiExecutor));
+            }
+
+            // If the currently owned executor already wraps the same underlying
+            // IGenerateExecutor instance, treat this as a no-op (do not kill or
+            // replace the underlying resources). Tests expect setting the same
+            // executor instance to be ignored.
+            if (executor != null && ReferenceEquals(executor.GenerateExecutor, aiExecutor))
+            {
+                return;
+            }
+
+            SetExecutor(new AIExecutorContext(aiExecutor));
         }
 
         /// <summary>
@@ -152,7 +224,7 @@ namespace AIDrivenFW.API
         /// </summary>
         /// <remarks>
         /// <para>
-        /// 所有する実行器の<see cref="IAIExecutor.KillProcess"/>を同期的に実行します。同じ実行器オブジェクトを
+        /// 所有する実行器の<see cref="AIExecutorContext.ProcessExecutor.KillProcess"/>を同期的に実行します。同じ実行器オブジェクトを
         /// 他の<see cref="GenAI"/>と共有している場合、その生成資源も停止する可能性があります。
         /// </para>
         /// <para>
@@ -162,7 +234,7 @@ namespace AIDrivenFW.API
         /// </remarks>
         public void KillProcess()
         {
-            executor.KillProcess();
+            executor.ProcessExecutor.KillProcess();
             core?.Dispose();
             core = null;
         }
@@ -187,7 +259,7 @@ namespace AIDrivenFW.API
 
         public string IsFoundAISoftware()
         {
-            return executor.IsFoundAISoftware();
+            return executor.ArgumentsExecutor.IsFoundAISoftware();
         }
     }
 }

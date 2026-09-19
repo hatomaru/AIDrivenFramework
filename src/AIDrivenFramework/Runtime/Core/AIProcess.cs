@@ -32,20 +32,22 @@ namespace AIDrivenFW.Core
         private readonly object _outputLock = new object();
         // 出力を受け取るビルダー
         StreamReader reader = null;  // stdout 読み取り用
+        StreamReader errorReader = null; // stderr 読み取り用
         StringBuilder outputBuilder = new StringBuilder();
         StringBuilder errorBuilder = new StringBuilder();
         private Stream procStdinStream = null;  // 標準入力ストリーム
         private static readonly UTF8Encoding _utf8NoBom = new UTF8Encoding(false);
         private Thread _stdoutThread = null;           // stdout 読み取りスレッド
+        private Thread _stderrThread = null;           // stderr 読み取りスレッド
         private volatile bool _stopReading = false;    // 読み取り停止フラグ
         // 出力イベント
         public event Action<string> onPartialOutput;
+        public event Action<string> onPartialError;
 
         public Process persistentProc { get; private set; } = null;  // 常駐プロセス
         private readonly bool _redirectStdIn;
         private readonly bool _redirectStdOut;
         private readonly bool _redirectStdErr;
-        private GenAIConfig _ownedConfig;
 
         /// <summary>
         /// AIプロセスのコンストラクタ、プロセスを開始する
@@ -58,8 +60,7 @@ namespace AIDrivenFW.Core
         {
             if (genAIConfig == null)
             {
-                _ownedConfig = GenAIConfigLifecycle.CreateOwned();
-                genAIConfig = _ownedConfig;
+                genAIConfig = new GenAIConfig();
             }
             aiConfig = genAIConfig;
             _redirectStdIn = redirectStdIn;
@@ -69,6 +70,7 @@ namespace AIDrivenFW.Core
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = aiConfig.aiSoftwarePath,    // 呼び出しファイル名
+                Arguments = aiConfig.arguments,
                 WorkingDirectory = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath),
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -78,17 +80,14 @@ namespace AIDrivenFW.Core
                 RedirectStandardError = redirectStdErr,
                 // StandardOutputEncoding/StandardErrorEncoding are set below only when redirection is enabled
             };
-            foreach (string argument in ProcessArgumentParser.Parse(aiConfig.arguments))
-            {
-                psi.ArgumentList.Add(argument);
-            }
-            UnityEngine.Debug.Log($"{psi.FileName} {string.Join(" ", psi.ArgumentList)}");
+            UnityEngine.Debug.Log($"{psi.FileName} {psi.Arguments}");
             state = AIState.Prepare;
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
-            // UTF-8 ロケールを明示的に設定
+            // UTF-8 ロケールを明示的に設定（bash 経由起動時に日本語が文字化けする対策）
             psi.Environment["LANG"] = "en_US.UTF-8";
             psi.Environment["LC_ALL"] = "en_US.UTF-8";
-            EnsureExecutablePermission(psi.FileName);
+            ApplyMacOSPermissions(psi.FileName);
+            WrapWithBash(psi);
 #endif
             // エンコーディングはリダイレクトが有効な場合のみ設定（無効だと例外になるため）
             if (redirectStdOut)
@@ -117,19 +116,9 @@ namespace AIDrivenFW.Core
                 outputBuilder.Clear();
                 errorBuilder.Clear();
             }
-            // レシーブ設定 (マーカー判定)
-            if (_redirectStdErr)
-            {
-                persistentProc.ErrorDataReceived += OnErrorDataReceived;
-            }
+            Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
-            Application.quitting += KillProcess;
-            if (_redirectStdErr)
-            {
-                persistentProc.BeginErrorReadLine();
-            }
-
             // stdout を BaseStream から直接読み取るスレッドを起動
             if (_redirectStdOut)
             {
@@ -140,6 +129,18 @@ namespace AIDrivenFW.Core
                     Name = "AIProcess_StdoutReader"
                 };
                 _stdoutThread.Start();
+            }
+
+            // Ollama's pull progress is updated with carriage returns on stderr.
+            // Read the stream directly so every rewritten progress line can be observed.
+            if (_redirectStdErr)
+            {
+                _stderrThread = new Thread(ReadStderrLoop)
+                {
+                    IsBackground = true,
+                    Name = "AIProcess_StderrReader"
+                };
+                _stderrThread.Start();
             }
 
             // 標準入力ストリームを取得（StreamWriter を介さず BaseStream を直接使用）
@@ -176,6 +177,44 @@ namespace AIDrivenFW.Core
             onPartialOutput += listener;
         }
 
+        public void UnregisterOutputListener(Action<string> listener)
+        {
+            onPartialOutput -= listener;
+        }
+
+        public void RegisterErrorListener(Action<string> listener)
+        {
+            onPartialError += listener;
+        }
+
+        public void UnregisterErrorListener(Action<string> listener)
+        {
+            onPartialError -= listener;
+        }
+
+        public string GetErrorSnapshot()
+        {
+            lock (_outputLock)
+            {
+                return errorBuilder.ToString();
+            }
+        }
+
+        public bool TryGetExitCode(out int exitCode)
+        {
+            lock (_lock)
+            {
+                if (persistentProc == null || !persistentProc.HasExited)
+                {
+                    exitCode = default;
+                    return false;
+                }
+
+                exitCode = persistentProc.ExitCode;
+                return true;
+            }
+        }
+
         /// <summary>
         /// プロセス状態を取得する
         /// </summary>
@@ -193,17 +232,7 @@ namespace AIDrivenFW.Core
         {
             lock (_lock)
             {
-                if (persistentProc == null || state != AIState.Running)
-                    return false;
-
-                try
-                {
-                    return !persistentProc.HasExited;
-                }
-                catch (InvalidOperationException)
-                {
-                    return false;
-                }
+                return persistentProc != null && !persistentProc.HasExited && state >= AIState.Running;
             }
         }
 
@@ -222,7 +251,7 @@ namespace AIDrivenFW.Core
                 }
                 else
                 {
-                    throw new GenAIRetryableException("The process is not available.");
+                    throw new InvalidOperationException("The process is not available.");
                 }
             }
         }
@@ -234,33 +263,29 @@ namespace AIDrivenFW.Core
         {
             if (persistentProc == null)
             {
-                GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
                 return;
             }
             lock (_lock)
             {
                 state = AIState.Stopped;
-                Process process = persistentProc;
-                persistentProc = null;
-                Application.quitting -= KillProcess;
-
-                TryTerminateProcess(process);
+                TryTerminateProcess(persistentProc);
 
                 // stdout 読み取りスレッドを停止
                 _stopReading = true;
                 try { reader?.Dispose(); } catch { }
+                try { errorReader?.Dispose(); } catch { }
                 try { procStdinStream?.Dispose(); } catch { }
-                try { process?.Dispose(); } catch { }
+                try { persistentProc?.Dispose(); } catch { }
+                Application.quitting -= KillProcess;
 
+                persistentProc = null;
                 procStdinStream = null;
             }
-            GenAIConfigLifecycle.DestroyOwned(ref _ownedConfig);
         }
 
         internal static void TryTerminateProcess(Process process)
         {
-            if (process == null)
-                return;
+            if (process == null) return;
 
             try
             {
@@ -272,7 +297,7 @@ namespace AIDrivenFW.Core
             }
             catch (InvalidOperationException)
             {
-                // The process was never started or is no longer associated with an OS process.
+                // No process is associated, or it exited during termination.
             }
             catch (Exception ex)
             {
@@ -368,6 +393,58 @@ namespace AIDrivenFW.Core
         }
 
         /// <summary>
+        /// stderr is read character by character because CLI progress is commonly rendered with '\r'.
+        /// Each completed or rewritten line is published immediately to listeners.
+        /// </summary>
+        private void ReadStderrLoop()
+        {
+            try
+            {
+                errorReader = new StreamReader(
+                    persistentProc.StandardError.BaseStream,
+                    new UTF8Encoding(false));
+
+                var lineBuffer = new StringBuilder();
+                int character;
+                while (!_stopReading && (character = errorReader.Read()) != -1)
+                {
+                    if (character == '\r' || character == '\n')
+                    {
+                        PublishErrorLine(lineBuffer.ToString());
+                        lineBuffer.Clear();
+                    }
+                    else
+                    {
+                        lineBuffer.Append((char)character);
+                    }
+                }
+
+                if (lineBuffer.Length > 0)
+                {
+                    PublishErrorLine(lineBuffer.ToString());
+                }
+            }
+            catch (Exception ex) when (!_stopReading)
+            {
+                UnityEngine.Debug.LogError($"[AIProcess] stderr read error: {ex.Message}");
+            }
+        }
+
+        private void PublishErrorLine(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            lock (_outputLock)
+            {
+                errorBuilder.AppendLine(line);
+                onPartialError?.Invoke(line);
+            }
+            if (AIDrivenConfig.Instance.IsDeepDebug)
+            {
+                UnityEngine.Debug.Log($"[AIProcess stderr] {line}");
+            }
+        }
+
+        /// <summary>
         /// 成功の検出
         /// </summary>
         /// <returns>成功したか</returns>
@@ -379,25 +456,51 @@ namespace AIDrivenFW.Core
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
         /// <summary>
-        /// macOS/Linux: 実行権限を付与する。Gatekeeperの隔離属性は変更しない。
+        /// macOS: 実行権限の付与とGatekeeperの隔離属性を除去する
         /// </summary>
-        private static void EnsureExecutablePermission(string filePath)
+        private static void ApplyMacOSPermissions(string filePath)
         {
             try
             {
-                var chmodStartInfo = new ProcessStartInfo("/bin/chmod")
+                Process.Start(new ProcessStartInfo("/bin/chmod", $"+x \"{filePath}\"")
                 {
                     UseShellExecute = false,
                     CreateNoWindow = true
-                };
-                chmodStartInfo.ArgumentList.Add("+x");
-                chmodStartInfo.ArgumentList.Add(filePath);
-                Process.Start(chmodStartInfo)?.WaitForExit(3000);
+                })?.WaitForExit(3000);
             }
             catch (Exception ex)
             {
                 UnityEngine.Debug.LogWarning($"[AIProcess] chmod +x failed: {ex.Message}");
             }
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+            try
+            {
+                Process.Start(new ProcessStartInfo("/usr/bin/xattr", $"-d com.apple.quarantine \"{filePath}\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                })?.WaitForExit(3000);
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[AIProcess] xattr -d failed: {ex.Message}");
+            }
+#endif
+        }
+
+        /// <summary>
+        /// macOS: /bin/bash 経由でプロセスを起動するように ProcessStartInfo を書き換える
+        /// (Unity の Process.Start() が非 .app バイナリを直接起動できないケースへの対処)
+        /// </summary>
+        private static void WrapWithBash(ProcessStartInfo psi)
+        {
+            string execPath = psi.FileName;
+            string execArgs = psi.Arguments;
+            // exec でbashを置き換えることで、persistentProcがllama-cliのPIDを直接指す
+            string shellSafePath = "'" + execPath.Replace("'", "'\\''") + "'";
+            string shellSafeArgs = execArgs.Replace("\"", "\\\"");
+            psi.FileName = "/bin/bash";
+            psi.Arguments = $"-c \"exec {shellSafePath} {shellSafeArgs}\"";
         }
 #endif
     }

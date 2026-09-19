@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-public class LlamaCliExecutor : IAIExecutor
+public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;
@@ -114,7 +114,7 @@ public class LlamaCliExecutor : IAIExecutor
         // プロセスに入力を送る処理  
         aiProcess.SendStdin(input);
         // 生成完了を待機
-        while (!await CheckOutput(ct, onUpdate))
+        while (!await IsGenerated(ct, onUpdate))
         {
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
         }
@@ -126,7 +126,7 @@ public class LlamaCliExecutor : IAIExecutor
         return UniTask.FromResult(aiProcess.GetOutputSnapshot());
     }
 
-    public async UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate)
+    public async UniTask<bool> IsGenerated(CancellationToken token, Action<string> onUpdate)
     {
         string output = await ReceiveAsync(token);
         if (onUpdate != null)
@@ -338,12 +338,15 @@ public class LlamaCliExecutor : IAIExecutor
               return "-m {ModelPath} --system-prompt {sysPrompt} " +
               "--gpu-layers 130 " +
               "--ctx-size 2048 " +
-              "--parallel 1 " +
-              "--mlock";
+              "--parallel 1";
     }
 
     public string SetArguments(string raw,GenAIConfig genAIConfig)
     {
+        if (string.IsNullOrWhiteSpace(raw) || raw == AIDrivenConfig.autoDetect)
+        {
+            raw = SetDefaultArguments();
+        }
         return BuildArguments(raw, genAIConfig);
     }
 

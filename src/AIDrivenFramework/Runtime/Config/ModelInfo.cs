@@ -12,6 +12,8 @@ namespace AIDrivenFW.Config
 
         // JsonUtility serializes fields, so use a public field instead of a property
         public string Name = "";
+        // 保存する実行モード: "Ollama" または "Llama"
+        public string Mode = "Llama";
 
         public ModelInfo() { }
 
@@ -38,7 +40,8 @@ namespace AIDrivenFW.Config
         /// </summary>
         public void SaveToFile()
         {
-            string path = Path.Combine(Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath, FileName);
+            // 設定は persistentDataPath ではなく Data フォルダ側に保存する
+            string path = Path.Combine(Application.dataPath, AIDrivenConfig.Instance.BaseFilePath, FileName);
 
             var dir = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -53,7 +56,8 @@ namespace AIDrivenFW.Config
         /// <returns>読み込み後の設定ファイル</returns>
         public static ModelInfo LoadFromFile()
         {
-            string path = Path.Combine(Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath, FileName);
+            // 設定は persistentDataPath ではなく Data フォルダ側から読み込む
+            string path = Path.Combine(Application.dataPath, AIDrivenConfig.Instance.BaseFilePath, FileName);
 
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
             try

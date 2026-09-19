@@ -31,7 +31,7 @@ internal class OllamaPayload
     public bool stream;
 }
 
-public class OllamaHTTPExecutor : IAIExecutor
+public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
     private HttpClient httpClient;
     private const string ServerHost = "127.0.0.1";
@@ -75,7 +75,7 @@ public class OllamaHTTPExecutor : IAIExecutor
         GenAIConfigLifecycle.DestroyOwned(ref _ownedServerConfig);
 
         // Ollama が既に起動しているか確認し、起動中でなければ ollama serve を起動
-        bool alreadyRunning = await CheckOutput(ct);
+        bool alreadyRunning = await IsGenerated(ct);
         if (!alreadyRunning)
         {
             try
@@ -320,7 +320,7 @@ public class OllamaHTTPExecutor : IAIExecutor
         return UniTask.FromResult(_lastResponse);
     }
 
-    public async UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate = null)
+    public async UniTask<bool> IsGenerated(CancellationToken token, Action<string> onUpdate = null)
     {
         try
         {

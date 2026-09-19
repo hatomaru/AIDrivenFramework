@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Threading;
 
-public class CustomExecutor : IAIExecutor
+public class CustomExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;
@@ -81,7 +81,7 @@ public class CustomExecutor : IAIExecutor
 
         aiProcess.SendStdin(input);
 
-        while (!await CheckOutput(ct,onUpdate))
+        while (!await IsGenerated(ct,onUpdate))
         {
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
         }
@@ -92,7 +92,7 @@ public class CustomExecutor : IAIExecutor
         return UniTask.FromResult("mock response");
     }
 
-    public async UniTask<bool> CheckOutput(CancellationToken token, Action<string> onUpdate)
+    public async UniTask<bool> IsGenerated(CancellationToken token, Action<string> onUpdate)
     {
         string output = await ReceiveAsync(token);
         // ストリーミング出力の更新を処理
@@ -124,7 +124,8 @@ public class CustomExecutor : IAIExecutor
 
     public string SetArguments(string raw, GenAIConfig genAIConfig)
     {
-        string args = raw;
+        string args = raw == AIDrivenConfig.autoDetect
+            ? AIDrivenConfig.defaultArguments : raw ?? SetDefaultArguments();
         args = args.Replace("{ModelPath}", $"\"{ModelRepository.GetModelExecutablePath()}\"");
         args = args.Replace("{sysPrompt}", $"\"{genAIConfig.sysPrompt}\"");
         return args;

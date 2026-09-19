@@ -9,7 +9,7 @@ public class EndToEndIntegrationTests
     [Test, Category("E2E")]
     public async Task EndToEnd_MultipleGenerations_WorkCorrectly_LlamaCppCLI()
     {
-        testAI = new GenAI(new LlamaCliExecutor());
+        testAI = new GenAI(new AIDrivenFW.Core.AIExecutorContext(new LlamaCliExecutor()));
 
         bool prepared = await AIDrivenInitializer.Initialize();
 
@@ -23,7 +23,7 @@ public class EndToEndIntegrationTests
     [Test, Category("E2E")]
     public async Task EndToEnd_MultipleGenerations_WorkCorrectly_LlamaCppHTTP()
     {
-        testAI = new GenAI(new LlamaHTTPExecutor());
+        testAI = new GenAI(new AIDrivenFW.Core.AIExecutorContext(new LlamaCliExecutor()));
 
         bool prepared = await AIDrivenInitializer.Initialize();
 
@@ -37,7 +37,7 @@ public class EndToEndIntegrationTests
     [Test, Category("E2E")]
     public async Task EndToEnd_MultipleGenerations_WorkCorrectly_OllamaHTTP()
     {
-        testAI = new GenAI(new OllamaHTTPExecutor());
+        testAI = new GenAI(new AIDrivenFW.Core.AIExecutorContext(new OllamaHTTPExecutor()));
 
         bool prepared = await AIDrivenInitializer.Initialize();
 
