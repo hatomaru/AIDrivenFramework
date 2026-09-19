@@ -31,7 +31,7 @@ internal class OllamaPayload
     public bool stream;
 }
 
-public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IAArgumentsExecutor, IExtractExecutor
+public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
     private HttpClient httpClient;
     private const string ServerHost = "127.0.0.1";

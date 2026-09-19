@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Threading;
 
-public class CustomExecutor : IProcessExecutor, IGenerateExecutor, IAArgumentsExecutor, IExtractExecutor
+public class CustomExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;

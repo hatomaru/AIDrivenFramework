@@ -4,7 +4,7 @@ namespace AIDrivenFW.Core
     /// <summary>
     /// AI生成引数インタフェース
     /// </summary>
-    public interface IAArgumentsExecutor
+    public interface IArgumentsExecutor
     {
         /// <summary>
         /// AI設定が異なるか確認する (削除候補)

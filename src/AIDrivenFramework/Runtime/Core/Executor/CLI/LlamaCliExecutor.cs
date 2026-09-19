@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IAArgumentsExecutor, IExtractExecutor
+public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;

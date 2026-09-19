@@ -55,7 +55,7 @@ internal class RequestPayload
     public bool stream;
 }
 
-public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IAArgumentsExecutor, IExtractExecutor
+public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
 
     // HTTPクライアント

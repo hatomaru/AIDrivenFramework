@@ -11,10 +11,10 @@ namespace AIDrivenFW.Core
         private const int MaxGenerationAttempts = 3;
         private const int CheckIntervalMs = 500;
         private static readonly SemaphoreSlim _generateLock = new(1, 1);
-        private readonly AIProcessCoordinator executor;
+        private readonly AIExecutorContext executor;
         private GenAIConfig defaultConfig;
 
-        public GenAICore(AIProcessCoordinator aiExecutor)
+        public GenAICore(AIExecutorContext aiExecutor)
         {
             executor = aiExecutor ?? throw new ArgumentNullException(nameof(aiExecutor));
         }
