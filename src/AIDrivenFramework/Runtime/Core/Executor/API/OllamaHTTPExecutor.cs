@@ -74,26 +74,21 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
         }
         GenAIConfigLifecycle.DestroyOwned(ref _ownedServerConfig);
 
-        // Ollama が既に起動しているか確認し、起動中でなければ ollama serve を起動
-        bool alreadyRunning = await IsGenerated(ct);
-        if (!alreadyRunning)
+        try
         {
-            try
-            {
-                // Start Ollama via AIProcess so we have unified process management.
-                _ownedServerConfig = GenAIConfigLifecycle.CreateOwned();
-                var gen = _ownedServerConfig;
-                gen.aiSoftwarePath = AISoftwarePath;
-                gen.arguments = "serve";
-                // Ollama serve does not use stdio for streaming, so disable redirection.
-                _ollamaProcess = new AIDrivenFW.Core.AIProcess(gen, redirectStdIn: false, redirectStdOut: false, redirectStdErr: true);
-                UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
-                UnityEngine.Debug.Log($"Starting process with command: {AISoftwarePath} serve");
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError($"❌ Ollama起動に失敗しました: {e.Message}");
-            }
+            // Start Ollama via AIProcess so we have unified process management.
+            _ownedServerConfig = GenAIConfigLifecycle.CreateOwned();
+            var gen = _ownedServerConfig;
+            gen.aiSoftwarePath = AISoftwarePath;
+            gen.arguments = "serve";
+            // Ollama serve does not use stdio for streaming, so disable redirection.
+            _ollamaProcess = new AIDrivenFW.Core.AIProcess(gen, redirectStdIn: false, redirectStdOut: false, redirectStdErr: true);
+            UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
+            UnityEngine.Debug.Log($"Starting process with command: {AISoftwarePath} serve");
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"❌ Ollama起動に失敗しました: {e.Message}");
         }
 
         await WaitUntilReadyAsync(ct, progress, timeoutMs);
@@ -137,7 +132,7 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
         throw new TimeoutException($"Ollamaサーバーの起動がタイムアウトしました ({timeoutMs}ms)");
     }
 
-    public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         // Ensure server/process is running
         if ((_ollamaProcess == null || !_ollamaProcess.IsProcessAlive()) && !_serverReady)
@@ -209,6 +204,7 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
             }
 
             _lastResponse = responseBuilder.ToString();
+            return _lastResponse;
         }
         catch (OperationCanceledException)
         {

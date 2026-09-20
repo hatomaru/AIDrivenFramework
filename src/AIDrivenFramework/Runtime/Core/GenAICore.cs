@@ -163,24 +163,29 @@ namespace AIDrivenFW.Core
 
             using var loadingCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             UniTask loadingTask = LoadingAsync(loadingCts.Token, progress, timeoutMs);
-
+            string output = string.Empty;
             try
             {
                 Debug.Log("Generation started, waiting for completion...");
-                await executor.GenerateExecutor.GenerateAsync(systemPrompt, input, ct, onUpdate, timeoutMs: timeoutMs);
+                output = await executor.GenerateExecutor.GenerateAsync(systemPrompt, input, ct, onUpdate, timeoutMs: timeoutMs);
             }
             catch
             {
                 await StopLoadingAsync(loadingCts, loadingTask, preservePrimaryException: true);
                 throw;
             }
-
             await StopLoadingAsync(loadingCts, loadingTask, preservePrimaryException: false);
+            // If the caller requested cancellation or the operation timed out while
+            // we were waiting for the final receive, propagate that cancellation so
+            // the outer retry/timeout handling can observe and act (e.g. kill process).
+            if (ct.IsCancellationRequested)
+            {
+                // Preserve the original cancellation token semantics.
+                ct.ThrowIfCancellationRequested();
+            }
             Debug.Log("Generation completed, finalizing output...");
 
-            await UniTask.Delay(100, cancellationToken: ct);
-            string fullOutput = await executor.ProcessExecutor.ReceiveAsync(ct);
-            string result = executor.ExtractExecutor.ExtractAssistantOutput(fullOutput);
+            string result = executor.ExtractExecutor.ExtractAssistantOutput(output);
 
             if (string.IsNullOrWhiteSpace(result))
             {
@@ -231,11 +236,11 @@ namespace AIDrivenFW.Core
                     throw new GenAIRetryableException("The AI executor process terminated unexpectedly.");
                 }
 
-                await UniTask.Delay(CheckIntervalMs, cancellationToken: ct);
-                elapsedMs += CheckIntervalMs;
-
                 _ = await executor.ProcessExecutor.ReceiveAsync(ct);
                 progress?.Report(Mathf.Clamp01((float)elapsedMs / timeoutMs) * 100f);
+
+                await UniTask.Delay(CheckIntervalMs, cancellationToken: ct);
+                elapsedMs += CheckIntervalMs;
             }
         }
 
