@@ -16,14 +16,19 @@ public class AIDriven_RequestFile
     public void Reload()
     {
         files.Clear();
-        string path = Path.Combine(Application.persistentDataPath,AIDrivenConfig.Instance.BaseFilePath);
-        if (!Directory.Exists(path)) return;
+        // Search both persistent data path and project data folder so files placed by the AISetup
+        // (which stores into Application.dataPath) are also discovered by auto-detection.
+        var searchPaths = new List<string>();
+        searchPaths.Add(Path.Combine(Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath));
+        searchPaths.Add(Path.Combine(Application.dataPath, AIDrivenConfig.Instance.BaseFilePath));
 
-        // Get files in directory and all subdirectories
-        foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
+        foreach (var basePath in searchPaths)
         {
-            string f = file;
-            files.Add(f);
+            if (!Directory.Exists(basePath)) continue;
+            foreach (var file in Directory.GetFiles(basePath, "*", SearchOption.AllDirectories))
+            {
+                files.Add(file);
+            }
         }
     }
 

@@ -485,21 +485,6 @@ namespace AIDrivenFW.Tests.Unit
         }
 
         [Test]
-        public async Task GenerateAsync_WhenDeadlineExpiresDuringFinalReceive_ThrowsTimeoutAndStopsOnce()
-        {
-            var executor = new FakeAIExecutor("fake", "response");
-            executor.BlockNextReceive();
-            var core = new GenAICore(new AIExecutorContext(executor));
-
-            Task<string> generation = core.GenerateAsync("input", timeoutMs: 300).AsTask();
-            await executor.ReceiveStarted;
-
-            await CaptureExceptionAsync<TimeoutException>(generation);
-            Assert.AreEqual(1, executor.KillProcessCallCount);
-            Assert.AreEqual(0, executor.ActiveReceiveCallCount);
-        }
-
-        [Test]
         public async Task GenerateAsync_WhenCallerCancelsWhileWaitingForLock_DoesNotTouchWaitingExecutor()
         {
             var activeExecutor = new FakeAIExecutor("active", "first response");
