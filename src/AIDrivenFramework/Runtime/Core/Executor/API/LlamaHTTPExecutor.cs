@@ -155,7 +155,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
             throw new TimeoutException($"llama-server startup timed out ({timeoutMs}ms).");
         }
     }
-    public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
@@ -210,6 +210,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
             }
 
             _lastResponse = responseBuilder.ToString();
+            return _lastResponse;
         }
         catch (OperationCanceledException)
         {

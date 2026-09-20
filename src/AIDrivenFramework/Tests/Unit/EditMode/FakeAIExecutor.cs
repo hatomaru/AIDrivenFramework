@@ -107,7 +107,7 @@ namespace AIDrivenFW.Tests.Unit
             return UniTask.CompletedTask;
         }
 
-        public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+        public async UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
         {
             ct.ThrowIfCancellationRequested();
             GenerateCallCount++;
@@ -145,6 +145,7 @@ namespace AIDrivenFW.Tests.Unit
             }
 
             onUpdate?.Invoke(Response);
+            return Response;
         }
 
         public async UniTask<string> ReceiveAsync(CancellationToken ct)

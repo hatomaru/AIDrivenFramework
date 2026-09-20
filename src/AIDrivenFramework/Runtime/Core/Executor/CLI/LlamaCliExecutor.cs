@@ -102,7 +102,7 @@ public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsE
         throw new TimeoutException("Model loading timed out");
     }
 
-    public async UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
+    public async UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
@@ -118,6 +118,7 @@ public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsE
         {
             await UniTask.Delay(checkIntervalMs, cancellationToken: ct);
         }
+        return await ReceiveAsync(ct);
     }
 
     public UniTask<string> ReceiveAsync(CancellationToken ct)

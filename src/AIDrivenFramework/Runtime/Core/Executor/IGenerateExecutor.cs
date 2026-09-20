@@ -20,7 +20,7 @@ namespace AIDrivenFW.Core
         /// <param name="onUpdate">生成途中のテキストを受け取るコールバック</param>
         /// <param name="progress">進捗報告用のIProgressインスタンス</param>
         /// <param name="timeoutMs">タイムアウト時間（ミリ秒）</param>
-        UniTask GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000);
+        UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000);
 
         /// <summary>
         /// 生成が完了したかをプロセスの出力から判断する
