@@ -1,12 +1,12 @@
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using System;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using UnityEngine;
 
 
 [Serializable]
@@ -197,16 +197,66 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
         {
             Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
         };
-
+        var url = $"{ServerUrl}/v1/chat/completions";
         try
         {
             if (stream)
             {
-                await ProcessStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, onUpdate);
+                var responseStream = await HttpApiClient.SendStreamingAsync(url, requestJson, responseBuilder, onUpdate, cts.Token);
+                using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
+
+                // SSE形式でデータを逐次的に読み取る
+                while (true)
+                {
+                    // キャンセルチェック
+                    if (ct.IsCancellationRequested)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                    }
+
+                    string line = await reader.ReadLineAsync().AsUniTask().AttachExternalCancellation(ct);
+                    if (line == null) break;
+                    if (string.IsNullOrEmpty(line)) continue;
+
+                    // SSE format: "data: {...}" or "data: [DONE]"
+                    if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+
+                    string data = line.Substring(5).Trim();
+                    if (data == "[DONE]")
+                    {
+                        if (AIDrivenConfig.Instance.IsDeepDebug)
+                        {
+                            UnityEngine.Debug.Log("Streaming completed");
+                        }
+                        break;
+                    }
+
+                    var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
+                    if (chunk?.choices == null || chunk.choices.Length == 0) continue;
+
+                    string content = chunk.choices[0]?.delta?.content;
+                    if (!string.IsNullOrEmpty(content))
+                    {
+                        responseBuilder.Append(content);
+                        onUpdate?.Invoke(content);
+                        await UniTask.Yield();
+                    }
+                }
             }
             else
             {
-                await ProcessNonStreamingResponseAsync(httpRequest, cts.Token, responseBuilder);
+                var responseJson = await HttpApiClient.SendAsync(url, requestJson, cts.Token);
+
+                var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
+                if (result?.choices == null || result.choices.Length == 0 || result.choices[0]?.message?.content == null)
+                    throw new InvalidDataException("llama-server returned no assistant message: " + responseJson);
+                string content = result.choices[0].message.content;
+                responseBuilder.Append(content);
+
+                if (AIDrivenConfig.Instance.IsDeepDebug)
+                {
+                    UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
+                }
             }
 
             _lastResponse = responseBuilder.ToString();
@@ -237,45 +287,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
         }
 
         using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
 
-        // SSE形式でデータを逐次的に読み取る
-        while (true)
-        {
-            // キャンセルチェック
-            if (ct.IsCancellationRequested)
-            {
-                ct.ThrowIfCancellationRequested();
-            }
-
-            string line = await reader.ReadLineAsync().AsUniTask().AttachExternalCancellation(ct);
-            if (line == null) break;
-            if (string.IsNullOrEmpty(line)) continue;
-
-            // SSE format: "data: {...}" or "data: [DONE]"
-            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
-
-            string data = line.Substring(5).Trim();
-            if (data == "[DONE]")
-            {
-                if (AIDrivenConfig.Instance.IsDeepDebug)
-                {
-                    UnityEngine.Debug.Log("Streaming completed");
-                }
-                break;
-            }
-
-            var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
-            if (chunk?.choices == null || chunk.choices.Length == 0) continue;
-
-            string content = chunk.choices[0]?.delta?.content;
-            if (!string.IsNullOrEmpty(content))
-            {
-                responseBuilder.Append(content);
-                onUpdate?.Invoke(content);
-                await UniTask.Yield();
-            }
-        }
     }
 
     private async UniTask ProcessNonStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder)
@@ -288,16 +300,6 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
         }
 
         string responseJson = await httpResponse.Content.ReadAsStringAsync();
-        var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
-        if (result?.choices == null || result.choices.Length == 0 || result.choices[0]?.message?.content == null)
-            throw new InvalidDataException("llama-server returned no assistant message: " + responseJson);
-        string content = result.choices[0].message.content;
-        responseBuilder.Append(content);
-
-        if (AIDrivenConfig.Instance.IsDeepDebug)
-        {
-            UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
-        }
     }
 
     public UniTask<string> ReceiveAsync(CancellationToken ct)

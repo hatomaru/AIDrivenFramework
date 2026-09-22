@@ -187,20 +187,72 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
         cts.CancelAfter(timeoutMs);
 
         var responseBuilder = new StringBuilder();
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/api/generate")
-        {
-            Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
-        };
+        var url = $"{ServerUrl}/api/generate";
 
         try
         {
             if (stream)
             {
-                await ProcessStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, onUpdate, model);
+                var responseStream = await HttpApiClient.SendStreamingAsync(url, requestJson, responseBuilder, onUpdate, cts.Token);
+                using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
+
+                while (!reader.EndOfStream)
+                {
+                    // キャンセルチェック
+                    if (ct.IsCancellationRequested)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                    }
+
+                    string line = await reader.ReadLineAsync();
+                    if (string.IsNullOrEmpty(line)) continue;
+
+                    try
+                    {
+                        var chunk = JsonUtility.FromJson<OllamaGenerateResponse>(line);
+                        if (chunk == null) continue;
+
+                        if (!string.IsNullOrEmpty(chunk.response))
+                        {
+                            responseBuilder.Append(chunk.response);
+                            onUpdate?.Invoke(chunk.response);
+
+                            // Yield to allow Unity to process other tasks
+                            await UniTask.Yield();
+                        }
+
+                        if (chunk.done)
+                        {
+                            if (AIDrivenConfig.Instance.IsDeepDebug)
+                            {
+                                UnityEngine.Debug.Log("Streaming completed");
+                            }
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (AIDrivenConfig.Instance.IsDeepDebug)
+                        {
+                            UnityEngine.Debug.LogWarning($"Failed to parse streaming chunk: {line}. Error: {ex.Message}");
+                        }
+                        // Continue processing next chunks even if one fails
+                        continue;
+                    }
+                }
             }
             else
             {
-                await ProcessNonStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, model);
+                string responseJson = await HttpApiClient.SendAsync(url, requestJson, cts.Token);
+
+                var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);
+                string content = result?.response ?? "";
+                responseBuilder.Append(content);
+
+                if (AIDrivenConfig.Instance.IsDeepDebug)
+                {
+                    UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
+                }
             }
 
             _lastResponse = responseBuilder.ToString();
