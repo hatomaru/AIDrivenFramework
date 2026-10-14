@@ -33,7 +33,7 @@ internal class OllamaPayload
 
 public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
 {
-    private HttpClient httpClient;
+    private static readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
     private const string ServerHost = "127.0.0.1";
     private const int ServerPort = 11434;
     private string ServerUrl => $"http://{ServerHost}:{ServerPort}";
@@ -49,12 +49,6 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
 
     public OllamaHTTPExecutor()
     {
-        var handler = new HttpClientHandler();
-        httpClient = new HttpClient(handler);
-        httpClient.Timeout = TimeSpan.FromMinutes(5);
-        httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
-
-        // Ollamaの実行ファイルパス（サービスとして起動する場合に使用）
         AISoftwarePath = "ollama";
     }
 
@@ -101,44 +95,47 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
 
     private async UniTask WaitModelLoadAsync(CancellationToken ct, IProgress<float> progress = null, int timeoutMs = 180000)
     {
-        int elapsedMs = 0;
-        const int pollIntervalMs = 1000;
-
-        while (elapsedMs < timeoutMs && !ct.IsCancellationRequested)
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(timeoutMs);
+        try
         {
-            try
+            while (true)
             {
-                var response = await httpClient.GetAsync($"{ServerUrl}/", ct);
-                if (response.IsSuccessStatusCode)
+                timeout.Token.ThrowIfCancellationRequested();
+                try
                 {
-                    _serverReady = true;
-                    if (AIDrivenConfig.Instance.IsDeepDebug)
+                    using var response = await httpClient.GetAsync($"{ServerUrl}/", timeout.Token);
+                    if (response.IsSuccessStatusCode)
                     {
-                        UnityEngine.Debug.Log("ModelLoad Complete");
+                        _serverReady = true;
+                        progress?.Report(1f);
+                        return;
                     }
-                    return;
                 }
+                catch (HttpRequestException) { }
+                catch (OperationCanceledException) when (!timeout.IsCancellationRequested)
+                {
+                    // A readiness probe's own timeout may be retried within the startup deadline.
+                }
+                await UniTask.Delay(1000, ignoreTimeScale: true, cancellationToken: timeout.Token);
             }
-            catch (Exception)
-            {
-                // サーバーがまだ起動していない
-            }
-
-            progress?.Report((float)elapsedMs / timeoutMs);
-            await UniTask.Delay(pollIntervalMs, cancellationToken: ct);
-            elapsedMs += pollIntervalMs;
         }
-
-        throw new TimeoutException($"Ollamaサーバーの起動がタイムアウトしました ({timeoutMs}ms)");
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException($"Ollama startup timed out ({timeoutMs}ms).");
+        }
     }
 
     public async UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (timeoutMs <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+        ct.ThrowIfCancellationRequested();
+        _lastResponse = string.Empty;
         // Ensure server/process is running
         if ((_ollamaProcess == null || !_ollamaProcess.IsProcessAlive()) && !_serverReady)
         {
             UnityEngine.Debug.LogWarning("Ollama process is not initialized. Call StartProcessAsync first.");
-            await StartProcessAsync(ct, null);
+            await StartProcessAsync(ct, null, progress, timeoutMs);
         }
         // モデル指定
         ModelInfo modelInfo = ModelInfo.LoadFromFile();
@@ -192,71 +189,20 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
         try
         {
             if (stream)
-            {
-                var responseStream = await HttpApiClient.SendStreamingAsync(url, requestJson, responseBuilder, onUpdate, cts.Token);
-                using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
-
-                while (!reader.EndOfStream)
-                {
-                    // キャンセルチェック
-                    if (ct.IsCancellationRequested)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                    }
-
-                    string line = await reader.ReadLineAsync();
-                    if (string.IsNullOrEmpty(line)) continue;
-
-                    try
-                    {
-                        var chunk = JsonUtility.FromJson<OllamaGenerateResponse>(line);
-                        if (chunk == null) continue;
-
-                        if (!string.IsNullOrEmpty(chunk.response))
-                        {
-                            responseBuilder.Append(chunk.response);
-                            onUpdate?.Invoke(chunk.response);
-
-                            // Yield to allow Unity to process other tasks
-                            await UniTask.Yield();
-                        }
-
-                        if (chunk.done)
-                        {
-                            if (AIDrivenConfig.Instance.IsDeepDebug)
-                            {
-                                UnityEngine.Debug.Log("Streaming completed");
-                            }
-                            break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        if (AIDrivenConfig.Instance.IsDeepDebug)
-                        {
-                            UnityEngine.Debug.LogWarning($"Failed to parse streaming chunk: {line}. Error: {ex.Message}");
-                        }
-                        // Continue processing next chunks even if one fails
-                        continue;
-                    }
-                }
-            }
+                await HttpApiClient.SendStreamingAsync(url, requestJson,
+                    (body, token) => ReadStreamingBodyAsync(body, token, responseBuilder, onUpdate), cts.Token);
             else
-            {
-                string responseJson = await HttpApiClient.SendAsync(url, requestJson, cts.Token);
+                responseBuilder.Append(ParseResponse(await HttpApiClient.SendAsync(url, requestJson, cts.Token)));
 
-                var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);
-                string content = result?.response ?? "";
-                responseBuilder.Append(content);
-
-                if (AIDrivenConfig.Instance.IsDeepDebug)
-                {
-                    UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
-                }
-            }
+            if (string.IsNullOrWhiteSpace(responseBuilder.ToString()))
+                throw new GenAIRetryableException("Ollama returned no generated text.");
 
             _lastResponse = responseBuilder.ToString();
             return _lastResponse;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            throw new TimeoutException("Ollama generation timed out.");
         }
         catch (OperationCanceledException)
         {
@@ -273,93 +219,40 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
         }
     }
 
-    private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate, string model)
+    internal static string ParseResponse(string json)
     {
-        var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new GenAIConfigurationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
-        }
-        if (!httpResponse.IsSuccessStatusCode)
-        {
-            string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw GenAIExceptionClassifier.CreateHttpStatusException(
-                "Ollama", (int)httpResponse.StatusCode, errorBody);
-        }
-
-        using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
-
-        while (!reader.EndOfStream)
-        {
-            // キャンセルチェック
-            if (ct.IsCancellationRequested)
-            {
-                ct.ThrowIfCancellationRequested();
-            }
-
-            string line = await reader.ReadLineAsync();
-            if (string.IsNullOrEmpty(line)) continue;
-
-            try
-            {
-                var chunk = JsonUtility.FromJson<OllamaGenerateResponse>(line);
-                if (chunk == null) continue;
-
-                if (!string.IsNullOrEmpty(chunk.response))
-                {
-                    responseBuilder.Append(chunk.response);
-                    onUpdate?.Invoke(chunk.response);
-
-                    // Yield to allow Unity to process other tasks
-                    await UniTask.Yield();
-                }
-
-                if (chunk.done)
-                {
-                    if (AIDrivenConfig.Instance.IsDeepDebug)
-                    {
-                        UnityEngine.Debug.Log("Streaming completed");
-                    }
-                    break;
-                }
-            }
-            catch (Exception ex)
-            {
-                if (AIDrivenConfig.Instance.IsDeepDebug)
-                {
-                    UnityEngine.Debug.LogWarning($"Failed to parse streaming chunk: {line}. Error: {ex.Message}");
-                }
-                // Continue processing next chunks even if one fails
-                continue;
-            }
-        }
+        var result = ParseChunk(json);
+        if (!result.done || string.IsNullOrWhiteSpace(result.response))
+            throw new GenAIRetryableException("Ollama returned an incomplete or empty response.");
+        return result.response;
     }
 
-    private async UniTask ProcessNonStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, string model)
+    private static OllamaGenerateResponse ParseChunk(string json)
     {
-        var httpResponse = await httpClient.SendAsync(httpRequest, ct);
-        if (httpResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new GenAIConfigurationException($"Model '{model}' was not found.\nPlease obtain it with ollama pull {model}.\nDetails: {errorBody}");
-        }
-        if (!httpResponse.IsSuccessStatusCode)
-        {
-            string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw GenAIExceptionClassifier.CreateHttpStatusException(
-                "Ollama", (int)httpResponse.StatusCode, errorBody);
-        }
+        try { return JsonUtility.FromJson<OllamaGenerateResponse>(json) ?? throw new GenAIRetryableException("Null Ollama chunk."); }
+        catch (ArgumentException ex) { throw new GenAIRetryableException("Invalid Ollama JSON.", ex); }
+    }
 
-        string responseJson = await httpResponse.Content.ReadAsStringAsync();
-        var result = JsonUtility.FromJson<OllamaGenerateResponse>(responseJson);
-        string content = result?.response ?? "";
-        responseBuilder.Append(content);
-
-        if (AIDrivenConfig.Instance.IsDeepDebug)
+    internal static async UniTask ReadStreamingBodyAsync(Stream body, CancellationToken ct, StringBuilder output, Action<string> onUpdate)
+    {
+        using var reader = new StreamReader(body, Encoding.UTF8);
+        while (true)
         {
-            UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
+            var line = await HttpApiClient.ReadLineAsync(reader, ct);
+            if (line == null) throw new GenAIRetryableException("Ollama stream ended before done.");
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var chunk = ParseChunk(line);
+            if (!string.IsNullOrEmpty(chunk.response))
+            {
+                output.Append(chunk.response);
+                onUpdate?.Invoke(chunk.response);
+            }
+            if (chunk.done)
+            {
+                if (string.IsNullOrWhiteSpace(output.ToString()))
+                    throw new GenAIRetryableException("Ollama stream completed without generated text.");
+                return;
+            }
         }
     }
 
@@ -372,7 +265,7 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
     {
         try
         {
-            var response = await httpClient.GetAsync($"{ServerUrl}/", token);
+            using var response = await httpClient.GetAsync($"{ServerUrl}/", token);
             return response.IsSuccessStatusCode;
         }
         catch
@@ -431,7 +324,7 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            var response = httpClient.GetAsync($"{ServerUrl}/api/tags", cts.Token).GetAwaiter().GetResult();
+            using var response = httpClient.GetAsync($"{ServerUrl}/api/tags", cts.Token).GetAwaiter().GetResult();
             if (response.IsSuccessStatusCode)
             {
                 string json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
