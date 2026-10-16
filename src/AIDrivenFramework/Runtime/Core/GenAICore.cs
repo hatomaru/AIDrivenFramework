@@ -9,10 +9,8 @@ namespace AIDrivenFW.Core
     public class GenAICore : IDisposable
     {
         private const int MaxGenerationAttempts = 3;
-        private const int CheckIntervalMs = 500;
-        private static readonly SemaphoreSlim _generateLock = new(1, 1);
+        private readonly SemaphoreSlim _generateLock = new(1, 1);
         private readonly AIExecutorContext executor;
-        private GenAIConfig defaultConfig;
 
         public GenAICore(AIExecutorContext aiExecutor)
         {
@@ -54,48 +52,15 @@ namespace AIDrivenFW.Core
                 await _generateLock.WaitAsync(operationToken);
                 lockTaken = true;
 
-                GenAIConfig effectiveConfig = genAIConfig;
-                bool needRestart = false;
                 Exception lastException = null;
 
                 for (int attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
                 {
                     try
                     {
-                        if (executor.ProcessExecutor != null)
-                        {
-                            operationToken.ThrowIfCancellationRequested();
-
-                            if (effectiveConfig == null)
-                            {
-                                if (defaultConfig == null)
-                                {
-                                    defaultConfig = GenAIConfigLifecycle.CreateOwned();
-                                    defaultConfig.arguments = executor.ArgumentsExecutor.SetDefaultArguments();
-                                }
-                                effectiveConfig = defaultConfig;
-                            }
-
-                            if (attempt == 1)
-                            {
-                                needRestart = !executor.ProcessExecutor.IsProcessAlive();
-                            }
-
-                            if (attempt > 1 && AIDrivenConfig.Instance.IsDeepDebug)
-                            {
-                                Debug.LogWarning($"Attempt {attempt}: Restarting the process and retrying generation...");
-                            }
-
-                            if (needRestart || attempt > 1)
-                            {
-                                executorOperationStarted = true;
-                                executor.ProcessExecutor.KillProcess();
-                                await executor.ProcessExecutor.StartProcessAsync(operationToken, effectiveConfig, progress, timeoutMs);
-                                needRestart = false;
-                            }
-                        }
                         executorOperationStarted = true;
-                        string result = await GenerateOnceAsync(effectiveConfig.sysPrompt, input, onUpdate, progress, operationToken, timeoutMs);
+                        string result = await executor.GenerateAsync(input, genAIConfig, attempt > 1,
+                            onUpdate, progress, operationToken, timeoutMs);
                         operationToken.ThrowIfCancellationRequested();
                         return result;
                     }
@@ -129,7 +94,7 @@ namespace AIDrivenFW.Core
             {
                 if (executorOperationStarted)
                 {
-                    TryKillProcess("cancellation");
+                    executor.StopAfterFailure("cancellation");
                 }
 
                 ct.ThrowIfCancellationRequested();
@@ -139,7 +104,7 @@ namespace AIDrivenFW.Core
             {
                 if (executorOperationStarted)
                 {
-                    TryKillProcess("timeout");
+                    executor.StopAfterFailure("timeout");
                 }
 
                 throw new TimeoutException($"AI generation timed out after {timeoutMs} ms.", ex);
@@ -153,117 +118,9 @@ namespace AIDrivenFW.Core
             }
         }
 
-        private async UniTask<string> GenerateOnceAsync(string systemPrompt, string input, Action<string> onUpdate, IProgress<float> progress, CancellationToken ct, int timeoutMs)
-        {
-            string fullPrompt = string.IsNullOrEmpty(systemPrompt)
-                ? input
-                : $"{systemPrompt}\n\n{input}";
-            if (AIDrivenConfig.Instance.IsDeepDebug)
-            {
-                Debug.Log($"Prompt Send: {fullPrompt[..Math.Min(100, fullPrompt.Length)]}...");
-            }
-
-            using var loadingCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            UniTask loadingTask = LoadingAsync(loadingCts.Token, progress, timeoutMs);
-            string output = string.Empty;
-            try
-            {
-                Debug.Log("Generation started, waiting for completion...");
-                output = await executor.GenerateExecutor.GenerateAsync(systemPrompt, input, ct, onUpdate, timeoutMs: timeoutMs);
-            }
-            catch
-            {
-                await StopLoadingAsync(loadingCts, loadingTask, preservePrimaryException: true);
-                throw;
-            }
-            await StopLoadingAsync(loadingCts, loadingTask, preservePrimaryException: false);
-            // If the caller requested cancellation or the operation timed out while
-            // we were waiting for the final receive, propagate that cancellation so
-            // the outer retry/timeout handling can observe and act (e.g. kill process).
-            if (ct.IsCancellationRequested)
-            {
-                // Preserve the original cancellation token semantics.
-                ct.ThrowIfCancellationRequested();
-            }
-            Debug.Log("Generation completed, finalizing output...");
-
-            output = executor.ExtractExecutor?.ExtractAssistantOutput(output);
-
-            if (string.IsNullOrWhiteSpace(output))
-            {
-                throw new GenAIRetryableException("The AI executor returned an empty response.");
-            }
-
-            return output;
-        }
-
-        private static async UniTask StopLoadingAsync(CancellationTokenSource loadingCts, UniTask loadingTask, bool preservePrimaryException)
-        {
-            try
-            {
-                if (!loadingCts.IsCancellationRequested)
-                {
-                    loadingCts.Cancel();
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"Failed to cancel the generation monitor: {ex.Message}");
-            }
-
-            try
-            {
-                await loadingTask;
-            }
-            catch (OperationCanceledException) when (loadingCts.IsCancellationRequested)
-            {
-                // Expected when generation completes, is cancelled, or times out.
-            }
-            catch (Exception ex) when (preservePrimaryException)
-            {
-                Debug.LogWarning($"Generation monitor also failed: {ex.Message}");
-            }
-        }
-
-        private async UniTask LoadingAsync(CancellationToken ct, IProgress<float> progress, int timeoutMs)
-        {
-            int elapsedMs = 0;
-
-            while (true)
-            {
-                ct.ThrowIfCancellationRequested();
-
-                if (!executor.ProcessExecutor.IsProcessAlive())
-                {
-                    throw new GenAIRetryableException("The AI executor process terminated unexpectedly.");
-                }
-
-                _ = await executor.ProcessExecutor.ReceiveAsync(ct);
-                progress?.Report(Mathf.Clamp01((float)elapsedMs / timeoutMs) * 100f);
-
-                await UniTask.Delay(CheckIntervalMs, cancellationToken: ct);
-                elapsedMs += CheckIntervalMs;
-            }
-        }
-
-        private void TryKillProcess(string reason)
-        {
-            if (executor.ProcessExecutor == null)
-                return;
-
-            try
-            {
-                executor.ProcessExecutor.KillProcess();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"Failed to stop the AI executor after {reason}: {ex.Message}");
-            }
-        }
-
         public void Dispose()
         {
-            GenAIConfigLifecycle.DestroyOwned(ref defaultConfig);
+            executor.ReleaseOwnedConfig();
         }
     }
 }

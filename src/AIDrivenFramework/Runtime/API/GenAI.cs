@@ -54,8 +54,6 @@ namespace AIDrivenFW.API
 
         public GenAI(AIExecutorContext aiExecutor)
         {
-            var fallbackExecutor = new LlamaHTTPExecutor();
-
             // aiExecutor が指定されていない場合は保存された設定を読み込み、実行モードに応じてルーティングする
             if (aiExecutor == null)
             {
@@ -79,11 +77,11 @@ namespace AIDrivenFW.API
                 {
                     UnityEngine.Debug.LogWarning($"Failed to auto routing: {ex.Message}");
                     // フォールバック
-                    SetExecutor(new AIExecutorContext(fallbackExecutor));
+                    SetExecutor(new AIExecutorContext(new LlamaHTTPExecutor()));
                 }
                 return;   
             }
-            SetExecutor(aiExecutor ?? new AIExecutorContext(fallbackExecutor));
+            SetExecutor(aiExecutor);
         }
 
         /// <summary>
@@ -117,7 +115,7 @@ namespace AIDrivenFW.API
                 return;
             }
 
-            executor?.ProcessExecutor.KillProcess();
+            executor?.ProcessExecutor?.KillProcess();
             core?.Dispose();
             executor = aiExecutor;
             core = null;
@@ -197,7 +195,7 @@ namespace AIDrivenFW.API
                 {
                     result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
                 }
-                catch (GenAIExecutionException ex) when (retryAfterInitialization)
+                catch (GenAIExecutionException ex) when (retryAfterInitialization && executor.ProcessExecutor != null && executor.ArgumentsExecutor != null)
                 {
                     Debug.LogWarning($"AI generation failed after {ex.Attempts} attempts. Initializing and retrying once: {ex.Message}");
                     await AIDrivenInitializer.Initialize(requestToken, this);
@@ -220,6 +218,23 @@ namespace AIDrivenFW.API
         }
 
         /// <summary>
+        /// Validates and snapshots a custom serialized request once, before any backend call.
+        /// The resulting string is forwarded unchanged; the executor defines its wire format.
+        /// </summary>
+        public UniTask<string> GenerateInput(IExecutorInput input, GenAIConfig genAIConfig = null,
+            Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default,
+            int timeoutMs = 120000, bool retryAfterInitialization = true)
+        {
+            if (timeoutMs <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+            ct.ThrowIfCancellationRequested();
+            if (input == null) throw new ArgumentNullException(nameof(input));
+            input.Validate();
+            string serialized = input.Serialize() ?? throw new ArgumentException("Input serialization returned null.", nameof(input));
+            ct.ThrowIfCancellationRequested();
+            return Generate(serialized, genAIConfig, onUpdate, progress, ct, timeoutMs, retryAfterInitialization);
+        }
+
+        /// <summary>
         /// 所有するAI実行クラスのプロセスを強制終了する
         /// </summary>
         /// <remarks>
@@ -234,7 +249,7 @@ namespace AIDrivenFW.API
         /// </remarks>
         public void KillProcess()
         {
-            executor.ProcessExecutor.KillProcess();
+            executor.ProcessExecutor?.KillProcess();
             core?.Dispose();
             core = null;
         }
@@ -259,7 +274,7 @@ namespace AIDrivenFW.API
 
         public string IsFoundAISoftware()
         {
-            return executor.ArgumentsExecutor.IsFoundAISoftware();
+            return executor.ArgumentsExecutor?.IsFoundAISoftware() ?? string.Empty;
         }
     }
 }
