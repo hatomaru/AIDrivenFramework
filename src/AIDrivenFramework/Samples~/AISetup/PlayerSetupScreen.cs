@@ -15,7 +15,7 @@ using UnityEngine.UIElements;
 /// <summary>One purpose per slide; acquisition starts only after explicit consent.</summary>
 public sealed class PlayerSetupScreen : MonoBehaviour
 {
-    enum Slide { Welcome, Models, Custom, Consent, Progress, Result }
+    enum Slide { Welcome, Runtime, Models, Custom, Consent, Progress, Result }
     PanelSettings panel;
     Font font;
     SetupAtmosphere atmosphere;
@@ -26,7 +26,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     VisualElement root, content, current, cards;
     readonly Dictionary<Slide, VisualElement> slides = new Dictionary<Slide, VisualElement>();
     readonly Dictionary<string, string[]> copy = new Dictionary<string, string[]>();
-    Label chosen, download, runtime, source, error, statusTitle, statusCopy, percent, bytes, resultTitle, resultCopy;
+    Label chosen, download, runtime, source, error, statusTitle, statusCopy, percent, bytes, remaining, stageCaption, resultTitle, resultCopy, backendStatus;
+    VisualElement runtimeChoice, modelChoice, llamaHelp;
     ProgressBar progressBar, resultBar;
     Button primary, secondary;
     Toggle consent, reduced;
@@ -42,7 +43,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     readonly object progressLock = new object();
     SetupProgress latest;
     Slide slide;
-    bool ja, busy, complete, closing, destroyed;
+    bool ja, busy, complete, closing, destroyed, runtimeChosen;
     float changedAt;
     public VisualElement Root => root;
     public PlayerSetupFlow Flow => flow;
@@ -51,7 +52,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     void Awake()
     {
         ja = PlayerPrefs.GetString("AIDrivenFW.Setup.Language", Application.systemLanguage == SystemLanguage.Japanese ? "ja" : "en") == "ja";
-        selection = PlayerSetupPlan.Choices()[0];
+        selection = PlayerSetupPlan.Choices().FirstOrDefault() ?? new PlayerSetupPlan { Model = "", ModelSource = "", ModelTerms = "", ModelBytes = 0 };
         var journal = SetupJournal.Load();
         if (journal?.Revision == ModelInfo.CurrentConsentRevision && journal.Plan != null)
         {
@@ -61,7 +62,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         {
             var saved = ModelInfo.LoadFromFile();
             var known = PlayerSetupPlan.Choices().FirstOrDefault(p => p.Model.Equals(saved?.Name, StringComparison.OrdinalIgnoreCase));
-            if (known != null) selection = known;
+            if (known != null && saved.Mode == "Ollama") selection = known;
             else if (!string.IsNullOrWhiteSpace(saved?.Name)) selection = new PlayerSetupPlan
             {
                 Model = saved.Name, Mode = saved.Mode, RuntimePath = saved.RuntimePath, ModelPath = saved.ModelPath,
@@ -69,6 +70,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
                 ModelSource = "https://ollama.com/library/" + saved.Name, ModelBytes = 0
             };
         }
+        if (selection.Mode == "Llama" && File.Exists(selection.ModelPath))
+        { try { selection.ModelBytes = new FileInfo(selection.ModelPath).Length; } catch (IOException) { } }
         services = new PlayerSetupServices(); flow = new PlayerSetupFlow(services);
         flow.Changed += p => { lock (progressLock) pending.Enqueue(p); };
         Build(); RefreshLanguage(); Go(Slide.Welcome); LoadInstalledAsync().Forget();
@@ -98,27 +101,60 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         T(welcome, "title", "A little setup.\nThen play.", "このゲームに、\nあなたのAIを。", "title");
         T(welcome, "intro", "A one-time setup for AI on this PC.\nNo AI account or subscription needed.", "このPCで動くAIを、初回だけ準備します。\nAI用の登録や月額契約は不要です。", "description");
         chosen = Text(welcome, "", "chosen");
-        Btn(welcome, "", () => Go(Slide.Models), "change-model").AddToClassList("link");
+        Btn(welcome, "", () => Go(Slide.Runtime), "change-model").AddToClassList("link");
+
+        var engines = MakeSlide(Slide.Runtime);
+        T(engines, "runtime-title", "How would you like to start?", "AIの使い方を選ぶ", "title");
+        T(engines, "runtime-copy", "Both work on this PC. Choose the way that suits you.\nOnly your selection will be prepared and run.", "このPCで使う方法を選んでください。\n選んだ方だけを準備・実行します。", "description");
+        var automatic = Btn(engines, "", () =>
+        {
+            runtimeChosen = true;
+            if (selection.Mode != "Ollama") Select(PlayerSetupPlan.Choices().FirstOrDefault() ?? new PlayerSetupPlan { Model = "", ModelBytes = 0, ModelTerms = "" });
+            backend.value = "Ollama"; Go(Slide.Models);
+        }, "runtime-ollama"); automatic.AddToClassList("runtime-card");
+        T(automatic, "ollama-title", "Easy automatic setup", "かんたん自動準備", "model-tier");
+        T(automatic, "ollama-copy", "Ollama · recommended\nChoose a model; we'll handle preparation.", "Ollama・おすすめ\nモデルを選ぶだけで準備できます。", "note");
+        var files = Btn(engines, "", () => { runtimeChosen = true; backend.value = "llama.cpp / GGUF"; Go(Slide.Custom); }, "runtime-llama"); files.AddToClassList("runtime-card");
+        T(files, "llama-title", "Use my model files", "手持ちのモデルを使う", "model-tier");
+        T(files, "llama-copy", "llama.cpp / GGUF\nChoose your runtime and model files.", "llama.cpp / GGUF\n実行ソフトとモデルのファイルを選びます。", "note");
 
         var models = MakeSlide(Slide.Models);
         T(models, "models-title", "Choose your AI", "AIモデルを選ぶ", "title");
         T(models, "models-copy", "Start small. You can choose a different model.", "まずは軽いモデルから。自由に選べます。", "description");
         cards = Box(models, "model-cards");
         T(models, "memory-note", "Larger models use more memory and may respond slower.", "大きいモデルほどメモリを使い、応答が遅くなる場合があります。", "note");
-        Btn(models, "", () => Go(Slide.Custom), "custom-model").AddToClassList("link");
+        Btn(models, "", () => { backend.value = "Ollama"; Go(Slide.Custom); }, "custom-model").AddToClassList("link");
 
         var custom = MakeSlide(Slide.Custom);
         T(custom, "custom-title", "Use your own model", "別のモデルを使う", "title");
         T(custom, "custom-copy", "Choose a local text model and review its license.", "ローカルの文章生成モデルと利用条件を指定します。", "description");
         installed = new DropdownField { name = "installed-models", choices = new List<string> { "…" }, index = 0 }; custom.Add(installed);
         backend = new DropdownField { name = "backend", choices = new List<string> { "Ollama", "llama.cpp / GGUF" }, index = selection.Mode == "Llama" ? 1 : 0 }; custom.Add(backend);
-        tag = Field(custom, "model-tag", selection.Model); terms = Field(custom, "model-terms", selection.ModelTerms);
+        backendStatus = Text(custom, "", "note");
+        llamaHelp = Box(custom, "llama-help");
+        Btn(llamaHelp, "", () => OpenTerms("https://github.com/ggml-org/llama.cpp/releases"), "get-llama").AddToClassList("link");
+        Btn(llamaHelp, "", () => { var entry = GgufCatalog().FirstOrDefault(); if (entry != null) OpenTerms(entry.DownloadUrl); }, "get-gguf").AddToClassList("link");
+        tag = Field(custom, "model-tag", selection.Model);
         size = Field(custom, "model-size", Math.Ceiling(selection.ModelBytes / 1000000d).ToString(CultureInfo.InvariantCulture));
-        runtimePath = Field(custom, "runtime-path", selection.RuntimePath); modelPath = Field(custom, "gguf-path", selection.ModelPath);
+        runtimeChoice = Box(custom, "file-choice"); runtimePath = Field(runtimeChoice, "runtime-path", selection.RuntimePath);
+        Btn(runtimeChoice, "", () => ChooseFile(false), "browse-runtime");
+        modelChoice = Box(custom, "file-choice"); modelPath = Field(modelChoice, "gguf-path", selection.ModelPath);
+        Btn(modelChoice, "", () => ChooseFile(true), "browse-model");
+        terms = Field(custom, "model-terms", selection.ModelTerms);
         T(custom, "file-note", "For GGUF, keep the selected files in their current locations.", "GGUFの場合、指定したファイルは現在の場所に保管してください。", "note");
         error = Text(custom, "", "error");
-        backend.RegisterValueChangedCallback(_ => { consent.value = false; CustomVisibility(); });
+        backend.RegisterValueChangedCallback(_ =>
+        {
+            consent.value = false;
+            terms.SetValueWithoutNotify(backend.index == 1 ? selection.Mode == "Llama" && modelPath.value == selection.ModelPath ? selection.ModelTerms : "" :
+                PlayerSetupPlan.Choices().FirstOrDefault(p => p.Model.Equals(tag.value, StringComparison.OrdinalIgnoreCase))?.ModelTerms ?? "");
+            if (backend.index == 1 && !File.Exists(runtimePath.value)) runtimePath.SetValueWithoutNotify(FindLlama());
+            CustomVisibility();
+        });
         foreach (var field in new[] { tag, terms, size, runtimePath, modelPath }) field.RegisterValueChangedCallback(_ => consent.value = false);
+        tag.RegisterValueChangedCallback(e => terms.SetValueWithoutNotify(PlayerSetupPlan.Choices().FirstOrDefault(p => p.Model.Equals(e.newValue, StringComparison.OrdinalIgnoreCase))?.ModelTerms ?? ""));
+        modelPath.RegisterValueChangedCallback(_ => { terms.SetValueWithoutNotify(""); UpdateFileSize(); });
+        runtimePath.RegisterValueChangedCallback(_ => CustomVisibility());
         installed.RegisterValueChangedCallback(e =>
         {
             var model = installedModels.FirstOrDefault(m => m.name == e.newValue); if (model == null) return;
@@ -142,8 +178,10 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         Emblem(progress);
         statusTitle = Text(progress, "", "title"); statusTitle.name = "status-title";
         statusCopy = Text(progress, "", "description");
+        stageCaption = Text(progress, "", "stage-caption"); stageCaption.name = "current-stage";
         progressBar = new ProgressBar { name = "overall-progress", lowValue = 0, highValue = 100, value = 0 }; progress.Add(progressBar);
-        percent = Text(progress, "0%", "percent"); bytes = Text(progress, "", "note");
+        percent = Text(progress, "0%", "percent"); bytes = Text(progress, "", "download-stats"); bytes.name = "download-completed";
+        remaining = Text(progress, "", "download-stats"); remaining.name = "download-remaining";
         T(progress, "progress-note", "Progress reflects completed steps and download data.\nThe first response can take a little longer.", "完了した工程と取得量からの目安です。\n最初の応答確認には時間がかかる場合があります。", "note");
 
         var result = MakeSlide(Slide.Result);
@@ -185,7 +223,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         root.Q<ScrollView>("slide-scroll").scrollOffset = Vector2.zero;
         changedAt = Time.unscaledTime; UpdateActions();
         // Reused controls can be reached naturally with the keyboard after each transition.
-        if (value == Slide.Consent) consent.Focus(); else primary.Focus();
+        if (value == Slide.Consent) consent.Focus(); else if (value == Slide.Runtime)
+            (root.Q<Button>("runtime-ollama").enabledSelf ? root.Q<Button>("runtime-ollama") : root.Q<Button>("runtime-llama")).Focus(); else primary.Focus();
     }
     void SetLanguage(bool value)
     { ja = value; PlayerPrefs.SetString("AIDrivenFW.Setup.Language", ja ? "ja" : "en"); PlayerPrefs.Save(); RefreshLanguage(); }
@@ -193,15 +232,18 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         foreach (var pair in copy) root.Q<Label>(pair.Key).text = pair.Value[ja ? 1 : 0];
         root.Q<Button>("language-ja").EnableInClassList("active-language", ja); root.Q<Button>("language-en").EnableInClassList("active-language", !ja);
-        root.Q<Button>("change-model").text = L("Change model", "モデルを変更"); root.Q<Button>("custom-model").text = L("Use another model or my files", "別のモデル・手持ちのファイルを使う");
+        root.Q<Button>("change-model").text = L("Change model or runtime", "モデル・実行方法を変更"); root.Q<Button>("custom-model").text = L("Use another Ollama model", "別のOllamaモデルを使う");
+        root.Q<Button>("get-llama").text = L("Get llama.cpp ↗", "実行ソフトを入手 ↗"); root.Q<Button>("get-gguf").text = L("Model distribution page ↗", "モデルの配布ページ ↗");
+        root.Q<Button>("runtime-ollama").SetEnabled(AIDrivenConfig.Instance?.IsAllaiveOllama ?? true);
+        root.Q<Button>("browse-runtime").text = root.Q<Button>("browse-model").text = L("Choose file", "ファイルを選ぶ");
         root.Q<Button>("result-model").text = L("Choose another model", "モデルを選び直す");
         root.Q<Button>("model-license").text = L("Model license ↗", "モデルの利用条件 ↗"); root.Q<Button>("runtime-license").text = L("Runtime license ↗", "実行ソフトの利用条件 ↗");
         installed.label = L("Installed on this PC", "導入済みモデル"); backend.label = L("Runtime", "実行方法");
-        tag.label = L("Ollama model tag", "Ollamaモデル名"); terms.label = L("Model license URL (HTTPS)", "ライセンスURL（HTTPS）"); size.label = L("Estimated download (MB)", "取得容量の目安（MB）");
-        runtimePath.label = L("llama-server file", "llama-serverファイル"); modelPath.label = L("GGUF model file", "GGUFモデルファイル");
+        tag.label = L("Ollama model tag", "Ollamaモデル名"); terms.label = L("Model license / distribution page (HTTPS)", "モデルの利用条件・配布ページ（HTTPS）"); size.label = L("Estimated download (MB)", "取得容量の目安（MB）");
+        runtimePath.label = L("1. llama-server file", "1. llama-serverファイル"); modelPath.label = L("2. GGUF model file", "2. GGUFモデルファイル");
         consent.text = L("I've reviewed both licenses and agree to download and run this selection.", "両方の利用条件を確認し、取得と実行に同意します。");
         reduced.text = L("Reduce motion", "動きを減らす");
-        BuildCards(); UpdateSummary(); UpdateActions(); if (latest != null) RenderProgress(latest, false);
+        BuildCards(); CustomVisibility(); UpdateSummary(); UpdateActions(); if (latest != null) RenderProgress(latest, false);
     }
     void BuildCards()
     {
@@ -210,8 +252,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         {
             int index = i; var button = Btn(cards, "", () => Select(catalog[index]), "model-" + i); button.AddToClassList("model-card");
             var labels = Box(button, "model-labels");
-            Text(labels, i == 0 ? L("Lightweight · recommended", "ライト・おすすめ") : i == 1 ? L("Medium", "ミディアム") : L("Large", "ラージ"), "model-tier");
-            Text(labels, catalog[i].Model, "note"); Text(button, FormatBytes(catalog[i].ModelBytes), "model-size");
+            Text(labels, catalog[i].Level == ModelLevel.Light ? L("Lightweight", "ライト") + (i == 0 ? L(" · recommended", "・おすすめ") : "") : catalog[i].Level == ModelLevel.Balanced ? L("Medium", "ミディアム") : L("Large", "ラージ"), "model-tier");
+            Text(labels, catalog[i].Model, "note"); Text(button, catalog[i].ModelBytes > 0 ? FormatBytes(catalog[i].ModelBytes) : L("Review size", "容量を確認"), "model-size");
             button.EnableInClassList("selected", selection.Mode == "Ollama" && selection.Model.Equals(catalog[i].Model, StringComparison.OrdinalIgnoreCase));
         }
     }
@@ -235,7 +277,45 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         catch (Exception) { error.text = L("Check the model, HTTPS license link, size and file paths.", "モデル名・HTTPSのライセンスURL・容量・ファイルを確認してください。"); return false; }
     }
     void CustomVisibility()
-    { bool gguf = backend.index == 1; Visible(runtimePath, gguf); Visible(modelPath, gguf); Visible(tag, !gguf); Visible(size, !gguf); Visible(installed, !gguf); }
+    {
+        bool gguf = backend.index == 1;
+        Visible(runtimeChoice, gguf); Visible(modelChoice, gguf); Visible(llamaHelp, gguf); Visible(tag, !gguf); Visible(size, !gguf); Visible(installed, !gguf);
+        Visible(root.Q<Button>("browse-runtime"), SetupFilePicker.Available); Visible(root.Q<Button>("browse-model"), SetupFilePicker.Available);
+        root.Q<Label>("custom-title").text = gguf ? L("Use your GGUF model", "手持ちのGGUFモデルを使う") : L("Use another model", "別のモデルを使う");
+        root.Q<Label>("custom-copy").text = gguf ? L("Choose two files, then review their licenses.\nNo terminal commands needed.", "ファイルを2つ選び、利用条件を確認します。\nコマンド入力は不要です。") : L("Choose an installed model or enter a local model tag.", "導入済みモデルを選ぶか、ローカルモデル名を指定します。");
+        bool ollama = installedModels.Length > 0 || !string.IsNullOrEmpty(PlayerSetupServices.FindOllama());
+        bool llama = File.Exists(runtimePath.value) || !string.IsNullOrEmpty(FindLlama());
+        backendStatus.text = ollama && llama ? L("Both runtimes found. Only your selection will run.", "両方の実行方法が見つかりました。選んだ方だけを使います。") : gguf ? L("Keep the runtime's DLLs and license notices together.", "実行ソフトはDLL・ライセンス通知と一緒に保管してください。") : L("Automatic preparation · recommended", "自動で準備・おすすめ");
+        root.Q<Label>("file-note").text = gguf ? L("3. Review the selected model's terms below.\nChanging the file clears the license choice.", "3. 下で選んだモデルの利用条件を指定します。\nファイルを変更すると利用条件も再確認します。") : L("A different model needs its own license link.", "別モデルには、そのモデルの利用条件を指定してください。");
+    }
+    static string FindLlama()
+    {
+        var saved = ModelInfo.LoadFromFile();
+        if (saved?.Mode == "Llama" && File.Exists(saved.RuntimePath)) return saved.RuntimePath;
+        string name = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor ? "llama-server.exe" : "llama-server";
+        string folder = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath);
+        foreach (string relative in new[] { name, Path.Combine("bin", name) })
+        { var path = Path.Combine(folder, relative); if (File.Exists(path)) return path; }
+        foreach (string directory in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+        { try { var path = Path.Combine(directory.Trim('"'), name); if (File.Exists(path)) return path; } catch (ArgumentException) { } }
+        return "";
+    }
+    static ModelInfoConfig[] GgufCatalog() => AIDrivenConfig.Instance?.RecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(false);
+    void ChooseFile(bool model)
+    {
+        try
+        {
+            string value = SetupFilePicker.Choose(model, model ? L("Choose GGUF model", "GGUFモデルを選ぶ") : L("Choose llama-server", "llama-serverを選ぶ"));
+            if (string.IsNullOrEmpty(value)) return;
+            if (model) modelPath.value = value; else runtimePath.value = value;
+        }
+        catch (Exception) { error.text = L("Enter the file path directly instead.", "ファイルのパスを直接入力してください。"); }
+    }
+    void UpdateFileSize()
+    {
+        try { if (File.Exists(modelPath.value)) size.SetValueWithoutNotify(Math.Ceiling(new FileInfo(modelPath.value).Length / 1000000d).ToString(CultureInfo.InvariantCulture)); }
+        catch (IOException) { }
+    }
     async UniTaskVoid LoadInstalledAsync()
     {
         try
@@ -247,7 +327,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
                 selection.ModelBytes = restored.size;
                 size.SetValueWithoutNotify(Math.Ceiling(restored.size / 1000000d).ToString(CultureInfo.InvariantCulture));
             }
-            installed.choices = new List<string> { L("Choose a model", "モデルを選ぶ") }; installed.choices.AddRange(installedModels.Select(m => m.name)); installed.SetValueWithoutNotify(installed.choices[0]); UpdateSummary();
+            installed.choices = new List<string> { L("Choose a model", "モデルを選ぶ") }; installed.choices.AddRange(installedModels.Select(m => m.name)); installed.SetValueWithoutNotify(installed.choices[0]); UpdateSummary(); CustomVisibility();
         }
         catch (OperationCanceledException) { }
     }
@@ -255,8 +335,9 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         bool exists = installedModels.Any(m => m.name.Equals(selection.Model, StringComparison.OrdinalIgnoreCase));
         bool needsRuntime = selection.Mode == "Ollama" && string.IsNullOrEmpty(PlayerSetupServices.FindOllama()) && installedModels.Length == 0;
-        chosen.text = selection.Model + L(" · runs on this PC", "・このPCで動作");
-        root.Q<Label>("selection-name").text = selection.Model;
+        string engine = selection.Mode == "Llama" ? "llama.cpp" : "Ollama";
+        chosen.text = engine + " · " + selection.Model;
+        root.Q<Label>("selection-name").text = engine + " · " + selection.Model;
         download.text = selection.Mode == "Llama" ? L("Use your files · no model download", "手持ちのファイルを使用・モデル取得なし") : exists ? L("Model installed · no download", "モデル導入済み・取得なし") : L("Model download: about ", "モデル取得：約") + FormatBytes(selection.ModelBytes);
         runtime.text = needsRuntime ? RuntimeRelease.CanAcquire ? "Ollama " + RuntimeRelease.Version + L(": about ", "：約") + FormatBytes(RuntimeRelease.Bytes) + L(" extra · 5 GB unpacking space", "を追加取得・展開用に5 GBの空き") : L("Install and start Ollama first. OS confirmation may be required.", "Ollamaの導入・起動が必要です。OSの確認操作が出る場合があります。") : selection.Mode == "Llama" ? "llama.cpp / GGUF" : L("Use installed Ollama", "導入済みOllamaを使用");
         source.text = selection.Mode == "Llama" ? L("No file transfer. Keep your selected files.", "ファイルの移動はしません。指定した場所に保管してください。") : L("Sources: Ollama registry / CDN", "取得先：Ollamaの配信サーバー") + (needsRuntime ? " / GitHub" : "") + "\n" + L("Allow model size + 1 GB free space. Sizes are estimates.", "モデル容量＋1 GBの空きを確保してください。容量は目安です。");
@@ -266,11 +347,14 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         primary.SetEnabled(!busy && (slide != Slide.Consent || consent.value));
         primary.text = slide == Slide.Consent ? L("Agree & prepare", "同意して準備する") : slide == Slide.Result ? complete ? L("Back to game", "ゲームへ進む") : L("Review & retry", "確認して再開") : L("Continue", "続ける");
         secondary.text = busy ? L("Pause", "中断する") : slide == Slide.Welcome || slide == Slide.Result ? L("Not now", "今はやめる") : L("Back", "戻る");
-        Visible(primary, slide != Slide.Progress); Visible(secondary, !complete);
+        Visible(primary, slide != Slide.Progress && slide != Slide.Runtime); Visible(secondary, !complete);
     }
     void Primary()
     {
         if (busy || closing) return;
+        if (slide == Slide.Welcome && !runtimeChosen &&
+            (((installedModels.Length > 0 || !string.IsNullOrEmpty(PlayerSetupServices.FindOllama())) && !string.IsNullOrEmpty(FindLlama())) || !(AIDrivenConfig.Instance?.IsAllaiveOllama ?? true)))
+        { Go(Slide.Runtime); return; }
         if (slide == Slide.Welcome || slide == Slide.Models)
         {
             try { selection.Validate(); Go(Slide.Consent); }
@@ -288,7 +372,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         if (busy) operation?.Cancel();
         else if (slide == Slide.Welcome || slide == Slide.Result) FinishAsync(false).Forget();
-        else Go(slide == Slide.Custom ? Slide.Models : Slide.Welcome);
+        else Go(slide == Slide.Models || (slide == Slide.Custom && backend.index == 1) ? Slide.Runtime : slide == Slide.Custom ? Slide.Models : Slide.Welcome);
     }
     async UniTaskVoid RunAsync()
     {
@@ -311,7 +395,23 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         float value = completion?.Observe(p) ?? 0; progressBar.value = value; percent.text = Math.Floor(value).ToString(CultureInfo.InvariantCulture) + "%";
         statusTitle.text = p.Stage == SetupStage.Runtime ? L("Preparing the engine", "ソフトを準備しています。") : p.Stage == SetupStage.Model ? L("Preparing your AI", "AIモデルを準備しています。") : L("Checking that it works", "動作を確認しています。");
         statusCopy.text = p.Stage == SetupStage.Runtime ? L("The official download is verified before it runs.", "公式の配布物を検証してから実行します。") : p.Stage == SetupStage.Model ? L("You can pause and resume the model download.", "モデルの取得は中断・再開できます。") : L("Creating a short greeting on this PC.", "このPCで短い挨拶を生成しています。");
-        bytes.text = p.TotalBytes > 0 ? FormatBytes(p.CompletedBytes) + " / " + FormatBytes(p.TotalBytes) + L(" · current file", "・取得中のファイル") : "";
+        stageCaption.text = p.Stage == SetupStage.Runtime ? L("1 / 3 · Runtime", "1 / 3 ・ 実行ソフト") : p.Stage == SetupStage.Model ? L("2 / 3 · Model", "2 / 3 ・ AIモデル") : L("3 / 3 · Verify & save", "3 / 3 ・ 応答確認と保存");
+        bool transferring = p.Stage == SetupStage.Runtime || p.Stage == SetupStage.Model;
+        if (transferring && completion?.HasDownloadBytes == true)
+        {
+            string item = p.Stage == SetupStage.Runtime ? L("Runtime", "ソフト") : L("Model", "モデル");
+            bytes.text = item + L(" downloaded ", "取得済み ") + FormatBytes(completion.DownloadedBytes) + " / " + (completion.IsEstimate ? L("about ", "約") : "") + FormatBytes(completion.TotalBytes);
+            remaining.text = item + L(" remaining ", "の残り ") + (completion.IsEstimate ? L("about ", "約") : "") + FormatBytes(completion.RemainingBytes);
+        }
+        else
+        {
+            bytes.text = selection.Mode == "Llama" || p.Detail == "installed" ? L("No download needed", "ダウンロード不要") : transferring ? L("Checking download size…", "取得量を確認しています…") : L("Downloads complete", "ファイルの準備が完了しました");
+            remaining.text = "";
+        }
+        if (selection.Mode == "Llama" && transferring)
+        { statusTitle.text = L("Checking your files", "手持ちのファイルを確認しています。"); statusCopy.text = L("Using only the runtime and model you chose.", "選んだ実行ソフトとモデルだけを使います。"); }
+        if (p.Stage == SetupStage.Model && (p.Detail == "verifying sha256 digest" || p.Detail == "writing manifest"))
+            statusCopy.text = L("Download complete. Checking the model files.", "取得が完了しました。モデルの整合性を確認しています。");
         if (p.Stage == SetupStage.Complete || p.Stage == SetupStage.Cancelled || p.Stage == SetupStage.Failed)
         {
             resultTitle.text = p.Stage == SetupStage.Complete ? L("You're ready.", "準備ができました。") : p.Stage == SetupStage.Cancelled ? L("Paused.", "中断しました。") : L("Let's try again.", "もう一度、準備しましょう。");
@@ -387,5 +487,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     static Button Btn(VisualElement parent, string text, Action click, string name) { var item = new Button(click) { text = text, name = name }; parent.Add(item); return item; }
     static TextField Field(VisualElement parent, string name, string value) { var item = new TextField { name = name, value = value }; parent.Add(item); return item; }
     static void Visible(VisualElement element, bool value) => element.style.display = value ? DisplayStyle.Flex : DisplayStyle.None;
-    static string FormatBytes(long value) => value >= 1000000000 ? (value / 1000000000d).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : (value / 1000000d).ToString("0", CultureInfo.InvariantCulture) + " MB";
+    static string FormatBytes(long value) => value >= 1000000000 ? (value / 1000000000d).ToString("0.0", CultureInfo.InvariantCulture) + " GB" :
+        value >= 1000000 ? (value / 1000000d).ToString(value < 100000000 ? "0.0" : "0", CultureInfo.InvariantCulture) + " MB" :
+        value >= 1000 ? (value / 1000d).ToString("0", CultureInfo.InvariantCulture) + " KB" : Math.Max(0, value) + " B";
 }

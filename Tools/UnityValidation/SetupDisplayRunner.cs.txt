@@ -1,0 +1,136 @@
+using System;
+using System.Collections;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using AIDrivenFW.Config;
+using AIDrivenFW.Setup;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
+
+// Offline UI fixtures: no downloaded weights, native inference processes or real acquisition.
+public sealed class SetupSmokeRunner : MonoBehaviour
+{
+    string output, language, path;
+    int motion;
+    RenderTexture target;
+    PlayerSetupScreen screen;
+    VisualElement root;
+    bool failed;
+    const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    IEnumerator Start()
+    {
+        output = Environment.GetEnvironmentVariable("SETUP_QA_OUTPUT"); Directory.CreateDirectory(output); Directory.SetCurrentDirectory(output);
+        language = PlayerPrefs.GetString("AIDrivenFW.Setup.Language", "en"); motion = PlayerPrefs.GetInt("AIDrivenFW.Setup.ReduceMotion", 0);
+        path = Environment.GetEnvironmentVariable("PATH");
+        Directory.CreateDirectory("QA"); File.WriteAllText("QA/llama-server.exe", "UI fixture, never executed"); File.WriteAllText("QA/fixture.gguf", "UI fixture, never loaded");
+        Environment.SetEnvironmentVariable("PATH", path + Path.PathSeparator + Path.GetFullPath("QA"));
+        PlayerPrefs.SetString("AIDrivenFW.Setup.Language", "ja"); PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", 0);
+        Application.logMessageReceived += Log;
+        yield return Load();
+        typeof(PlayerSetupScreen).GetField("installedModels", Private).SetValue(screen, new[] { new InstalledModel { name = "qwen3:0.6b", size = 523000000 } });
+        yield return Capture("welcome-ja"); Click(root.Q<Button>("language-en")); yield return Capture("welcome-en"); Click(root.Q<Button>("language-ja"));
+        Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.4f);
+        Check(Shown("Runtime"), "Both runtimes prompt explicit choice"); yield return Capture("both-runtimes-ja");
+        Click(root.Q<Button>("runtime-llama")); yield return new WaitForSecondsRealtime(.3f);
+        Check(Shown("Custom"), "llama.cpp opens file selection");
+        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value), "Ollama model license is not inherited");
+        root.Q<TextField>("runtime-path").value = "QA/llama-server.exe";
+        root.Q<TextField>("model-terms").value = "https://example.com/previous-license";
+        root.Q<TextField>("gguf-path").value = "QA/fixture.gguf";
+        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value), "File change clears old license");
+        root.Q<TextField>("model-terms").value = "https://example.com/model-license";
+        yield return Capture("llama-files-ja");
+        var native = typeof(SetupFilePicker).GetNestedType("OpenFileName", BindingFlags.NonPublic);
+        Check(System.Runtime.InteropServices.Marshal.SizeOf(native) == (IntPtr.Size == 8 ? 152 : 88), "Windows picker structure layout");
+        Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.3f);
+        Check(Shown("Consent"), "Selected files and model-specific license reach review"); yield return Capture("llama-consent-ja");
+        var llama = Inject(); root.Q<Toggle>("consent").value = true; Click(root.Q<Button>("primary"));
+        yield return Complete(llama, "llama-complete-ja"); Check(llama.Settings?.Mode == "Llama", "llama selection committed by fixture");
+        Check(llama.Settings?.ModelTermsUrl == "https://example.com/model-license", "GGUF-specific terms retained");
+        yield return Load(); Click(root.Q<Button>("change-model")); yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("runtime-ollama")); yield return new WaitForSecondsRealtime(.2f); Check(Shown("Models"), "Ollama opens configured model choices");
+        Click(root.Q<Button>("model-1")); yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("model-0")); yield return new WaitForSecondsRealtime(.2f);
+        Check(root.Q<Button>("model-0").ClassListContains("selected"), "Configured lightweight model selected"); yield return Capture("models-ja");
+        Click(root.Q<Button>("primary")); yield return Capture("consent-ja");
+        target.Release(); target.width = 900; target.height = 700; target.Create();yield return new WaitForSecondsRealtime(.5f);
+        yield return Capture("consent-ja-900");target.Release();target.width=1440;target.height=900;target.Create();
+        var automatic = Inject(); root.Q<Toggle>("consent").value = true; Click(root.Q<Button>("primary"));
+        yield return new WaitForSecondsRealtime(.5f); Check(Shown("Progress"), "Runtime progress slide"); yield return Capture("download-runtime-ja");
+        yield return new WaitForSecondsRealtime(1.6f);
+        Check(root.Q<Label>("download-completed").text.Contains("251"), "Model layers aggregate to 251 MB");
+        Check(root.Q<Label>("download-remaining").text.Contains("272"), "Remaining capacity estimate is visible");
+        yield return Capture("download-model-ja");
+        yield return Complete(automatic, "complete-ja");
+        Check(automatic.Settings?.Mode == "Ollama", "Explicit automatic choice retained");
+        File.WriteAllText(Path.Combine(output, "result.txt"), "PASS: offline display fixtures; smooth icon; config catalog; explicit dual-runtime choice; GGUF license reset/review; capacity and current stage; completion. No live inference/download or native file-dialog interaction.");
+        Restore(); Application.Quit(0);
+    }
+    IEnumerator Load()
+    {
+        yield return SceneManager.LoadSceneAsync("AIDrivenSetup", LoadSceneMode.Additive);
+        screen = SceneManager.GetSceneByName("AIDrivenSetup").GetRootGameObjects().Select(g => g.GetComponent<PlayerSetupScreen>()).First(s => s != null);
+        root = screen.Root;
+        if (target == null) { target = new RenderTexture(1440, 900, 24); target.Create(); }
+        screen.GetComponent<UIDocument>().panelSettings.targetTexture = target;
+        yield return new WaitForSecondsRealtime(.8f);
+    }
+    FixtureServices Inject()
+    {
+        var services = new FixtureServices(); var flow = new PlayerSetupFlow(services);
+        var render = typeof(PlayerSetupScreen).GetMethod("RenderProgress", Private);
+        flow.Changed += p => render.Invoke(screen, new object[] { p, true });
+        typeof(PlayerSetupScreen).GetField("flow", Private).SetValue(screen, flow); return services;
+    }
+    IEnumerator Complete(FixtureServices services, string proof)
+    {
+        float start = Time.realtimeSinceStartup;
+        while (services.Settings == null) { if (Time.realtimeSinceStartup - start > 30) { Fail("Fixture timed out"); yield break; } yield return null; }
+        yield return new WaitForSecondsRealtime(.35f); Check(Shown("Result"), "Completion visible"); yield return Capture(proof);
+        while (SceneManager.GetSceneByName("AIDrivenSetup").isLoaded) yield return null;
+    }
+    bool Shown(string name) => root.Q("slide-" + name).resolvedStyle.display != DisplayStyle.None;
+    IEnumerator Capture(string name)
+    {
+        yield return new WaitForSecondsRealtime(.15f); yield return new WaitForEndOfFrame();
+        var previous = RenderTexture.active; RenderTexture.active = target;
+        var texture = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+        texture.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); File.WriteAllBytes(Path.Combine(output, name + ".png"), texture.EncodeToPNG());
+        Destroy(texture); RenderTexture.active = previous;
+    }
+    static void Click(Button button)
+    {
+        button.Focus(); using var down = PointerDownEvent.GetPooled(new Event { type = EventType.MouseDown, button = 0, mousePosition = button.worldBound.center }); button.SendEvent(down);
+        using var up = PointerUpEvent.GetPooled(new Event { type = EventType.MouseUp, button = 0, mousePosition = button.worldBound.center }); button.SendEvent(up);
+    }
+    void Check(bool value, string message) { if (!value) Fail(message); else Debug.Log("DISPLAY PASS: " + message); }
+    void Log(string message, string stack, LogType type) { if (type == LogType.Exception) Fail(message); }
+    void Fail(string message) { if (failed) return; failed = true; File.WriteAllText(Path.Combine(output, "result.txt"), "FAIL: " + message); Restore(); Application.Quit(1); throw new Exception(message); }
+    void Restore() { Application.logMessageReceived -= Log; Environment.SetEnvironmentVariable("PATH", path); PlayerPrefs.SetString("AIDrivenFW.Setup.Language", language); PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", motion); PlayerPrefs.Save(); }
+    sealed class FixtureServices : IPlayerSetupServices
+    {
+        public ModelInfo Settings;
+        public async UniTask<string> PrepareRuntimeAsync(PlayerSetupPlan plan, Action<SetupProgress> report, CancellationToken ct)
+        {
+            if (plan.Mode == "Ollama") report(new SetupProgress { Stage = SetupStage.Runtime, CompletedBytes = 500000000, TotalBytes = 1471226485 });
+            await UniTask.Delay(2000, ignoreTimeScale: true, cancellationToken: ct); return plan.RuntimePath;
+        }
+        public async UniTask PrepareModelAsync(PlayerSetupPlan plan, Action<SetupProgress> report, CancellationToken ct)
+        {
+            if (plan.Mode == "Ollama")
+            {
+                report(new SetupProgress { Stage = SetupStage.Model, Item = "a", CompletedBytes = 250000000, TotalBytes = 500000000 });
+                report(new SetupProgress { Stage = SetupStage.Model, Item = "b", CompletedBytes = 1000000, TotalBytes = 23000000 });
+            }
+            await UniTask.Delay(2000, ignoreTimeScale: true, cancellationToken: ct);
+        }
+        public async UniTask VerifyAsync(PlayerSetupPlan plan, CancellationToken ct) => await UniTask.Delay(500, ignoreTimeScale: true, cancellationToken: ct);
+        public void Commit(ModelInfo settings) => Settings = settings;
+        public void RecordAttempt(PlayerSetupPlan plan, string utc, SetupStage stage) { }
+        public void Dispose() { }
+    }
+}

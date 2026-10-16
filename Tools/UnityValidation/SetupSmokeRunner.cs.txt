@@ -36,7 +36,7 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         Click(legacyScreen.Root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.1f);
         Check(legacyScreen.Root.Q("slide-Custom").resolvedStyle.display!=DisplayStyle.None,"legacy model needs terms review");
         Check(legacyScreen.Root.Q<TextField>("model-tag").value=="legacy-model:1b","legacy tag preserved");
-        for(int i=0;i<3;i++){Click(legacyScreen.Root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);}
+        for(int i=0;i<4&&!finished;i++){Click(legacyScreen.Root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);}
         yield return Wait(()=>finished);Check(!result,"legacy review can be refused");
         File.Delete(ModelInfo.SettingsPath);
         Initialize(); yield return Wait(() => SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
@@ -68,11 +68,27 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         yield return null; CheckContrast(root.Q<Button>("primary"),"primary contrast");
         Click(root.Q<Button>("secondary")); yield return new WaitForSecondsRealtime(.1f);
         Click(root.Q<Button>("change-model")); yield return new WaitForSecondsRealtime(.1f);
+        Check(root.Q("slide-Runtime").resolvedStyle.display!=DisplayStyle.None,"explicit runtime choice");
+        yield return Capture("runtime-choice-ja");
+        Click(root.Q<Button>("runtime-ollama"));yield return new WaitForSecondsRealtime(.1f);
         CheckOneSlide(root);
         Click(root.Q<Button>("model-1")); yield return new WaitForSecondsRealtime(.1f);
         Check(!root.Q<Toggle>("consent").value,"model changes revoke consent");
         Click(root.Q<Button>("model-0")); yield return new WaitForSecondsRealtime(.1f);
         yield return Capture("models-ja");
+        Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("runtime-llama"));yield return new WaitForSecondsRealtime(.3f);
+        Check(root.Q<DropdownField>("backend").index==1,"GGUF direct entry");
+        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value),"Ollama license not inherited by GGUF");
+        root.Q<TextField>("model-terms").value="https://example.com/previous-license";
+        root.Q<TextField>("gguf-path").value="different.gguf";
+        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value),"changing GGUF clears license");
+        yield return Capture("llama-files-ja");
+        var native = typeof(SetupFilePicker).GetNestedType("OpenFileName",System.Reflection.BindingFlags.NonPublic);
+        Check(System.Runtime.InteropServices.Marshal.SizeOf(native)==(IntPtr.Size==8?152:88),"native picker structure layout");
+        Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);
+        Click(root.Q<Button>("runtime-ollama"));yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("model-0"));yield return new WaitForSecondsRealtime(.1f);
         Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.1f);
         Screen.SetResolution(900,700,false); ResizeTarget(900,700);yield return new WaitForSecondsRealtime(.5f);
         CheckOneSlide(root);
@@ -109,6 +125,48 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         Check(ModelInfo.LoadFromFile()?.Name=="qwen3:0.6b","model selection persisted");
         Initialize();yield return Wait(()=>finished,240);
         Check(result && !SceneManager.GetSceneByName("AIDrivenSetup").isLoaded,"prepared setup skips scene after real generation");
+        File.Delete(ModelInfo.SettingsPath);
+        Initialize();yield return Wait(()=>SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+        screen=FindScreen();root=screen.Root;ConfigureTarget(screen);yield return new WaitForSecondsRealtime(.4f);
+        var flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance;
+        var type=typeof(PlayerSetupScreen);var slideType=type.GetNestedType("Slide",System.Reflection.BindingFlags.NonPublic);
+        type.GetField("completion",flags).SetValue(screen,new SetupCompletion(523000000));
+        type.GetMethod("Go",flags).Invoke(screen,new[]{Enum.Parse(slideType,"Progress")});
+        var render=type.GetMethod("RenderProgress",flags);
+        render.Invoke(screen,new object[]{new SetupProgress{Stage=SetupStage.Runtime,CompletedBytes=500000000,TotalBytes=1471226485},false});
+        yield return new WaitForSecondsRealtime(.5f);yield return Capture("download-runtime-ja");
+        render.Invoke(screen,new object[]{new SetupProgress{Stage=SetupStage.Model,Item="a",CompletedBytes=250000000,TotalBytes=500000000},false});
+        render.Invoke(screen,new object[]{new SetupProgress{Stage=SetupStage.Model,Item="b",CompletedBytes=1000000,TotalBytes=23000000},false});
+        yield return new WaitForSecondsRealtime(.5f);
+        Check(root.Q<Label>("download-completed").text.Contains("251"),"UI aggregates layer bytes");
+        Check(root.Q<Label>("download-remaining").text.Contains("272"),"UI shows remaining estimate");
+        Check(root.Q<Label>("current-stage").text.Contains("2 / 3"),"UI current stage");
+        yield return Capture("download-model-ja");
+        type.GetMethod("Go",flags).Invoke(screen,new[]{Enum.Parse(slideType,"Welcome")});
+        Click(root.Q<Button>("secondary"));yield return Wait(()=>finished);
+        string llamaRuntime=Environment.GetEnvironmentVariable("SETUP_LLAMA_RUNTIME"),llamaModel=Environment.GetEnvironmentVariable("SETUP_LLAMA_MODEL");
+        if(File.Exists(llamaRuntime)&&File.Exists(llamaModel))
+        {
+            string pathBackup=Environment.GetEnvironmentVariable("PATH");
+            Environment.SetEnvironmentVariable("PATH",pathBackup+Path.PathSeparator+Path.GetDirectoryName(llamaRuntime));
+            Initialize();yield return Wait(()=>SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+            screen=FindScreen();root=screen.Root;ConfigureTarget(screen);yield return new WaitForSecondsRealtime(.5f);
+            Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.3f);
+            Check(root.Q("slide-Runtime").resolvedStyle.display!=DisplayStyle.None,"both runtimes require explicit player choice");
+            yield return Capture("both-runtimes-ja");
+            Click(root.Q<Button>("runtime-llama"));yield return new WaitForSecondsRealtime(.2f);
+            root.Q<TextField>("runtime-path").value=llamaRuntime;root.Q<TextField>("gguf-path").value=llamaModel;
+            root.Q<TextField>("model-terms").value=Environment.GetEnvironmentVariable("SETUP_LLAMA_TERMS");
+            Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.4f);
+            Check(root.Q("slide-Consent").resolvedStyle.display!=DisplayStyle.None,"GGUF files and license accepted for review");
+            yield return Capture("llama-consent-ja");
+            root.Q<Toggle>("consent").value=true;Click(root.Q<Button>("primary"));
+            yield return Wait(()=>finished,240);
+            Check(result,"real llama.cpp setup generation and return");
+            Check(ModelInfo.LoadFromFile()?.Mode=="Llama","explicit llama.cpp selection persisted with both runtimes installed");
+            Check(ModelInfo.LoadFromFile()?.ModelTermsUrl==Environment.GetEnvironmentVariable("SETUP_LLAMA_TERMS"),"GGUF-specific license persisted");
+            Environment.SetEnvironmentVariable("PATH",pathBackup);
+        }
         File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: one slide; English/Japanese; resolved contrast; model selection; 900x700 consent; refusal; real generation; monotonic progress; automatic return; ready skip.\n");
         Restore();Quit(0);
     }

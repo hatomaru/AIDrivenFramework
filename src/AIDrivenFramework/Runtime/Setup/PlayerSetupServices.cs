@@ -163,6 +163,7 @@ namespace AIDrivenFW.Setup
             if (plan.Mode == "Llama") return;
             var installed = await ReadInstalledAsync(client, endpoint, ct);
             bool exists = installed.Any(m => string.Equals(m.name, plan.Model, StringComparison.OrdinalIgnoreCase));
+            if (exists) progress?.Invoke(new SetupProgress { Stage = SetupStage.Model, Detail = "installed" });
             if (!exists)
             {
                 string modelDirectory = plan.RuntimePath == RuntimeRelease.ExecutablePath ? ManagedModelDirectory :
@@ -228,7 +229,7 @@ namespace AIDrivenFW.Setup
                 throw new SetupException(SetupProblem.Model, line?.error ?? "Invalid model pull response.");
             if (string.IsNullOrEmpty(line.status)) throw new SetupException(SetupProblem.Connection, "Missing model pull status.");
             progress?.Invoke(new SetupProgress { Stage = SetupStage.Model,
-                CompletedBytes = line.completed, TotalBytes = line.total, Item = line.digest });
+                CompletedBytes = line.completed, TotalBytes = line.total, Item = line.digest, Detail = line.status });
             return line.status == "success";
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using AIDrivenFW.Config;
 using UnityEngine;
@@ -9,15 +10,23 @@ namespace AIDrivenFW.Setup
     [Serializable]
     public sealed class PlayerSetupPlan
     {
-        public string Model = "qwen3:0.6b";
+        public string Model;
         public string Mode = "Ollama";
-        public string ModelTerms = "https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/LICENSE";
-        public string ModelSource = "https://ollama.com/library/qwen3:0.6b";
+        public string ModelTerms;
+        public string ModelSource;
         public string RuntimeTerms = RuntimeRelease.TermsUrl;
-        public long ModelBytes = 523000000;
+        public long ModelBytes;
+        public ModelLevel Level;
         public string RuntimePath = "";
         public string ModelPath = "";
         public bool Installed = false;
+
+        public PlayerSetupPlan()
+        {
+            var entry = AIDrivenConfig.CreateRecommendedModels(true)[0];
+            Model = entry.ModelName; ModelSource = entry.DownloadUrl;
+            ModelTerms = entry.LicenseUrl; ModelBytes = entry.EstimatedDownloadBytes; Level = entry.Level;
+        }
 
         public PlayerSetupPlan Snapshot() => JsonUtility.FromJson<PlayerSetupPlan>(JsonUtility.ToJson(this));
 
@@ -53,17 +62,12 @@ namespace AIDrivenFW.Setup
             ModelTermsUrl = ModelTerms, RuntimeTermsUrl = RuntimeTerms
         };
 
-        // Small, multilingual, Apache-2.0 defaults. Players can opt into larger models.
-        public static PlayerSetupPlan[] Choices() => new[]
-        {
-            new PlayerSetupPlan(),
-            new PlayerSetupPlan { Model = "qwen3:1.7b", ModelBytes = 1400000000,
-                ModelSource = "https://ollama.com/library/qwen3:1.7b",
-                ModelTerms = "https://huggingface.co/Qwen/Qwen3-1.7B/blob/main/LICENSE" },
-            new PlayerSetupPlan { Model = "qwen3:4b", ModelBytes = 2500000000,
-                ModelSource = "https://ollama.com/library/qwen3:4b",
-                ModelTerms = "https://huggingface.co/Qwen/Qwen3-4B/blob/main/LICENSE" }
-        };
+        // The game config is the catalog; no second model list lives in the screen or setup layer.
+        public static PlayerSetupPlan[] Choices() => FromConfig(AIDrivenConfig.Instance?.OllamaRecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(true));
+        public static PlayerSetupPlan[] FromConfig(ModelInfoConfig[] entries) => (entries ?? Array.Empty<ModelInfoConfig>())
+            .Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.ModelName))
+            .Select(entry => new PlayerSetupPlan { Model = entry.ModelName, ModelSource = entry.DownloadUrl,
+                ModelTerms = entry.LicenseUrl, ModelBytes = entry.EstimatedDownloadBytes, Level = entry.Level }).ToArray();
     }
 
     public static class RuntimeRelease

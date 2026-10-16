@@ -24,6 +24,24 @@ public static class SetupValidation
     }
     public static void Build()
     {
+        // This isolated QA fixture uses the package defaults; never modifies the caller's game config.
+        var catalog = AIDrivenFW.Config.AIDrivenConfig.Instance;
+        var serializedCatalog = new SerializedObject(catalog);
+        foreach (string name in new[] { "_ollamaRecommendModelInfos", "_recommendModelInfos" })
+        {
+            var entries = AIDrivenFW.Config.AIDrivenConfig.CreateRecommendedModels(name.StartsWith("_ollama"));
+            var list = serializedCatalog.FindProperty(name); list.arraySize = entries.Length;
+            for (int i=0;i<entries.Length;i++)
+            {
+                var item=list.GetArrayElementAtIndex(i);
+                item.FindPropertyRelative("ModelName").stringValue=entries[i].ModelName;
+                item.FindPropertyRelative("DownloadUrl").stringValue=entries[i].DownloadUrl;
+                item.FindPropertyRelative("LicenseUrl").stringValue=entries[i].LicenseUrl;
+                item.FindPropertyRelative("EstimatedDownloadBytes").longValue=entries[i].EstimatedDownloadBytes;
+                item.FindPropertyRelative("Level").enumValueIndex=(int)entries[i].Level;
+            }
+        }
+        serializedCatalog.ApplyModifiedPropertiesWithoutUndo();AssetDatabase.SaveAssets();
         PlayerSettings.companyName = "FrameworkValidation";
         PlayerSettings.productName = "PlayerSetupValidation";
         PlayerSettings.defaultScreenWidth = 1440;

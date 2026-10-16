@@ -7,7 +7,7 @@ sealed class SetupAtmosphere : IDisposable
 {
     const int Size = 192;
     readonly Texture2D backdrop, frost;
-    public readonly Texture2D Accent;
+    public readonly Texture2D Accent, Icon;
     readonly Layer background, glass;
     float lastFrame;
     Vector2 offset;
@@ -35,6 +35,7 @@ sealed class SetupAtmosphere : IDisposable
         var accent = new Color[64];
         for (int i = 0; i < accent.Length; i++) accent[i] = Color.Lerp(new Color(.02f, .29f, .67f), new Color(.32f, .18f, .64f), i / 63f);
         Accent = Texture("Setup accent", 64, 1, accent);
+        Icon = MakeIcon();
         background = new Layer(root, backdrop, this) { name = "aurora-background" };
         glass = new Layer(root, frost, this) { name = "frosted-glass" };
         root.Insert(0, background); card.Insert(0, glass);
@@ -71,43 +72,52 @@ sealed class SetupAtmosphere : IDisposable
         return output;
     }
 
-    public VisualElement CreateIcon() => new GradientIcon();
-
-    sealed class GradientIcon : VisualElement
+    public VisualElement CreateIcon()
     {
-        readonly Vertex[] vertices = new Vertex[18];
-        readonly ushort[] indices = new ushort[48];
-        public GradientIcon()
+        var icon = new VisualElement { pickingMode = PickingMode.Ignore };
+        icon.AddToClassList("setup-icon"); icon.style.backgroundImage = new StyleBackground(Icon); return icon;
+    }
+
+    static Texture2D MakeIcon()
+    {
+        // Analytic edge coverage, at four times the nominal display size. Unlike raw triangles,
+        // the one-display-pixel alpha edge remains smooth when the UI rotates or scales the icon.
+        const int size = 416;
+        var a = Spark(new Vector2(.43f, .43f), .36f);
+        var b = Spark(new Vector2(.8f, .78f), .14f);
+        var pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
         {
-            AddToClassList("setup-icon"); pickingMode = PickingMode.Ignore;
-            generateVisualContent += Draw;
+            var p = new Vector2((x + .5f) / size, (y + .5f) / size);
+            float distance = Mathf.Min(EdgeDistance(p, a), EdgeDistance(p, b));
+            var color = Color.Lerp(new Color(.02f, .29f, .67f), new Color(.32f, .18f, .64f), Mathf.Clamp01((p.x + 1 - p.y) * .5f));
+            color.a = Mathf.Clamp01(.5f - distance * 104); pixels[y * size + x] = color;
         }
-        void Draw(MeshGenerationContext context)
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, true)
         {
-            if (contentRect.width < 1) return;
-            // Two four-point sparks, deliberately abstract rather than a character.
-            Spark(0, new Vector2(.43f, .57f), .36f);
-            Spark(1, new Vector2(.8f, .22f), .14f);
-            var mesh = context.Allocate(vertices.Length, indices.Length);
-            mesh.SetAllVertices(vertices); mesh.SetAllIndices(indices);
-        }
-        void Spark(int shape, Vector2 center, float radius)
-        {
-            int first = shape * 9;
-            vertices[first] = Point(center);
-            for (int i = 0; i < 8; i++)
-            {
-                float angle = i * Mathf.PI / 4 - Mathf.PI / 2, length = i % 2 == 0 ? radius : radius * .32f;
-                vertices[first + i + 1] = Point(center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * length);
-                int index = shape * 24 + i * 3;
-                indices[index] = (ushort)first; indices[index + 1] = (ushort)(first + i + 1); indices[index + 2] = (ushort)(first + (i + 1) % 8 + 1);
-            }
-        }
-        Vertex Point(Vector2 p) => new Vertex
-        {
-            position = new Vector3(p.x * contentRect.width, p.y * contentRect.height, Vertex.nearZ),
-            tint = Color.Lerp(new Color(.02f, .29f, .67f), new Color(.32f, .18f, .64f), Mathf.Clamp01((p.x + p.y) * .5f))
+            name = "Setup antialiased icon", wrapMode = TextureWrapMode.Clamp,
+            filterMode = FilterMode.Trilinear, hideFlags = HideFlags.HideAndDontSave
         };
+        texture.SetPixels(pixels); texture.Apply(true, true); return texture;
+    }
+    static Vector2[] Spark(Vector2 center, float radius)
+    {
+        var points = new Vector2[8];
+        for (int i = 0; i < points.Length; i++)
+        { float angle = i * Mathf.PI / 4; points[i] = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * (i % 2 == 0 ? radius : radius * .32f); }
+        return points;
+    }
+    static float EdgeDistance(Vector2 p, Vector2[] points)
+    {
+        bool inside = false; float distance = float.MaxValue;
+        for (int i = 0, j = points.Length - 1; i < points.Length; j = i++)
+        {
+            var a = points[j]; var b = points[i]; var edge = b - a;
+            distance = Mathf.Min(distance, (p - a - edge * Mathf.Clamp01(Vector2.Dot(p - a, edge) / edge.sqrMagnitude)).magnitude);
+            if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+        }
+        return inside ? -distance : distance;
     }
 
     public void Tick(float time, bool reduceMotion)
@@ -119,7 +129,7 @@ sealed class SetupAtmosphere : IDisposable
     }
 
     public void Dispose()
-    { UnityEngine.Object.Destroy(backdrop); UnityEngine.Object.Destroy(frost); UnityEngine.Object.Destroy(Accent); }
+    { UnityEngine.Object.Destroy(backdrop); UnityEngine.Object.Destroy(frost); UnityEngine.Object.Destroy(Accent); UnityEngine.Object.Destroy(Icon); }
 
     sealed class Layer : VisualElement
     {

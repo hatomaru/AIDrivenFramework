@@ -39,6 +39,8 @@ for selector in (".screen", "Button", "Button:disabled", ".active-language", ".a
 white = color(".card", "background-color")
 check("secondary text", color(".description", "color"), white)
 check("notes", color(".note", "color"), white)
+check("download statistics on glass",color(".download-stats","color"),"#D6D6D6")
+check("stage caption on glass",color(".stage-caption","color"),"#D6D6D6")
 check("footer", color(".footer", "color"), color(".screen", "background-color"))
 check("selected model", color(".model-tier", "color"), color(".model-card.selected", "background-color"))
 check("selected model detail", color(".model-size", "color"), color(".model-card.selected", "background-color"))

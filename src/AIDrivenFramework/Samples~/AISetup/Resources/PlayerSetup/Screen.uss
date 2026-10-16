@@ -73,3 +73,21 @@ ProgressBar { width: 100%; height: 10px; margin-top: 36px; }
 .result-seal { width: 180px; height: 140px; align-items: center; justify-content: center; margin-top: 18px; margin-bottom: 12px; }
 .result-seal .result-symbol { margin: 0; }
 .celebration-spark { position: absolute; left: 87px; top: 67px; width: 6px; height: 6px; border-radius: 3px; background-color: #546BA6; }
+.download-stats { font-size: 16px; color: #484F56; margin-top: 6px; -unity-text-align: middle-center; }
+.stage-caption { font-size: 14px; color: #484F56; margin-top: 6px; -unity-text-align: middle-center; }
+#slide-Progress ProgressBar { margin-top: 16px; }
+#slide-Progress .icon-orbit { height: 96px; margin-bottom: 8px; }
+#slide-Progress .setup-icon { width: 88px; height: 88px; }
+.file-choice { width: 100%; flex-direction: row; align-items: flex-end; margin-top: 6px; margin-bottom: 6px; }
+.file-choice TextField { flex-grow: 1; flex-basis: 0; min-width: 0; margin: 0 8px 0 0; }
+.file-choice Button { min-height: 34px; font-size: 14px; padding: 4px 10px; }
+.llama-help { width: 100%; flex-direction: row; justify-content: center; }
+#slide-Custom .note { margin: 6px 0; }
+#slide-Custom .title { font-size: 28px; }
+#slide-Custom .description { font-size: 15px; margin-bottom: 10px; }
+#slide-Custom #backend { display: none; }
+.runtime-card { width: 100%; padding: 20px; margin: 8px 0; align-items: flex-start; }
+.runtime-card .note { -unity-text-align: middle-left; margin-bottom: 0; }
+#slide-Models .slide { padding-top: 20px; }
+#slide-Models .model-card { min-height: 66px; margin-bottom: 6px; }
+#slide-Models Button.link { min-height: 34px; padding-top: 4px; padding-bottom: 4px; }

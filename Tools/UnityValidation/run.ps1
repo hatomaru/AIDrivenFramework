@@ -1,11 +1,14 @@
 param(
     [Parameter(Mandatory = $true)][string]$Unity,
-    [string]$HostDirectory = (Join-Path $env:TEMP ('FrameworkSetupValidation-' + [guid]::NewGuid().ToString('N')))
+    [string]$HostDirectory = (Join-Path $env:TEMP ('FrameworkSetupValidation-' + [guid]::NewGuid().ToString('N'))),
+    [switch]$DisplayOnly
 )
 $ErrorActionPreference = 'Stop'
-try { $models = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 3 }
-catch { throw 'This live smoke test requires a running local Ollama service.' }
-if ($models.models.name -notcontains 'qwen3:0.6b') { throw 'Install qwen3:0.6b before running this live smoke test.' }
+if (!$DisplayOnly) {
+    try { $models = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 3 }
+    catch { throw 'This live smoke test requires a running local Ollama service.' }
+    if ($models.models.name -notcontains 'qwen3:0.6b') { throw 'Install qwen3:0.6b before running this live smoke test.' }
+}
 $frameworkRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 if (Test-Path -LiteralPath $HostDirectory) { throw 'Choose a new directory; this script never resets an existing project.' }
 foreach ($directory in @('Assets/Editor', 'Packages', 'ProjectSettings')) {
@@ -36,7 +39,8 @@ function Invoke-ValidationUnity([string[]]$Extra, [string]$LogName) {
 }
 Invoke-ValidationUnity @('-nographics', '-executeMethod', 'SetupValidation.Import') 'import.log'
 Invoke-ValidationUnity @('-nographics', '-runTests', '-testPlatform', 'EditMode', '-testFilter', 'AIDrivenFW.Tests.Unit', '-testResults', ('"' + (Join-Path $HostDirectory 'unit.xml') + '"')) 'unit.log'
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'SetupSmokeRunner.cs.txt') -Destination (Join-Path $HostDirectory 'Assets/SetupSmokeRunner.cs')
+$runner = if ($DisplayOnly) { 'SetupDisplayRunner.cs.txt' } else { 'SetupSmokeRunner.cs.txt' }
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot $runner) -Destination (Join-Path $HostDirectory 'Assets/SetupSmokeRunner.cs')
 Invoke-ValidationUnity @('-quit', '-executeMethod', 'SetupValidation.Build') 'build.log'
 $player = Start-Process -FilePath (Join-Path $HostDirectory 'Build/SetupValidation.exe') -ArgumentList @('-screen-width', '1440', '-screen-height', '900', '-screen-fullscreen', '0', '-logFile', ('"' + (Join-Path $HostDirectory 'player.log') + '"')) -WindowStyle Hidden -Wait -PassThru
 if ($player.ExitCode -ne 0) { throw "Player validation failed; inspect $HostDirectory" }

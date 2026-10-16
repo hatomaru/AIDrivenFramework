@@ -8,10 +8,12 @@ All notable changes to this project will be documented in this file.
 - Rebuilt the optional player setup scene in English and Japanese with one purpose per slide, a consent-first local AI flow, short transitions, model choices, installed-model selection, existing GGUF support, recovery guidance and reduced motion.
 - Added overall setup progress based on completed stages and downloaded model layers, with 100% reserved for verified completion, plus automated contrast checks for text and control states.
 - Added pinned, SHA-256 verified Windows x64 Ollama acquisition, consent/attempt records, real generation before atomic settings commit, and a deterministic UnityPackage exporter with reviewable scene sources.
+- Added explicit runtime selection when Ollama and llama.cpp are both available, config-driven model names/sizes/sources/licenses, Windows file selection for existing GGUF/runtime files, and downloaded/remaining capacity per preparation step.
 
 ### Fixed
 - Declining additive setup now returns false to the game. First-run readiness no longer launches local AI before consent; verified settings use writable player storage with legacy read compatibility.
 - Restored saved model selection and Japanese localization in retained optional helpers, and corrected setup-related owned ScriptableObject lifetimes.
+- Smoothed the gradient icon's edges and clear model-license choices when changing a GGUF file, instead of inheriting another model's terms.
 
 See [player setup and validation](Docs/player-setup.md) / [日本語ガイド](Docs/ja/player-setup.md).
 
