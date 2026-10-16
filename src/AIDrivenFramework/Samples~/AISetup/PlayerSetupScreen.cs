@@ -18,6 +18,11 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     enum Slide { Welcome, Models, Custom, Consent, Progress, Result }
     PanelSettings panel;
     Font font;
+    SetupAtmosphere atmosphere;
+    readonly List<VisualElement> icons = new List<VisualElement>();
+    readonly List<VisualElement> sparks = new List<VisualElement>();
+    readonly List<VisualElement> celebration = new List<VisualElement>();
+    Label resultSymbol;
     VisualElement root, content, current, cards;
     readonly Dictionary<Slide, VisualElement> slides = new Dictionary<Slide, VisualElement>();
     readonly Dictionary<string, string[]> copy = new Dictionary<string, string[]>();
@@ -83,12 +88,13 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         var languages = Box(root, "languages");
         Btn(languages, "日本語", () => SetLanguage(true), "language-ja"); Btn(languages, "English", () => SetLanguage(false), "language-en");
         var card = Box(root, "card");
+        atmosphere = new SetupAtmosphere(root, card);
         var scroll = new ScrollView(ScrollViewMode.Vertical) { name = "slide-scroll" }; scroll.AddToClassList("slide-scroll"); card.Add(scroll);
         scroll.verticalScrollerVisibility = ScrollerVisibility.Auto;
         content = scroll.contentContainer;
 
         var welcome = MakeSlide(Slide.Welcome);
-        var mascot = Box(welcome, "mascot"); var face = Box(mascot, "face"); Box(face, "eye"); Box(face, "eye"); Box(mascot, "smile");
+        Emblem(welcome);
         T(welcome, "title", "A little setup.\nThen play.", "このゲームに、\nあなたのAIを。", "title");
         T(welcome, "intro", "A one-time setup for AI on this PC.\nNo AI account or subscription needed.", "このPCで動くAIを、初回だけ準備します。\nAI用の登録や月額契約は不要です。", "description");
         chosen = Text(welcome, "", "chosen");
@@ -133,6 +139,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         consent = new Toggle { name = "consent" }; consent.AddToClassList("consent"); review.Add(consent); consent.RegisterValueChangedCallback(_ => UpdateActions());
 
         var progress = MakeSlide(Slide.Progress);
+        Emblem(progress);
         statusTitle = Text(progress, "", "title"); statusTitle.name = "status-title";
         statusCopy = Text(progress, "", "description");
         progressBar = new ProgressBar { name = "overall-progress", lowValue = 0, highValue = 100, value = 0 }; progress.Add(progressBar);
@@ -140,7 +147,10 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         T(progress, "progress-note", "Progress reflects completed steps and download data.\nThe first response can take a little longer.", "完了した工程と取得量からの目安です。\n最初の応答確認には時間がかかる場合があります。", "note");
 
         var result = MakeSlide(Slide.Result);
-        Text(result, "", "result-symbol").name = "result-symbol";
+        var seal = Box(result, "result-seal");
+        resultSymbol = Text(seal, "", "result-symbol"); resultSymbol.name = "result-symbol";
+        resultSymbol.style.backgroundImage = new StyleBackground(atmosphere.Accent);
+        for (int i = 0; i < 8; i++) { var spark = Box(seal, "celebration-spark"); spark.pickingMode = PickingMode.Ignore; celebration.Add(spark); }
         resultTitle = Text(result, "", "title"); resultCopy = Text(result, "", "description");
         resultBar = new ProgressBar { name = "completed-progress", lowValue = 0, highValue = 100, value = 100 }; result.Add(resultBar);
         Text(result, "100%", "percent").name = "completed-percent";
@@ -149,6 +159,21 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         var footer = Box(root, "footer"); reduced = new Toggle { name = "reduce-motion", value = PlayerPrefs.GetInt("AIDrivenFW.Setup.ReduceMotion", 0) == 1 }; footer.Add(reduced);
         reduced.RegisterValueChangedCallback(e => { PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", e.newValue ? 1 : 0); PlayerPrefs.Save(); });
         CustomVisibility();
+        foreach (var button in root.Query<Button>().ToList())
+        {
+            button.RegisterCallback<PointerDownEvent>(_ => { if (!reduced.value && button.enabledInHierarchy) button.style.scale = new Scale(new Vector3(.97f, .97f, 1)); });
+            button.RegisterCallback<PointerUpEvent>(_ => button.style.scale = new Scale(Vector3.one));
+            button.RegisterCallback<PointerLeaveEvent>(_ => button.style.scale = new Scale(Vector3.one));
+        }
+        progressBar.Q(className: "unity-progress-bar__progress").style.backgroundImage = new StyleBackground(atmosphere.Accent);
+        resultBar.Q(className: "unity-progress-bar__progress").style.backgroundImage = new StyleBackground(atmosphere.Accent);
+    }
+
+    void Emblem(VisualElement parent)
+    {
+        var orbit = Box(parent, "icon-orbit"); orbit.pickingMode = PickingMode.Ignore;
+        var icon = atmosphere.CreateIcon(); orbit.Add(icon); icons.Add(icon);
+        for (int i = 0; i < 3; i++) sparks.Add(Box(orbit, "spark"));
     }
 
     VisualElement MakeSlide(Slide value)
@@ -326,11 +351,34 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         DrainProgress(); if (root == null || current == null) return;
         root.EnableInClassList("compact", (panel.targetTexture != null ? panel.targetTexture.width : Screen.width) / panel.scale < 800 ||
             (panel.targetTexture != null ? panel.targetTexture.height : Screen.height) / panel.scale < 780);
-        float t = reduced.value ? 1 : Mathf.Clamp01((Time.unscaledTime - changedAt) / .22f);
-        current.style.opacity = t; current.style.translate = new Translate(0, (1 - t) * 8);
+        float time = Time.unscaledTime, age = time - changedAt;
+        float t = reduced.value ? 1 : Mathf.Clamp01(age / .48f), ease = 1 - Mathf.Pow(1 - t, 3);
+        // Keep text fully opaque throughout arrivals so animation cannot lower its contrast.
+        current.style.opacity = 1; current.style.translate = new Translate(0, (1 - ease) * 16);
+        current.style.scale = new Scale(new Vector3(.985f + .015f * ease, .985f + .015f * ease, 1));
+        atmosphere.Tick(time, reduced.value);
+        foreach (var icon in icons)
+        {
+            icon.style.translate = new Translate(0, reduced.value ? 0 : Mathf.Sin(time * 1.8f) * 3);
+            icon.style.rotate = new Rotate(new Angle(reduced.value ? 0 : Mathf.Sin(time * .9f) * 2));
+        }
+        for (int i = 0; i < sparks.Count; i++)
+        {
+            float angle = i % 3 * Mathf.PI * 2 / 3 + (reduced.value ? 0 : time * .38f);
+            sparks[i].style.translate = new Translate(Mathf.Cos(angle) * 65, Mathf.Sin(angle) * 43);
+            sparks[i].style.opacity = reduced.value ? .65f : .55f + .3f * Mathf.Sin(time * 1.2f + i);
+        }
+        float settle = reduced.value ? 1 : 1 + Mathf.Sin(Mathf.Clamp01(age / .7f) * Mathf.PI) * .12f;
+        resultSymbol.style.scale = new Scale(new Vector3(settle, settle, 1));
+        for (int i = 0; i < celebration.Count; i++)
+        {
+            float burst = Mathf.Clamp01(age / 1.2f), angle = i * Mathf.PI / 4;
+            celebration[i].style.translate = new Translate(Mathf.Cos(angle) * (48 + burst * 32), Mathf.Sin(angle) * (48 + burst * 16));
+            celebration[i].style.opacity = !reduced.value && complete ? Mathf.Sin(burst * Mathf.PI) * .8f : 0;
+        }
     }
     void OnDestroy()
-    { destroyed = true; operation?.Cancel(); services?.Dispose(); if (panel != null) Destroy(panel); if (font != null) Destroy(font); }
+    { destroyed = true; operation?.Cancel(); services?.Dispose(); atmosphere?.Dispose(); if (panel != null) Destroy(panel); if (font != null) Destroy(font); }
     static void OpenTerms(string url) { try { PlayerSetupPlan.ValidateHttps(url); Application.OpenURL(url); } catch (ArgumentException) { } }
     Label T(VisualElement parent, string name, string en, string jp, string css)
     { copy[name] = new[] { en, jp }; var label = Text(parent, "", css); label.name = name; return label; }

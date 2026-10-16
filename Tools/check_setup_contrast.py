@@ -48,4 +48,14 @@ check("error", color(".error", "color"), white)
 check("progress fill", color(".unity-progress-bar__progress", "background-color"), color(".unity-progress-bar__background", "background-color"), 3)
 check("focus border", color("Button:focus", "border-color"), white, 3)
 check("scroll thumb", color(".unity-scroller--vertical .unity-base-slider__dragger", "background-color"), white, 3)
+check("glass secondary (84% white over darkest possible backdrop)", color(".note", "color"), "#D6D6D6")
+atmosphere = FILE.parents[2] / "SetupAtmosphere.cs"
+source = atmosphere.read_text()
+assert "Color.Lerp(blurred[i], Color.white, .84f)" in source, "Recheck the glass veil bound after changing its opacity"
+endpoints = re.search(r"accent\[i\] = Color.Lerp\(new Color\((.*?)\), new Color\((.*?)\)", source).groups()
+start, end = ([float(c.strip().rstrip("f")) for c in value.split(",")] for value in endpoints)
+samples = ["#" + "".join(f"{round((a + (b - a) * i / 100) * 255):02X}" for a, b in zip(start, end)) for i in range(101)]
+for name, background, minimum in (("accent / white text", "#FFFFFF", 4.5), ("accent / progress track", color(".unity-progress-bar__background", "background-color"), 3), ("icon / darkest glass", "#D6D6D6", 3)):
+    worst = min(samples, key=lambda value: (max(luminance(value), luminance(background)) + .05) / (min(luminance(value), luminance(background)) + .05))
+    check(name + " (101 samples)", worst, background, minimum)
 print("PASS: all checked text >= 4.5:1; progress/focus >= 3:1.")

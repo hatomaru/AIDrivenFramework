@@ -43,12 +43,22 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         var screen = FindScreen(); var root = screen.Root; ConfigureTarget(screen);
         yield return new WaitForSecondsRealtime(1);
         CheckOneSlide(root); Check(!root.Q<Toggle>("consent").value,"initial consent unchecked");
+        Check(!root.Q<Toggle>("reduce-motion").value,"motion enabled by default");
+        Check(root.Q("frosted-glass") != null,"procedural frosted backdrop exists");
+        var icon = root.Q(className:"setup-icon");
+        float position = icon.style.translate.value.y.value;
+        yield return new WaitForSecondsRealtime(.4f);
+        Check(Mathf.Abs(icon.style.translate.value.y.value-position)>.01f,"gradient icon animates");
         yield return Capture("welcome-en");
         Click(root.Q<Button>("language-ja")); yield return new WaitForSecondsRealtime(.3f);
         Check(root.Q<Label>("title").text.Contains("あなた"), "Japanese switches live");
         CheckContrast(root.Q<Button>("language-ja"),"active language contrast");
         yield return Capture("welcome-ja");
+        for (int i=0;i<18;i++) yield return Capture("motion-"+i.ToString("D2"));
         root.Q<Toggle>("reduce-motion").value = true;
+        yield return new WaitForSecondsRealtime(.1f);
+        Check(icon.style.translate.value.y.value==0,"reduce motion stops floating");
+        root.Q<Toggle>("reduce-motion").value = false;
         Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.3f);
         CheckOneSlide(root); Check(!root.Q<Button>("primary").enabledSelf,"consent gates acquisition");
         CheckContrast(root.Q<Button>("primary"),"disabled primary contrast");
@@ -90,7 +100,7 @@ public sealed class SetupSmokeRunner : MonoBehaviour
                 float value=root.Q<ProgressBar>("overall-progress").value;
                 Check(value>=previous,"overall progress is monotonic");previous=value;
                 if(value>=100) Check(screen.Flow.Stage==SetupStage.Complete,"100 percent only after verification");
-                if(!captured && screen.Flow.Stage==SetupStage.Complete) {captured=true;yield return Capture("complete-ja");}
+                if(!captured && screen.Flow.Stage==SetupStage.Complete) {captured=true;yield return new WaitForSecondsRealtime(.25f);yield return Capture("complete-ja");}
             }
             yield return null;
         }
