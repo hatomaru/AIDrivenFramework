@@ -12,6 +12,10 @@ namespace AIDrivenFW.API
         // 準備完了時に呼び出すイベント
         public static UnityAction<bool> onPreparationFinished;
         const string setupSceneName = "AIDrivenSetup";
+        static bool setupSucceeded;
+
+        /// <summary>Called by the setup scene before it closes, including refusal.</summary>
+        public static void ReportSetupResult(bool succeeded) => setupSucceeded = succeeded;
 
         /// <summary>
         /// ローカルLLMの準備が行えているのかを確認し、必要に応じてAIDrivenSetupシーンをロードして準備を行う。
@@ -35,13 +39,14 @@ namespace AIDrivenFW.API
                     return isPrepare;
                 }
                 UnityEngine.Debug.Log("Loading AIDrivenSetup scene for preparation...");
+                setupSucceeded = false;
                 AsyncOperation loadOperation = SceneManager.LoadSceneAsync(setupSceneName, LoadSceneMode.Additive);
                 try
                 {
                     await loadOperation.WithCancellation(ct);
                     // Then wait until the additive setup scene is unloaded
                     await UniTask.WaitUntil(() => !SceneManager.GetSceneByName(setupSceneName).isLoaded, cancellationToken: ct);
-                    isPrepare = true;
+                    isPrepare = setupSucceeded;
                 }
                 catch (OperationCanceledException)
                 {

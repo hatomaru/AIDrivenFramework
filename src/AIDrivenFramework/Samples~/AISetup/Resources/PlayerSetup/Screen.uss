@@ -1,0 +1,72 @@
+/* Explicit steady-state colors are checked by Tools/check_setup_contrast.py. */
+.screen { position: absolute; left: 0; right: 0; top: 0; bottom: 0; padding: 72px 24px 56px; background-color: #F5F5F7; color: #202124; align-items: center; justify-content: center; }
+Label { white-space: normal; }
+Button { color: #202124; background-color: #FFFFFF; border-width: 1px; border-color: #63717D; border-radius: 10px; min-height: 42px; padding: 8px 18px; margin: 0; font-size: 16px; }
+Button:hover { background-color: #E9EEF6; }
+Button:focus { border-color: #0056B3; border-width: 3px; }
+Button:disabled { opacity: 1; color: #3A4652; background-color: #DCE2E8; }
+.languages { position: absolute; top: 20px; right: 28px; flex-direction: row; }
+.languages Button { min-height: 36px; font-size: 14px; margin-left: 6px; padding: 5px 12px; }
+.active-language, .active-language:hover, .active-language:focus { background-color: #0056B3; color: #FFFFFF; border-color: #0056B3; }
+.card { width: 640px; max-width: 100%; height: 680px; min-height: 0; flex-shrink: 1; background-color: #FFFFFF; border-radius: 24px; border-width: 1px; border-color: #D5D9DF; overflow: hidden; }
+.slide-scroll { flex-grow: 1; flex-basis: 0; min-height: 0; }
+.unity-scroller--vertical { width: 8px; }
+.unity-scroller--vertical .unity-scroller__low-button, .unity-scroller--vertical .unity-scroller__high-button { display: none; }
+.unity-scroller--vertical .unity-base-slider { min-width: 8px; margin: 0; }
+.unity-scroller--vertical .unity-base-slider__tracker { background-color: #FFFFFF; border-width: 0; }
+.unity-scroller--vertical .unity-base-slider__dragger { background-color: #63717D; border-width: 0; border-radius: 4px; }
+.slide { padding: 34px 36px 24px; align-items: center; }
+.title { font-size: 32px; -unity-font-style: bold; -unity-text-align: middle-center; margin-top: 12px; margin-bottom: 14px; }
+.description { font-size: 17px; color: #484F56; -unity-text-align: middle-center; margin-bottom: 20px; }
+.note { font-size: 14px; color: #484F56; -unity-text-align: middle-center; margin-top: 10px; margin-bottom: 10px; }
+.chosen { font-size: 16px; color: #484F56; margin-top: 22px; margin-bottom: 8px; }
+.mascot { width: 86px; height: 76px; background-color: #E4EEF9; border-radius: 24px; align-items: center; justify-content: center; margin-top: 10px; margin-bottom: 18px; }
+.face { flex-direction: row; justify-content: space-between; width: 42px; margin-bottom: 12px; }
+.eye { width: 8px; height: 12px; background-color: #202124; border-radius: 5px; }
+.smile { width: 16px; height: 5px; background-color: #202124; border-radius: 0 0 8px 8px; }
+Button.link { color: #0056B3; background-color: #FFFFFF; border-color: #FFFFFF; font-size: 15px; }
+Button.link:hover { background-color: #E9EEF6; border-color: #E9EEF6; }
+Button.link:focus { border-color: #0056B3; }
+.model-cards { width: 100%; margin-top: 8px; margin-bottom: 10px; }
+.model-card { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; min-height: 76px; padding: 10px 18px; margin-bottom: 10px; }
+.model-card.selected, .model-card.selected:hover { background-color: #EEF4FC; border-color: #0056B3; border-width: 2px; }
+.model-labels { align-items: flex-start; }
+.model-tier { font-size: 17px; -unity-font-style: bold; color: #202124; }
+.model-labels .note { margin: 4px 0 0; -unity-text-align: middle-left; }
+.model-size { font-size: 16px; color: #484F56; }
+.details { width: 100%; background-color: #F5F5F7; border-radius: 14px; padding: 16px 20px; margin-bottom: 18px; }
+.selection-name { font-size: 18px; -unity-font-style: bold; margin-bottom: 8px; }
+.detail { font-size: 15px; color: #484F56; margin-top: 4px; }
+.details .note { font-size: 13px; -unity-text-align: middle-left; margin-bottom: 0; }
+.terms-links { flex-direction: row; margin-bottom: 10px; }
+.terms-links Button { font-size: 14px; padding-left: 10px; padding-right: 10px; }
+.consent { font-size: 16px; width: 100%; margin-top: 6px; }
+.consent .unity-toggle__text { color: #202124; white-space: normal; }
+.unity-toggle__input { align-items: flex-start; }
+.unity-toggle__checkmark { width: 20px; height: 20px; margin-right: 8px; border-color: #63717D; }
+.actions { flex-direction: row; justify-content: center; padding: 18px 32px 26px; flex-shrink: 0; }
+.actions Button { min-width: 130px; min-height: 46px; }
+Button.primary { margin-left: 12px; background-color: #0056B3; border-color: #0056B3; color: #FFFFFF; -unity-font-style: bold; }
+Button.primary:hover, Button.primary:focus { background-color: #00448F; border-color: #00448F; color: #FFFFFF; }
+Button.primary:disabled { background-color: #DCE2E8; border-color: #63717D; color: #3A4652; opacity: 1; }
+.footer { position: absolute; bottom: 20px; right: 28px; font-size: 14px; color: #484F56; }
+.footer .unity-toggle__text { color: #484F56; }
+TextField, DropdownField { width: 100%; margin: 6px 0; flex-direction: column; align-items: stretch; color: #202124; }
+.unity-base-field__label { min-width: 0; font-size: 14px; margin-bottom: 4px; color: #484F56; }
+TextField .unity-base-field__input, DropdownField .unity-base-field__input { min-height: 32px; font-size: 16px; color: #202124; background-color: #FFFFFF; border-color: #63717D; border-width: 1px; border-radius: 5px; }
+.unity-text-field__input { color: #202124; background-color: #FFFFFF; }
+.error { font-size: 15px; color: #A52A2A; margin-top: 10px; }
+ProgressBar { width: 100%; height: 10px; margin-top: 36px; }
+.unity-progress-bar__background { height: 10px; background-color: #DCE2E8; border-width: 0; border-radius: 5px; }
+.unity-progress-bar__progress { background-color: #0056B3; border-width: 0; border-radius: 5px; }
+.unity-progress-bar__title { display: none; }
+.percent { font-size: 22px; -unity-font-style: bold; color: #202124; margin-top: 18px; margin-bottom: 8px; }
+.result-symbol { font-size: 46px; color: #0056B3; margin-top: 42px; margin-bottom: 12px; }
+.compact { padding: 64px 16px 52px; }
+.compact .card { border-radius: 18px; }
+.compact .slide { padding: 24px 24px 16px; }
+.compact .title { font-size: 28px; }
+.compact .actions { padding: 16px 24px 20px; }
+.compact .title { margin-top: 0; margin-bottom: 10px; }
+.compact .description { font-size: 16px; margin-bottom: 14px; }
+.compact .details { padding: 12px 16px; margin-bottom: 14px; }

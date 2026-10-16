@@ -1,0 +1,5 @@
+{
+  "name": "AIFW.Setup",
+  "references": ["UniTask", "AIFW.API", "AIFW.Core", "AIFW.Config"],
+  "autoReferenced": true
+}
