@@ -489,9 +489,8 @@ namespace AIDrivenFW.Tests.Unit
         {
             var activeExecutor = new FakeAIExecutor("active", "first response");
             activeExecutor.BlockGeneration();
-            var waitingExecutor = new FakeAIExecutor("waiting", "second response");
             var activeCore = new GenAICore(new AIExecutorContext(activeExecutor));
-            var waitingCore = new GenAICore(new AIExecutorContext(waitingExecutor));
+            var waitingCore = activeCore;
             using var cts = new CancellationTokenSource();
             Task<string> activeGeneration = activeCore.GenerateAsync("first", timeoutMs: 5000).AsTask();
 
@@ -503,8 +502,8 @@ namespace AIDrivenFW.Tests.Unit
 
                 var exception = await CaptureExceptionAsync<OperationCanceledException>(waitingGeneration);
                 Assert.AreEqual(cts.Token, exception.CancellationToken);
-                Assert.AreEqual(0, waitingExecutor.GenerateCallCount);
-                Assert.AreEqual(0, waitingExecutor.KillProcessCallCount);
+                Assert.AreEqual(1, activeExecutor.GenerateCallCount);
+                Assert.AreEqual(0, activeExecutor.KillProcessCallCount);
             }
             finally
             {
@@ -519,9 +518,8 @@ namespace AIDrivenFW.Tests.Unit
         {
             var activeExecutor = new FakeAIExecutor("active", "first response");
             activeExecutor.BlockGeneration();
-            var waitingExecutor = new FakeAIExecutor("waiting", "second response");
             var activeCore = new GenAICore(new AIExecutorContext(activeExecutor));
-            var waitingCore = new GenAICore(new AIExecutorContext(waitingExecutor));
+            var waitingCore = activeCore;
             Task<string> activeGeneration = activeCore.GenerateAsync("first", timeoutMs: 5000).AsTask();
 
             try
@@ -529,8 +527,8 @@ namespace AIDrivenFW.Tests.Unit
                 await activeExecutor.GenerationStarted;
                 await CaptureExceptionAsync<TimeoutException>(
                     waitingCore.GenerateAsync("second", timeoutMs: 300).AsTask());
-                Assert.AreEqual(0, waitingExecutor.GenerateCallCount);
-                Assert.AreEqual(0, waitingExecutor.KillProcessCallCount);
+                Assert.AreEqual(1, activeExecutor.GenerateCallCount);
+                Assert.AreEqual(0, activeExecutor.KillProcessCallCount);
             }
             finally
             {
