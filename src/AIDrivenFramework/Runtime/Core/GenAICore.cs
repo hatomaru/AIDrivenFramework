@@ -62,36 +62,38 @@ namespace AIDrivenFW.Core
                 {
                     try
                     {
-                        operationToken.ThrowIfCancellationRequested();
-
-                        if (effectiveConfig == null)
+                        if (executor.ProcessExecutor != null)
                         {
-                            if (defaultConfig == null)
+                            operationToken.ThrowIfCancellationRequested();
+
+                            if (effectiveConfig == null)
                             {
-                                defaultConfig = GenAIConfigLifecycle.CreateOwned();
-                                defaultConfig.arguments = executor.ArgumentsExecutor.SetDefaultArguments();
+                                if (defaultConfig == null)
+                                {
+                                    defaultConfig = GenAIConfigLifecycle.CreateOwned();
+                                    defaultConfig.arguments = executor.ArgumentsExecutor.SetDefaultArguments();
+                                }
+                                effectiveConfig = defaultConfig;
                             }
-                            effectiveConfig = defaultConfig;
-                        }
 
-                        if (attempt == 1)
-                        {
-                            needRestart = !executor.ProcessExecutor.IsProcessAlive();
-                        }
+                            if (attempt == 1)
+                            {
+                                needRestart = !executor.ProcessExecutor.IsProcessAlive();
+                            }
 
-                        if (attempt > 1 && AIDrivenConfig.Instance.IsDeepDebug)
-                        {
-                            Debug.LogWarning($"Attempt {attempt}: Restarting the process and retrying generation...");
-                        }
+                            if (attempt > 1 && AIDrivenConfig.Instance.IsDeepDebug)
+                            {
+                                Debug.LogWarning($"Attempt {attempt}: Restarting the process and retrying generation...");
+                            }
 
-                        if (needRestart || attempt > 1)
-                        {
-                            executorOperationStarted = true;
-                            executor.ProcessExecutor.KillProcess();
-                            await executor.ProcessExecutor.StartProcessAsync(operationToken, effectiveConfig, progress, timeoutMs);
-                            needRestart = false;
+                            if (needRestart || attempt > 1)
+                            {
+                                executorOperationStarted = true;
+                                executor.ProcessExecutor.KillProcess();
+                                await executor.ProcessExecutor.StartProcessAsync(operationToken, effectiveConfig, progress, timeoutMs);
+                                needRestart = false;
+                            }
                         }
-
                         executorOperationStarted = true;
                         string result = await GenerateOnceAsync(effectiveConfig.sysPrompt, input, onUpdate, progress, operationToken, timeoutMs);
                         operationToken.ThrowIfCancellationRequested();
@@ -185,14 +187,14 @@ namespace AIDrivenFW.Core
             }
             Debug.Log("Generation completed, finalizing output...");
 
-            string result = executor.ExtractExecutor.ExtractAssistantOutput(output);
+            output = executor.ExtractExecutor?.ExtractAssistantOutput(output);
 
-            if (string.IsNullOrWhiteSpace(result))
+            if (string.IsNullOrWhiteSpace(output))
             {
                 throw new GenAIRetryableException("The AI executor returned an empty response.");
             }
 
-            return result;
+            return output;
         }
 
         private static async UniTask StopLoadingAsync(CancellationTokenSource loadingCts, UniTask loadingTask, bool preservePrimaryException)
@@ -246,6 +248,9 @@ namespace AIDrivenFW.Core
 
         private void TryKillProcess(string reason)
         {
+            if (executor.ProcessExecutor == null)
+                return;
+
             try
             {
                 executor.ProcessExecutor.KillProcess();

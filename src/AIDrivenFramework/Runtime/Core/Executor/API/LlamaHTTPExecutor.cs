@@ -1,12 +1,12 @@
 using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using System;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
+using UnityEngine;
 
 
 [Serializable]
@@ -59,7 +59,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
 {
 
     // HTTPクライアント
-    private HttpClient httpClient;
+    private static readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
     private const string ServerHost = "127.0.0.1";
     private const int ServerPort = 8080;
@@ -73,11 +73,6 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
     public LlamaHTTPExecutor()
     {
         // Initialize HTTP client with appropriate settings
-        var handler = new HttpClientHandler();
-        httpClient = new HttpClient(handler);
-        httpClient.Timeout = TimeSpan.FromMinutes(5);
-        httpClient.DefaultRequestHeaders.Add("Connection", "keep-alive");
-
         AISoftwarePath = FindServerExecutable();
     }
 
@@ -157,6 +152,8 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
     }
     public async UniTask<string> GenerateAsync(string sysInput, string input, CancellationToken ct, Action<string> onUpdate = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        if (timeoutMs <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
+        ct.ThrowIfCancellationRequested();
         if (aiProcess == null || !aiProcess.IsProcessAlive())
         {
             UnityEngine.Debug.LogWarning("AIProcess is not initialized. Call StartProcessAsync first.");
@@ -193,24 +190,24 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
         cts.CancelAfter(timeoutMs);
 
         var responseBuilder = new StringBuilder();
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{ServerUrl}/v1/chat/completions")
-        {
-            Content = new StringContent(requestJson, Encoding.UTF8, "application/json")
-        };
-
+        var url = $"{ServerUrl}/v1/chat/completions";
         try
         {
             if (stream)
-            {
-                await ProcessStreamingResponseAsync(httpRequest, cts.Token, responseBuilder, onUpdate);
-            }
+                await HttpApiClient.SendStreamingAsync(url, requestJson,
+                    (body, token) => ReadStreamingBodyAsync(body, token, responseBuilder, onUpdate), cts.Token);
             else
-            {
-                await ProcessNonStreamingResponseAsync(httpRequest, cts.Token, responseBuilder);
-            }
+                responseBuilder.Append(ParseResponse(await HttpApiClient.SendAsync(url, requestJson, cts.Token)));
+
+            if (string.IsNullOrWhiteSpace(responseBuilder.ToString()))
+                throw new GenAIRetryableException("Llama returned no generated text.");
 
             _lastResponse = responseBuilder.ToString();
             return _lastResponse;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested && !ct.IsCancellationRequested)
+        {
+            throw new TimeoutException("Llama generation timed out.");
         }
         catch (OperationCanceledException)
         {
@@ -227,76 +224,51 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
         }
     }
 
-    private async UniTask ProcessStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder, Action<string> onUpdate)
+    internal static string ParseResponse(string json)
     {
-        using var httpResponse = await httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (!httpResponse.IsSuccessStatusCode)
-        {
-            string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
-        }
-
-        using var responseStream = await httpResponse.Content.ReadAsStreamAsync();
-        using var reader = new StreamReader(responseStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 8192);
-
-        // SSE形式でデータを逐次的に読み取る
-        while (true)
-        {
-            // キャンセルチェック
-            if (ct.IsCancellationRequested)
-            {
-                ct.ThrowIfCancellationRequested();
-            }
-
-            string line = await reader.ReadLineAsync().AsUniTask().AttachExternalCancellation(ct);
-            if (line == null) break;
-            if (string.IsNullOrEmpty(line)) continue;
-
-            // SSE format: "data: {...}" or "data: [DONE]"
-            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
-
-            string data = line.Substring(5).Trim();
-            if (data == "[DONE]")
-            {
-                if (AIDrivenConfig.Instance.IsDeepDebug)
-                {
-                    UnityEngine.Debug.Log("Streaming completed");
-                }
-                break;
-            }
-
-            var chunk = JsonUtility.FromJson<LlamaChatChunk>(data);
-            if (chunk?.choices == null || chunk.choices.Length == 0) continue;
-
-            string content = chunk.choices[0]?.delta?.content;
-            if (!string.IsNullOrEmpty(content))
-            {
-                responseBuilder.Append(content);
-                onUpdate?.Invoke(content);
-                await UniTask.Yield();
-            }
-        }
+        var result = ParseChunk(json);
+        var text = result?.choices != null && result.choices.Length > 0 ? result.choices[0]?.message?.content : null;
+        if (string.IsNullOrWhiteSpace(text)) throw new GenAIRetryableException("llama-server returned no assistant message.");
+        return text;
     }
 
-    private async UniTask ProcessNonStreamingResponseAsync(HttpRequestMessage httpRequest, CancellationToken ct, StringBuilder responseBuilder)
+    private static LlamaChatChunk ParseChunk(string json)
     {
-        using var httpResponse = await httpClient.SendAsync(httpRequest, ct);
-        if (!httpResponse.IsSuccessStatusCode)
-        {
-            string errorBody = await httpResponse.Content.ReadAsStringAsync();
-            throw new HttpRequestException($"llama-server {(int)httpResponse.StatusCode}: {errorBody}");
-        }
+        try { return JsonUtility.FromJson<LlamaChatChunk>(json); }
+        catch (ArgumentException ex) { throw new GenAIRetryableException("Invalid llama-server JSON.", ex); }
+    }
 
-        string responseJson = await httpResponse.Content.ReadAsStringAsync();
-        var result = JsonUtility.FromJson<LlamaChatChunk>(responseJson);
-        if (result?.choices == null || result.choices.Length == 0 || result.choices[0]?.message?.content == null)
-            throw new InvalidDataException("llama-server returned no assistant message: " + responseJson);
-        string content = result.choices[0].message.content;
-        responseBuilder.Append(content);
-
-        if (AIDrivenConfig.Instance.IsDeepDebug)
+    internal static async UniTask ReadStreamingBodyAsync(Stream body, CancellationToken ct, StringBuilder output, Action<string> onUpdate)
+    {
+        using var reader = new StreamReader(body, Encoding.UTF8);
+        var data = new StringBuilder();
+        while (true)
         {
-            UnityEngine.Debug.Log($"Non-streaming response received: {content.Length} characters");
+            var line = await HttpApiClient.ReadLineAsync(reader, ct);
+            if (line == null) throw new GenAIRetryableException("llama-server stream ended before [DONE].");
+            if (line.Length > 0)
+            {
+                if (line.StartsWith("data:", StringComparison.Ordinal))
+                {
+                    if (data.Length > 0) data.Append('\n');
+                    data.Append(line.Substring(5).TrimStart(' '));
+                }
+                continue;
+            }
+            if (data.Length == 0) continue;
+            var value = data.ToString();
+            data.Clear();
+            if (value.Trim() == "[DONE]")
+            {
+                if (string.IsNullOrWhiteSpace(output.ToString()))
+                    throw new GenAIRetryableException("llama-server stream completed without generated text.");
+                return;
+            }
+            var chunk = ParseChunk(value);
+            var text = chunk?.choices != null && chunk.choices.Length > 0 ? chunk.choices[0]?.delta?.content : null;
+            if (string.IsNullOrEmpty(text)) continue;
+            output.Append(text);
+            onUpdate?.Invoke(text);
         }
     }
 
