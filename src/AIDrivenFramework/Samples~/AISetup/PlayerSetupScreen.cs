@@ -222,6 +222,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     { var element = Box(content, "slide"); element.name = "slide-" + value; slides[value] = element; return element; }
     void Go(Slide value)
     {
+        if (slide == Slide.Browse && value != Slide.Browse) fileBrowser?.Dispose();
         slide = value; current = slides[value];
         foreach (var pair in slides) Visible(pair.Value, pair.Key == value);
         root.Q<ScrollView>("slide-scroll").scrollOffset = Vector2.zero;
@@ -339,6 +340,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     static ModelInfoConfig[] GgufCatalog() => (AIDrivenConfig.Instance?.RecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(false)).Where(e => e != null && !string.IsNullOrWhiteSpace(e.ModelName)).ToArray();
     void ChooseFile(bool model, string initial = null)
     {
+        fileBrowser?.Dispose();
         var browse = slides[Slide.Browse]; browse.Clear();
         fileBrowser = new SetupFilePicker(browse, ja, model, initial ?? (model ? modelPath.value : runtimePath.value), atmosphere.Accent, value =>
         {
@@ -347,10 +349,17 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         });
         Go(Slide.Browse);
     }
-    void UpdateFileSize()
+    void UpdateFileSize() => ReadFileSizeAsync(modelPath.value).Forget();
+    async UniTask ReadFileSizeAsync(string path)
     {
-        try { if (File.Exists(modelPath.value)) size.SetValueWithoutNotify(Math.Ceiling(new FileInfo(modelPath.value).Length / 1000000d).ToString(CultureInfo.InvariantCulture)); }
-        catch (IOException) { }
+        try
+        {
+            var ct = destroyCancellationToken;
+            long length = await System.Threading.Tasks.Task.Run(() => new FileInfo(path).Length, ct).AsUniTask().AttachExternalCancellation(ct);
+            await UniTask.SwitchToMainThread();
+            if (!destroyed && modelPath.value == path) size.SetValueWithoutNotify(Math.Ceiling(length / 1000000d).ToString(CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is OperationCanceledException || ex is System.Security.SecurityException || ex is NotSupportedException) { }
     }
     async UniTaskVoid LoadInstalledAsync()
     {
@@ -522,7 +531,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         }
     }
     void OnDestroy()
-    { destroyed = true; operation?.Cancel(); services?.Dispose(); atmosphere?.Dispose(); if (panel != null) Destroy(panel); if (font != null) Destroy(font); }
+    { destroyed = true; fileBrowser?.Dispose(); operation?.Cancel(); services?.Dispose(); atmosphere?.Dispose(); if (panel != null) Destroy(panel); if (font != null) Destroy(font); }
     static void OpenTerms(string url) { try { PlayerSetupPlan.ValidateHttps(url); Application.OpenURL(url); } catch (ArgumentException) { } }
     Label T(VisualElement parent, string name, string en, string jp, string css)
     { copy[name] = new[] { en, jp }; var label = Text(parent, "", css); label.name = name; return label; }

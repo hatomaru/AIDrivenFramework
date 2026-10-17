@@ -37,24 +37,25 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         Check(Shown("Runtime"), "Both runtimes prompt explicit choice"); yield return Capture("both-runtimes-ja");
         Click(root.Q<Button>("runtime-llama")); yield return new WaitForSecondsRealtime(.3f);
         Check(Shown("Custom"), "llama.cpp opens file selection");
+        yield return SlowBrowserChecks();
         Check(root.Q<TextField>("model-terms") == null, "No license URL input");
         Click(root.Q<Button>("browse-runtime")); yield return new WaitForSecondsRealtime(.3f);
         Check(Shown("Browse"), "In-game runtime file browser opens");
-        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return new WaitForSecondsRealtime(.2f);
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return WaitBrowser();
         Check(root.Query<VisualElement>(className: "file-kind-runtime").ToList().Count > 0, "Runtime icon rendered");
         Check(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/fixture.gguf")).enabledSelf == false, "GGUF cannot be selected as runtime");
         Check(!root.Query<Button>("file-entry").ToList().Any(b => (string)b.userData == Path.GetFullPath("QA/unrelated.exe")), "Unrelated executables are excluded");
-        Click(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/Models"))); yield return new WaitForSecondsRealtime(.1f);
-        Click(root.Q<Button>("browser-up")); yield return new WaitForSecondsRealtime(.1f);
-        root.Q<TextField>("browser-search").value = "llama"; yield return new WaitForSecondsRealtime(.1f);
-        Check(root.Query<Button>("file-entry").ToList().Count == 1, "Filename filtering works"); root.Q<TextField>("browser-search").value = "";
+        Click(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/Models"))); yield return WaitBrowser();
+        Click(root.Q<Button>("browser-up")); yield return WaitBrowser();
+        root.Q<TextField>("browser-search").value = "llama"; yield return WaitBrowser();
+        Check(root.Query<Button>("file-entry").ToList().Count == 1, "Filename filtering works"); root.Q<TextField>("browser-search").value = ""; yield return WaitBrowser();
         yield return Capture("browser-runtime-ja");
         yield return ChooseBrowserFile("QA/llama-server.exe");
         Click(root.Q<Button>("browse-model")); yield return new WaitForSecondsRealtime(.2f);
-        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return new WaitForSecondsRealtime(.2f);
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return WaitBrowser();
         Check(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/llama-server.exe")).enabledSelf == false, "Runtime cannot be selected as model");
         yield return Capture("browser-model-ja");
-        Click(root.Q<Button>("language-en")); yield return Capture("browser-model-en"); Click(root.Q<Button>("language-ja")); yield return new WaitForSecondsRealtime(.25f);
+        Click(root.Q<Button>("language-en")); yield return Capture("browser-model-en"); Click(root.Q<Button>("language-ja")); yield return WaitBrowser();
         yield return ChooseBrowserFile("QA/fixture.gguf");
         root.Q<DropdownField>("gguf-catalog").index = 1;
         Check((string)typeof(PlayerSetupScreen).GetMethod("CustomModelTerms", Private).Invoke(screen, null) == AIDrivenConfig.Instance.RecommendModelInfos[0].LicenseUrl, "Configured GGUF terms supplied without input");
@@ -94,8 +95,56 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         screen.GetComponent<UIDocument>().panelSettings.targetTexture = target;
         yield return new WaitForSecondsRealtime(.8f);
     }
+    IEnumerator WaitBrowser()
+    {
+        float deadline = Time.realtimeSinceStartup + 20;
+        while (((SetupFilePicker)typeof(PlayerSetupScreen).GetField("fileBrowser", Private).GetValue(screen)).IsLoading)
+        { if (Time.realtimeSinceStartup > deadline) Fail("Browser timed out"); yield return null; }
+        yield return new WaitForSecondsRealtime(.15f);
+    }
+    IEnumerator SlowBrowserChecks()
+    {
+        Click(root.Q<Button>("browse-runtime")); yield return WaitBrowser();
+        var browse = root.Q("slide-Browse");
+        ((SetupFilePicker)typeof(PlayerSetupScreen).GetField("fileBrowser", Private).GetValue(screen)).Dispose(); browse.Clear();
+        var accent = ((SetupAtmosphere)typeof(PlayerSetupScreen).GetField("atmosphere", Private).GetValue(screen)).Accent;
+        Directory.CreateDirectory("QA/Slow");
+        var delayed = new SetupFilePicker(browse, true, false, Path.GetFullPath("QA/Slow"), accent, _ => { }, (path, filter, maximum, ct, progress) =>
+        {
+            if (path.EndsWith("Slow"))
+            { progress(64); Thread.Sleep(1200); return new[] { new SetupFilePicker.Entry { Name = "stale.gguf", Path = "stale.gguf", Kind = SetupFileKind.Model } }; }
+            return SetupFilePicker.ReadDirectory(path, filter, maximum, ct, progress);
+        });
+        typeof(PlayerSetupScreen).GetField("fileBrowser", Private).SetValue(screen, delayed);
+        yield return new WaitForSecondsRealtime(.35f);
+        Check(delayed.IsLoading && root.Q<ProgressBar>("browser-loading").resolvedStyle.display != DisplayStyle.None, "Slow folder shows loading bar");
+        Check(root.Q<Button>("secondary").enabledInHierarchy && root.Q<Button>("browser-open").enabledInHierarchy, "Navigation stays available while loading");
+        yield return Capture("browser-loading-ja");
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return WaitBrowser();
+        yield return new WaitForSecondsRealtime(1.3f);
+        Check(!root.Query<Button>("file-entry").ToList().Any(b => (string)b.userData == "stale.gguf"), "Late results cannot replace current folder");
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA/Slow"); Click(root.Q<Button>("browser-open")); yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("secondary")); yield return new WaitForSecondsRealtime(.2f);
+        Check(Shown("Custom") && !delayed.IsLoading, "Back cancels pending browser UI immediately");
+        yield return new WaitForSecondsRealtime(1.2f);
+        Check(Shown("Custom"), "Late cancelled completion cannot reopen browser");
+        Click(root.Q<Button>("browse-runtime")); yield return WaitBrowser();
+        browse = root.Q("slide-Browse"); ((SetupFilePicker)typeof(PlayerSetupScreen).GetField("fileBrowser", Private).GetValue(screen)).Dispose(); browse.Clear();
+        var timed = new SetupFilePicker(browse, true, false, Path.GetFullPath("QA"), accent, _ => { },
+            (folder, filter, maximum, ct, progress) => { Thread.Sleep(600); return SetupFilePicker.ReadDirectory(folder, filter, maximum, ct, progress); }, TimeSpan.FromMilliseconds(150));
+        typeof(PlayerSetupScreen).GetField("fileBrowser", Private).SetValue(screen, timed);
+        yield return WaitBrowser();
+        Check(root.Q<Label>("browser-status").text.Contains("時間") && !timed.IsLoading, "Timed-out read shows recovery and ends loading");
+        Click(root.Q<Button>("secondary")); yield return new WaitForSecondsRealtime(.7f);
+        // Error and empty folders are distinct from a stalled read.
+        Click(root.Q<Button>("browse-runtime")); yield return WaitBrowser();
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA/missing"); Click(root.Q<Button>("browser-open")); yield return WaitBrowser();
+        Check(root.Query<Button>("file-entry").ToList().Count == 0 && !((SetupFilePicker)typeof(PlayerSetupScreen).GetField("fileBrowser", Private).GetValue(screen)).IsLoading, "Unreadable folder ends loading and clears rows");
+        Click(root.Q<Button>("secondary")); yield return new WaitForSecondsRealtime(.2f);
+    }
     IEnumerator ChooseBrowserFile(string file)
     {
+        yield return WaitBrowser();
         var row = root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath(file));
         root.Q<ScrollView>("browser-files").ScrollTo(row); yield return new WaitForSecondsRealtime(.25f);
         Click(row); yield return new WaitForSecondsRealtime(.25f);
