@@ -142,7 +142,7 @@ internal static class AIDrivenRecommendedModelsUpgrade
                 "AIDrivenFW: Update Recommended Models",
                 $"{path}\n\n" +
                 "Update the recommended models for Ollama and llama.cpp?\n\n" +
-                "Light: Gemma 3 1B\nBalanced: Gemma 3 4B\nPowerful: Gemma 4 12B\n\n" +
+                "Light: Qwen3 0.6B\nBalanced: Qwen3 1.7B\nPowerful: Qwen3 4B\n\n" +
                 "This replaces both model lists, including any custom model names, URLs, and VRAM settings. " +
                 "Other settings, such as file paths, will be preserved. No models will be downloaded.\n\n" +
                 "This prompt will not appear again for this update, regardless of your choice.",

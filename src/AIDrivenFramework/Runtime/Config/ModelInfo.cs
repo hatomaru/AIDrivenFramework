@@ -14,6 +14,21 @@ namespace AIDrivenFW.Config
         public string Name = "";
         // 保存する実行モード: "Ollama" または "Llama"
         public string Mode = "Llama";
+        public string RuntimePath = "";
+        public string ModelPath = "";
+        public string ConsentRevision = "";
+        public string ConsentUtc = "";
+        public string ModelTermsUrl = "";
+        public string RuntimeTermsUrl = "";
+        public bool LocalModelTermsReviewed;
+
+        public const string CurrentConsentRevision = "player-setup-1";
+        public bool HasPlayerConsent => ConsentRevision == CurrentConsentRevision &&
+            !string.IsNullOrEmpty(ConsentUtc) && (!string.IsNullOrEmpty(ModelTermsUrl) ||
+            (Mode == "Llama" && LocalModelTermsReviewed && !string.IsNullOrEmpty(ModelPath)));
+
+        public static string SettingsPath => Path.Combine(Application.persistentDataPath,
+            "AIDrivenFramework", FileName);
 
         public ModelInfo() { }
 
@@ -40,14 +55,16 @@ namespace AIDrivenFW.Config
         /// </summary>
         public void SaveToFile()
         {
-            // 設定は persistentDataPath ではなく Data フォルダ側に保存する
-            string path = Path.Combine(Application.dataPath, AIDrivenConfig.Instance.BaseFilePath, FileName);
+            WriteAtomic(SettingsPath, ToJson());
+        }
 
-            var dir = Path.GetDirectoryName(path);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-
-            File.WriteAllText(path, ToJson(), Encoding.UTF8);
+        public static void WriteAtomic(string path, string json)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            string temporary = path + ".tmp";
+            File.WriteAllText(temporary, json, new UTF8Encoding(false));
+            if (File.Exists(path)) File.Replace(temporary, path, null);
+            else File.Move(temporary, path);
         }
 
         /// <summary>
@@ -56,8 +73,10 @@ namespace AIDrivenFW.Config
         /// <returns>読み込み後の設定ファイル</returns>
         public static ModelInfo LoadFromFile()
         {
-            // 設定は persistentDataPath ではなく Data フォルダ側から読み込む
-            string path = Path.Combine(Application.dataPath, AIDrivenConfig.Instance.BaseFilePath, FileName);
+            string path = SettingsPath;
+            // Read old installs without writing into a potentially read-only game directory.
+            if (!File.Exists(path))
+                path = Path.Combine(Application.dataPath, AIDrivenConfig.baseFilePath, FileName);
 
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
             try

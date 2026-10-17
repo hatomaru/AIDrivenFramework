@@ -1,2 +1,3 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep the optional UnityPackage reproducible across Windows and Unix checkouts.
+src/AIDrivenFramework/Samples~/** text eol=lf
+*.unitypackage binary

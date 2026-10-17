@@ -41,6 +41,8 @@ namespace AIDrivenFW.Core
             }
             else
             {
+                var saved = ModelInfo.LoadFromFile();
+                if (saved?.Mode == "Llama" && File.Exists(saved.ModelPath)) return saved.ModelPath;
                 return requestFile.Contains(".gguf");
             }
         }

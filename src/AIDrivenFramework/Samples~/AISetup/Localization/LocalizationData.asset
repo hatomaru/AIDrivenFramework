@@ -1,0 +1,194 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 574d886bdc07cd641865a7ff7da430be, type: 3}
+  m_Name: LocalizationData
+  m_EditorClassIdentifier: Assembly-CSharp::AIDriven_LocalizationData
+  entries:
+  - key: NB_NearFeatureText
+    japanese: "\u5C11\u3057\u5148\u306E\u672A\u6765\u3078\u3088\u3046\u3053\u305D\uFF01"
+    english: Welcome to a little bit of the near future!
+  - key: CARD_OverviewText
+    japanese: "\u3053\u306E\u30B2\u30FC\u30E0\u306F\u3042\u306A\u305F\u306E\u30D1\u30BD\u30B3\u30F3\u3067<br>AI\u3092\u52D5\u304B\u3057\u307E\u3059\u3002<br>\u305D\u306E\u305F\u3081\u3044\u304F\u3064\u304B\u306E\u8A2D\u5B9A\u304C\u5FC5\u8981\u3067\u3059"
+    english: This game runs AI on your computer.<br>Therefore, some setup is required.
+  - key: CARD_OverviewButton
+    japanese: "\u306F\u3058\u3081\u308B"
+    english: Get started
+  - key: LicenceNotice
+    japanese: "\u672C\u30A2\u30D7\u30EA\u306F\u5916\u90E8\u3067\u53D6\u5F97\u3055\u308C\u305F
+      LLM \u5B9F\u884C\u74B0\u5883\u304A\u3088\u3073\u30E2\u30C7\u30EB\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u3093\u3067\u52D5\u4F5C\u3057\u307E\u3059\u3002
+      <br>\u307E\u305F\u3001LLM \u5B9F\u884C\u74B0\u5883\u304A\u3088\u3073\u30E2\u30C7\u30EB\u30D5\u30A1\u30A4\u30EB\u306E\u914D\u5E03\u30FB\u63D0\u4F9B\u306F\u884C\u3044\u307E\u305B\u3093\u3002"
+    english: This application operates by loading an externally obtained LLM runtime
+      environment and model files.<br>It does not distribute or provide the LLM runtime
+      environment or model files.
+  - key: CARD_LicenceNotice
+    japanese: "\u672C\u30A2\u30D7\u30EA\u306F\u5916\u90E8\u3067\u53D6\u5F97\u3055\u308C\u305F
+      LLM \u5B9F\u884C\u74B0\u5883\u304A\u3088\u3073\u30E2\u30C7\u30EB\u30D5\u30A1\u30A4\u30EB\u3092\u8AAD\u307F\u8FBC\u3093\u3067\u52D5\u4F5C\u3057\u307E\u3059\u3002<br>llama.cpp
+      \u304A\u3088\u3073\u5404\u7A2E\u30E2\u30C7\u30EB\u306E\u30E9\u30A4\u30BB\u30F3\u30B9\u30FB\u5229\u7528\u6761\u4EF6\u306B\u3064\u3044\u3066\u306F\u3001\u30E6\u30FC\u30B6\u30FC\u81EA\u8EAB\u304C\u914D\u5E03\u5143\u306E\u898F\u7D04\u3092\u3054\u78BA\u8A8D\u304F\u3060\u3055\u3044\u3002"
+    english: This application operates by loading an externally obtained LLM runtime
+      environment and model files.<br>Please review the license and terms of use
+      for llama.cpp and each model directly from their respective distributors.
+  - key: NB_GuideImportAISoftware
+    japanese: "AI\u30BD\u30D5\u30C8\u3092\u53D6\u308A\u8FBC\u3080"
+    english: Import AI Software
+  - key: NB_GuideImportModel
+    japanese: "\u30E2\u30C7\u30EB\u3092\u53D6\u308A\u8FBC\u3080"
+    english: Import Model
+  - key: NB_GuideReviewLicence
+    japanese: "\u898F\u7D04\u306E\u78BA\u8A8D"
+    english: Review Policy
+  - key: CARD_ModelDownloadText
+    japanese: "\u30E2\u30C7\u30EB\u306F\u4E0B\u8A18\u30EA\u30F3\u30AF\u304B\u3089\u5404\u81EA\u3067\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+      <br>\u3053\u3053\u3067\u306F\u3001\u624B\u9806\u306E\u6848\u5185\u306E\u307F\u3092\u884C\u3044\u307E\u3059\u3002"
+    english: Please download the model yourself from the link below.<br>This page
+      provides guidance on the procedure only.
+  - key: CARD_AISoftwareDownloadText
+    japanese: "AI\u30BD\u30D5\u30C8\u306F\u4E0B\u8A18\u30EA\u30F3\u30AF\u304B\u3089\u5404\u81EA\u3067\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+      <br>\u3053\u3053\u3067\u306F\u3001\u624B\u9806\u306E\u6848\u5185\u306E\u307F\u3092\u884C\u3044\u307E\u3059\u3002"
+    english: Please download the AISoftware yourself from the link below.<br>This
+      page provides guidance on the procedure only.
+  - key: ReturnButton
+    japanese: "\u623B\u308B"
+    english: Return
+  - key: AISetupLabel
+    japanese: "AI\u30BB\u30C3\u30C8\u30A2\u30C3\u30D7"
+    english: AISetup
+  - key: MODAL_ExtractFile
+    japanese: "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u89E3\u51CD\u3057\u3066\u4F7F\u7528\u3057\u307E\u3059\u304B\uFF1F"
+    english: Do you want to extract and use this file?
+  - key: MODAL_UseFile
+    japanese: "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u4F7F\u7528\u3057\u307E\u3059\u304B\uFF1F"
+    english: Do you want to use this file?
+  - key: MODAL_UseFile
+    japanese: "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u4F7F\u7528\u3057\u307E\u3059\u304B\uFF1F"
+    english: Do you want to use this file?
+  - key: ERROR_FailedGenAI
+    japanese: "AI\u304C\u6B63\u3057\u304F\u52D5\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002<br>\u3082\u3046\u4E00\u5EA6\u3084\u308A\u76F4\u3057\u3066\u304F\u3060\u3055\u3044"
+    english: The AI did not run correctly.<br>Please try again.
+  - key: ERROR_FailedFile
+    japanese: "\u3053\u306E\u30D5\u30A1\u30A4\u30EB\u306F\u4F7F\u3048\u307E\u305B\u3093<br>\u4ED6\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u8A66\u3057\u3066\u304F\u3060\u3055\u3044"
+    english: This file cannot be used.<br>Please try a different file.
+  - key: ERROR_FailedOllamaModelDownload
+    japanese: "Ollama\u304B\u3089\u306E\u30E2\u30C7\u30EB\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002<br>\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF\u63A5\u7D9A\u3001Ollama\u306E\u5B9F\u884C\u72B6\u614B\u3001\u304A\u3088\u3073\u30E2\u30C7\u30EB\u540D\u3092\u78BA\u8A8D\u3057\u3066\u3001\u3082\u3046\u4E00\u5EA6\u8A66\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
+    english: The model could not be downloaded from Ollama.<br>Check your network
+      connection, Ollama installation, and model name, then try again.
+  - key: GENRE_AISoftware
+    japanese: "AI\u30BD\u30D5\u30C8"
+    english: AISoftware
+  - key: GENRE_Model
+    japanese: "\u30E2\u30C7\u30EB"
+    english: Model
+  - key: LOADING_GenAI
+    japanese: "AI\u3092\u6E96\u5099\u4E2D..."
+    english: Preparing AI...
+  - key: LOADING_CheckFile
+    japanese: "\u30D5\u30A1\u30A4\u30EB\u3092\u78BA\u8A8D\u4E2D..."
+    english: Checking file...
+  - key: LOADING_ProcessFile
+    japanese: "\u30D5\u30A1\u30A4\u30EB\u3092\u51E6\u7406\u4E2D..."
+    english: Processing file...
+  - key: LOADING_ExtractFile
+    japanese: "\u30D5\u30A1\u30A4\u30EB\u3092\u5C55\u958B\u4E2D..."
+    english: Extracting file...
+  - key: LOADING_ModelDownload
+    japanese: "\u30E2\u30C7\u30EB\u3092Ollama\u304B\u3089\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u4E2D..."
+    english: Downloading the model from Ollama...
+  - key: FileSelectButton
+    japanese: "\u30D5\u30A1\u30A4\u30EB\u9078\u629E"
+    english: Select File
+  - key: ContinueButton
+    japanese: "\u6B21\u3078"
+    english: Continue
+  - key: UseFileButton
+    japanese: "\u4F7F\u7528\u3059\u308B"
+    english: Use File
+  - key: DoNotUseFileButton
+    japanese: "\u4F7F\u7528\u3057\u306A\u3044"
+    english: Do Not Use File
+  - key: MODAL_File
+    japanese: "\u30D5\u30A1\u30A4\u30EB\u540D"
+    english: FileName
+  - key: MODAL_ModelSelection
+    japanese: "\u30E2\u30C7\u30EB\u9078\u629E"
+    english: Model Selection
+  - key: MODAL_AISoftwareSelection
+    japanese: "AI\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u9078\u629E"
+    english: AI Software Selection
+  - key: MODAL_FileSelectLabel
+    japanese: "{a}\u306E\u307F\u8868\u793A"
+    english: Show {a} only
+  - key: ModelLightLabel
+    japanese: "\u30E9\u30A4\u30C8"
+    english: Light
+  - key: ModelBalancedLabel
+    japanese: "\u30D0\u30E9\u30F3\u30B9"
+    english: Balance
+  - key: ModelPowerfulLabel
+    japanese: "\u9AD8\u54C1\u8CEA"
+    english: Powerful
+  - key: MoreMemoryLabel
+    japanese: "\u30E1\u30E2\u30EA {a}\u4EE5\u4E0A"
+    english: Memory {a} or more
+  - key: MODAL_MemoryText
+    japanese: "\u4F7F\u3044\u305F\u3044\u30E2\u30C7\u30EB\u3092\u9078\u3093\u3067\u304F\u3060\u3055\u3044<br>(GPU\u30E1\u30E2\u30EA
+      {a})"
+    english: Please select the model you want to use<br>(GPU Memory {a})
+  - key: DownloadButton
+    japanese: "\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9"
+    english: Download
+  - key: CARD_OllamaDownloadText
+    japanese: "Ollama\u7D4C\u7531\u3067\u30E2\u30C7\u30EB\u3092\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u3057\u307E\u3059<br> "
+    english: Download the model via Ollama<br>
+  - key: RecommendLabel
+    japanese: "\u30AA\u30B9\u30B9\u30E1"
+    english: Recommend
+  - key: RecommendLabelCard
+    japanese: "\u2605 \u30AA\u30B9\u30B9\u30E1"
+    english: "\u2605 Recommend"
+  - key: FileNameLabel
+    japanese: "\u30D5\u30A1\u30A4\u30EB\u540D"
+    english: File Name
+  - key: FileSizeLabel
+    japanese: "\u30B5\u30A4\u30BA"
+    english: Size
+  - key: LastModifendDateLabel
+    japanese: "\u6700\u7D42\u66F4\u65B0\u65E5"
+    english: Last Modified Date
+  - key: RuntimeSelection.OllamaDetected
+    japanese: "Ollama\u304C\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u3055\u308C\u3066\u3044\u307E\u3059<br>AI\u30E2\u30C7\u30EB\u306E\u5B9F\u884C\u65B9\u6CD5\u3092\u9078\u3093\u3067\u304F\u3060\u3055\u3044"
+    english: "Ollama is installed<br>Choose how you want to run AI models"
+  - key: RuntimeSelection.LlamaCpp.Description
+    japanese: "\u81ea\u5206\u3067\u7d30\u304b\u304f\u8a2d\u5b9a\u3057\u305f\u3044\u4eba\u5411\u3051"
+    english: "For users who want more control"
+  - key: RuntimeSelection.LlamaCpp.Feature1
+    japanese: "\u3055\u307e\u3056\u307e\u306a\u30e2\u30c7\u30eb\u3092\u5229\u7528\u3067\u304d\u307e\u3059"
+    english: "Supports a wide variety of models"
+  - key: RuntimeSelection.LlamaCpp.Feature2
+    japanese: "\u30e2\u30c7\u30eb\u30d5\u30a1\u30a4\u30eb\u3092\u81ea\u5206\u3067\u9078\u3079\u307e\u3059"
+    english: "Choose your own model files"
+  - key: RuntimeSelection.LlamaCpp.Feature3
+    japanese: "\u8a73\u7d30\u306a\u8a2d\u5b9a\u3084\u30ab\u30b9\u30bf\u30de\u30a4\u30ba\u304c\u3067\u304d\u307e\u3059"
+    english: "More configuration and customization options"
+  - key: RuntimeSelection.Ollama.Description
+    japanese: "\u304b\u3093\u305f\u3093\u306b\u59cb\u3081\u305f\u3044\u4eba\u5411\u3051"
+    english: "The easiest way to get started"
+  - key: RuntimeSelection.Ollama.Feature1
+    japanese: "\u30a4\u30f3\u30b9\u30c8\u30fc\u30eb\u6e08\u307f\u306eOllama\u3092\u305d\u306e\u307e\u307e\u4f7f\u3048\u307e\u3059"
+    english: "Use your existing Ollama installation"
+  - key: RuntimeSelection.Ollama.Feature2
+    japanese: "\u30e2\u30c7\u30eb\u306e\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9\u304c\u7c21\u5358\u3067\u3059"
+    english: "Easily download and manage models"
+  - key: RuntimeSelection.Ollama.Feature3
+    japanese: "\u5c11\u306a\u3044\u8a2d\u5b9a\u3067\u3059\u3050\u306b\u59cb\u3081\u3089\u308c\u307e\u3059"
+    english: "Start with minimal setup"
+  - key: RuntimeSelection.Recommended
+    japanese: "\u304a\u3059\u3059\u3081"
+    english: "Recommended"

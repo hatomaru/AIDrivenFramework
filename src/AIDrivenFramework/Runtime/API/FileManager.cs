@@ -21,6 +21,10 @@ namespace AIDrivenFW.API
         /// <exception cref="OperationCanceledException"><paramref name="token"/>がキャンセルされた場合。</exception>
         public static async UniTask<bool> IsPrepared(CancellationToken token, GenAI defaultGenAI = null,GenAIConfig prepareGenAIConfig = null)
         {
+            token.ThrowIfCancellationRequested();
+            // A first-run readiness check must not launch software before consent.
+            if (defaultGenAI == null && prepareGenAIConfig == null &&
+                ModelInfo.LoadFromFile()?.HasPlayerConsent != true) return false;
             // デフォルトAIエグゼキュータをセットする
             GenAI testAI = defaultGenAI == null ? new GenAI() : defaultGenAI;
 

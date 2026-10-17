@@ -22,6 +22,10 @@ namespace AIDrivenFW.Config
         public string ModelName;       // モデル名
 
         public string DownloadUrl;     // HuggingFaceなどのモデルのダウンロードURL
+        [Tooltip("Estimated bytes for player setup. Zero requires review rather than inventing a size.")]
+        public long EstimatedDownloadBytes;
+        [Tooltip("HTTPS model license or distribution page. Must match this model.")]
+        public string LicenseUrl;
 
         public int MinVRAM;            // 推奨VRAM
         public int MaxVRAM;

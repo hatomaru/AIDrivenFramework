@@ -1,0 +1,213 @@
+using System;
+using System.Collections;
+using System.IO;
+using System.Linq;
+using AIDrivenFW.API;
+using AIDrivenFW.Config;
+using AIDrivenFW.Setup;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
+
+public sealed class SetupSmokeRunner : MonoBehaviour
+{
+    bool finished, result;
+    string output, backup, journalBackup, languageBackup;
+    int motionBackup;
+    RenderTexture target;
+    IEnumerator Start()
+    {
+        output = Environment.GetEnvironmentVariable("SETUP_QA_OUTPUT") ?? Path.Combine(Application.persistentDataPath,"ValidationProof");
+        Directory.CreateDirectory(output);
+        backup = File.Exists(ModelInfo.SettingsPath) ? File.ReadAllText(ModelInfo.SettingsPath) : null;
+        journalBackup = File.Exists(SetupJournal.FilePath) ? File.ReadAllText(SetupJournal.FilePath) : null;
+        languageBackup = PlayerPrefs.GetString("AIDrivenFW.Setup.Language", "en");
+        motionBackup = PlayerPrefs.GetInt("AIDrivenFW.Setup.ReduceMotion", 0);
+        if (File.Exists(ModelInfo.SettingsPath)) File.Delete(ModelInfo.SettingsPath);
+        if (File.Exists(SetupJournal.FilePath)) File.Delete(SetupJournal.FilePath);
+        PlayerPrefs.SetString("AIDrivenFW.Setup.Language", "en"); PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion",0);
+        Application.logMessageReceived += Log;
+        yield return new WaitForSecondsRealtime(.5f);
+        new ModelInfo { Name = "legacy-model:1b", Mode = "Ollama" }.SaveToFile();
+        Initialize(); yield return Wait(() => SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+        var legacyScreen = FindScreen(); ConfigureTarget(legacyScreen); yield return new WaitForSecondsRealtime(.3f);
+        Check(legacyScreen.Root.Q<Label>(className:"chosen").text.Contains("legacy-model:1b"),"legacy selection restored");
+        Click(legacyScreen.Root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.1f);
+        Check(legacyScreen.Root.Q("slide-Custom").resolvedStyle.display!=DisplayStyle.None,"legacy model needs terms review");
+        Check(legacyScreen.Root.Q<TextField>("model-tag").value=="legacy-model:1b","legacy tag preserved");
+        for(int i=0;i<4&&!finished;i++){Click(legacyScreen.Root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);}
+        yield return Wait(()=>finished);Check(!result,"legacy review can be refused");
+        File.Delete(ModelInfo.SettingsPath);
+        Initialize(); yield return Wait(() => SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+        var screen = FindScreen(); var root = screen.Root; ConfigureTarget(screen);
+        yield return new WaitForSecondsRealtime(1);
+        CheckOneSlide(root); Check(!root.Q<Toggle>("consent").value,"initial consent unchecked");
+        Check(!root.Q<Toggle>("reduce-motion").value,"motion enabled by default");
+        Check(root.Q("frosted-glass") != null,"procedural frosted backdrop exists");
+        var icon = root.Q(className:"setup-icon");
+        float position = icon.style.translate.value.y.value;
+        yield return new WaitForSecondsRealtime(.4f);
+        Check(Mathf.Abs(icon.style.translate.value.y.value-position)>.01f,"gradient icon animates");
+        yield return Capture("welcome-en");
+        Click(root.Q<Button>("language-ja")); yield return new WaitForSecondsRealtime(.3f);
+        Check(root.Q<Label>("title").text.Contains("あなた"), "Japanese switches live");
+        CheckContrast(root.Q<Button>("language-ja"),"active language contrast");
+        yield return Capture("welcome-ja");
+        for (int i=0;i<18;i++) yield return Capture("motion-"+i.ToString("D2"));
+        root.Q<Toggle>("reduce-motion").value = true;
+        yield return new WaitForSecondsRealtime(.1f);
+        Check(icon.style.translate.value.y.value==0,"reduce motion stops floating");
+        root.Q<Toggle>("reduce-motion").value = false;
+        Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.3f);
+        CheckOneSlide(root); Check(!root.Q<Button>("primary").enabledSelf,"consent gates acquisition");
+        CheckContrast(root.Q<Button>("primary"),"disabled primary contrast");
+        yield return Capture("consent-ja");
+        root.Q<Toggle>("consent").value = true;
+        Check(root.Q<Button>("primary").enabledSelf,"explicit consent enables prepare");
+        yield return null; CheckContrast(root.Q<Button>("primary"),"primary contrast");
+        Click(root.Q<Button>("secondary")); yield return new WaitForSecondsRealtime(.1f);
+        Click(root.Q<Button>("change-model")); yield return new WaitForSecondsRealtime(.1f);
+        Check(root.Q("slide-Runtime").resolvedStyle.display!=DisplayStyle.None,"explicit runtime choice");
+        yield return Capture("runtime-choice-ja");
+        Click(root.Q<Button>("runtime-ollama"));yield return new WaitForSecondsRealtime(.1f);
+        CheckOneSlide(root);
+        Click(root.Q<Button>("model-1")); yield return new WaitForSecondsRealtime(.1f);
+        Check(!root.Q<Toggle>("consent").value,"model changes revoke consent");
+        Click(root.Q<Button>("model-0")); yield return new WaitForSecondsRealtime(.1f);
+        yield return Capture("models-ja");
+        Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("runtime-llama"));yield return new WaitForSecondsRealtime(.3f);
+        Check(root.Q<DropdownField>("backend").index==1,"GGUF direct entry");
+        Check(root.Q<TextField>("model-terms") == null,"license URL is not typed by the player");
+        root.Q<DropdownField>("gguf-catalog").index=1;
+        root.Q<TextField>("gguf-path").value="different.gguf";
+        Check(root.Q<DropdownField>("gguf-catalog").index==0,"changing GGUF clears configured terms association");
+        yield return Capture("llama-files-ja");
+        Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);
+        Click(root.Q<Button>("runtime-ollama"));yield return new WaitForSecondsRealtime(.2f);
+        Click(root.Q<Button>("model-0"));yield return new WaitForSecondsRealtime(.1f);
+        Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.1f);
+        Screen.SetResolution(900,700,false); ResizeTarget(900,700);yield return new WaitForSecondsRealtime(.5f);
+        CheckOneSlide(root);
+        var toggle = root.Q<Toggle>("consent"); var scroll=root.Q<ScrollView>("slide-scroll");
+        Check(toggle.worldBound.yMax <= scroll.contentViewport.worldBound.yMax + 1,"consent fits narrow slide");
+        yield return Capture("consent-ja-900");
+        Check(!File.Exists(ModelInfo.SettingsPath) && !File.Exists(SetupJournal.FilePath),"reviewing has no saved consent or ready settings");
+        Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);
+        Click(root.Q<Button>("secondary"));yield return Wait(() => finished);
+        Check(!result,"refusal returns false to game");
+        Screen.SetResolution(1440,900,false);ResizeTarget(1440,900);yield return new WaitForSecondsRealtime(.3f);
+        Initialize();yield return Wait(() => SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+        screen=FindScreen();root=screen.Root;ConfigureTarget(screen);yield return new WaitForSecondsRealtime(.4f);
+        Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.1f);
+        root.Q<Toggle>("consent").value=true;
+        Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.1f);
+        CheckOneSlide(root);
+        yield return Capture("preparing-ja");
+        float previous=0,start=Time.realtimeSinceStartup;bool captured=false;
+        while(!finished)
+        {
+            if(Time.realtimeSinceStartup-start>240) { Fail("setup timed out");yield break; }
+            if(root.panel!=null)
+            {
+                float value=root.Q<ProgressBar>("overall-progress").value;
+                Check(value>=previous,"overall progress is monotonic");previous=value;
+                if(value>=100) Check(screen.Flow.Stage==SetupStage.Complete,"100 percent only after verification");
+                if(!captured && screen.Flow.Stage==SetupStage.Complete) {captured=true;yield return new WaitForSecondsRealtime(.25f);yield return Capture("complete-ja");}
+            }
+            yield return null;
+        }
+        Check(result,"real Ollama generation and automatic game return");
+        Check(ModelInfo.LoadFromFile()?.HasPlayerConsent==true,"verified consent persisted");
+        Check(ModelInfo.LoadFromFile()?.Name=="qwen3:0.6b","model selection persisted");
+        Initialize();yield return Wait(()=>finished,240);
+        Check(result && !SceneManager.GetSceneByName("AIDrivenSetup").isLoaded,"prepared setup skips scene after real generation");
+        File.Delete(ModelInfo.SettingsPath);
+        Initialize();yield return Wait(()=>SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+        screen=FindScreen();root=screen.Root;ConfigureTarget(screen);yield return new WaitForSecondsRealtime(.4f);
+        var flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance;
+        var type=typeof(PlayerSetupScreen);var slideType=type.GetNestedType("Slide",System.Reflection.BindingFlags.NonPublic);
+        type.GetField("completion",flags).SetValue(screen,new SetupCompletion(523000000));
+        type.GetMethod("Go",flags).Invoke(screen,new[]{Enum.Parse(slideType,"Progress")});
+        var render=type.GetMethod("RenderProgress",flags);
+        render.Invoke(screen,new object[]{new SetupProgress{Stage=SetupStage.Runtime,CompletedBytes=500000000,TotalBytes=1471226485},false});
+        yield return new WaitForSecondsRealtime(.5f);yield return Capture("download-runtime-ja");
+        render.Invoke(screen,new object[]{new SetupProgress{Stage=SetupStage.Model,Item="a",CompletedBytes=250000000,TotalBytes=500000000},false});
+        render.Invoke(screen,new object[]{new SetupProgress{Stage=SetupStage.Model,Item="b",CompletedBytes=1000000,TotalBytes=23000000},false});
+        yield return new WaitForSecondsRealtime(.5f);
+        Check(root.Q<Label>("download-completed").text.Contains("251"),"UI aggregates layer bytes");
+        Check(root.Q<Label>("download-remaining").text.Contains("272"),"UI shows remaining estimate");
+        Check(root.Q<Label>("current-stage").text.Contains("2 / 3"),"UI current stage");
+        yield return Capture("download-model-ja");
+        type.GetMethod("Go",flags).Invoke(screen,new[]{Enum.Parse(slideType,"Welcome")});
+        Click(root.Q<Button>("secondary"));yield return Wait(()=>finished);
+        string llamaRuntime=Environment.GetEnvironmentVariable("SETUP_LLAMA_RUNTIME"),llamaModel=Environment.GetEnvironmentVariable("SETUP_LLAMA_MODEL");
+        if(File.Exists(llamaRuntime)&&File.Exists(llamaModel))
+        {
+            string pathBackup=Environment.GetEnvironmentVariable("PATH");
+            Environment.SetEnvironmentVariable("PATH",pathBackup+Path.PathSeparator+Path.GetDirectoryName(llamaRuntime));
+            Initialize();yield return Wait(()=>SceneManager.GetSceneByName("AIDrivenSetup").isLoaded);
+            screen=FindScreen();root=screen.Root;ConfigureTarget(screen);yield return new WaitForSecondsRealtime(.5f);
+            Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.3f);
+            Check(root.Q("slide-Runtime").resolvedStyle.display!=DisplayStyle.None,"both runtimes require explicit player choice");
+            yield return Capture("both-runtimes-ja");
+            Click(root.Q<Button>("runtime-llama"));yield return new WaitForSecondsRealtime(.2f);
+            root.Q<TextField>("runtime-path").value=llamaRuntime;root.Q<TextField>("gguf-path").value=llamaModel;
+            Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.4f);
+            Check(root.Q("slide-Consent").resolvedStyle.display!=DisplayStyle.None,"GGUF files and license accepted for review");
+            yield return Capture("llama-consent-ja");
+            root.Q<Toggle>("consent").value=true;Click(root.Q<Button>("primary"));
+            yield return Wait(()=>finished,240);
+            Check(result,"real llama.cpp setup generation and return");
+            Check(ModelInfo.LoadFromFile()?.Mode=="Llama","explicit llama.cpp selection persisted with both runtimes installed");
+            Check(ModelInfo.LoadFromFile()?.LocalModelTermsReviewed==true,"source review recorded for player-owned GGUF");
+            Environment.SetEnvironmentVariable("PATH",pathBackup);
+        }
+        File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: one slide; English/Japanese; resolved contrast; model selection; 900x700 consent; refusal; real generation; monotonic progress; automatic return; ready skip.\n");
+        Restore();Quit(0);
+    }
+    PlayerSetupScreen FindScreen()=>SceneManager.GetSceneByName("AIDrivenSetup").GetRootGameObjects().Select(g=>g.GetComponent<PlayerSetupScreen>()).First(s=>s!=null);
+    void Initialize()
+    { finished=false;AIDrivenInitializer.Initialize().ContinueWith(value=>{result=value;finished=true;}).Forget(ex=>Fail(ex.Message)); }
+    IEnumerator Wait(Func<bool> condition,int seconds=30)
+    { float start=Time.realtimeSinceStartup;while(!condition()){if(Time.realtimeSinceStartup-start>seconds){Fail("wait timed out");yield break;}yield return null;} }
+    IEnumerator Capture(string name)
+    {
+        yield return new WaitForEndOfFrame();var previous=RenderTexture.active;RenderTexture.active=target;
+        var texture=new Texture2D(target.width,target.height,TextureFormat.RGBA32,false);texture.ReadPixels(new Rect(0,0,target.width,target.height),0,0);texture.Apply();
+        File.WriteAllBytes(Path.Combine(output,name+".png"),texture.EncodeToPNG());Destroy(texture);RenderTexture.active=previous;
+        yield return new WaitForSecondsRealtime(.15f);
+    }
+    void ConfigureTarget(PlayerSetupScreen screen)
+    {if(target==null){target=new RenderTexture(1440,900,24);target.Create();}screen.GetComponent<UIDocument>().panelSettings.targetTexture=target;}
+    void ResizeTarget(int width,int height){target.Release();target.width=width;target.height=height;target.Create();}
+    static void Click(Button button)
+    {
+        button.Focus();using var down=PointerDownEvent.GetPooled(new Event{type=EventType.MouseDown,button=0,mousePosition=button.worldBound.center});button.SendEvent(down);
+        using var up=PointerUpEvent.GetPooled(new Event{type=EventType.MouseUp,button=0,mousePosition=button.worldBound.center});button.SendEvent(up);
+    }
+    void CheckOneSlide(VisualElement root)=>Check(root.Query<VisualElement>(className:"slide").ToList().Count(e=>e.resolvedStyle.display!=DisplayStyle.None)==1,"exactly one slide visible");
+    static double Lum(Color c)
+    {Func<float,double> f=x=>x<=.04045?x/12.92:Math.Pow((x+.055)/1.055,2.4);return f(c.r)*.2126+f(c.g)*.7152+f(c.b)*.0722;}
+    void CheckContrast(VisualElement element,string name)
+    {double a=Lum(element.resolvedStyle.color),b=Lum(element.resolvedStyle.backgroundColor),ratio=(Math.Max(a,b)+.05)/(Math.Min(a,b)+.05);Check(ratio>=4.5,name+" "+ratio.ToString("0.00"));}
+    void Check(bool success,string message){if(!success)Fail(message);else if(!message.StartsWith("overall progress"))Debug.Log("QA PASS: "+message);}
+    void Log(string message,string stack,LogType type){if(type==LogType.Exception)Fail(message);}
+    void Restore()
+    {
+        Application.logMessageReceived-=Log;
+        if(backup==null){if(File.Exists(ModelInfo.SettingsPath))File.Delete(ModelInfo.SettingsPath);}else ModelInfo.WriteAtomic(ModelInfo.SettingsPath,backup);
+        if(journalBackup==null){if(File.Exists(SetupJournal.FilePath))File.Delete(SetupJournal.FilePath);}else ModelInfo.WriteAtomic(SetupJournal.FilePath,journalBackup);
+        PlayerPrefs.SetString("AIDrivenFW.Setup.Language",languageBackup);PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion",motionBackup);PlayerPrefs.Save();
+    }
+    void Fail(string message){File.WriteAllText(Path.Combine(output,"result.txt"),"FAIL: "+message);Restore();Quit(1);throw new Exception("QA failure: "+message);}
+    static void Quit(int code)
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.Exit(code);
+#else
+        Application.Quit(code);
+#endif
+    }
+}
