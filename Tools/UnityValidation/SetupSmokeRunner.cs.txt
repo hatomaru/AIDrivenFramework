@@ -79,13 +79,11 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.2f);
         Click(root.Q<Button>("runtime-llama"));yield return new WaitForSecondsRealtime(.3f);
         Check(root.Q<DropdownField>("backend").index==1,"GGUF direct entry");
-        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value),"Ollama license not inherited by GGUF");
-        root.Q<TextField>("model-terms").value="https://example.com/previous-license";
+        Check(root.Q<TextField>("model-terms") == null,"license URL is not typed by the player");
+        root.Q<DropdownField>("gguf-catalog").index=1;
         root.Q<TextField>("gguf-path").value="different.gguf";
-        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value),"changing GGUF clears license");
+        Check(root.Q<DropdownField>("gguf-catalog").index==0,"changing GGUF clears configured terms association");
         yield return Capture("llama-files-ja");
-        var native = typeof(SetupFilePicker).GetNestedType("OpenFileName",System.Reflection.BindingFlags.NonPublic);
-        Check(System.Runtime.InteropServices.Marshal.SizeOf(native)==(IntPtr.Size==8?152:88),"native picker structure layout");
         Click(root.Q<Button>("secondary"));yield return new WaitForSecondsRealtime(.1f);
         Click(root.Q<Button>("runtime-ollama"));yield return new WaitForSecondsRealtime(.2f);
         Click(root.Q<Button>("model-0"));yield return new WaitForSecondsRealtime(.1f);
@@ -156,7 +154,6 @@ public sealed class SetupSmokeRunner : MonoBehaviour
             yield return Capture("both-runtimes-ja");
             Click(root.Q<Button>("runtime-llama"));yield return new WaitForSecondsRealtime(.2f);
             root.Q<TextField>("runtime-path").value=llamaRuntime;root.Q<TextField>("gguf-path").value=llamaModel;
-            root.Q<TextField>("model-terms").value=Environment.GetEnvironmentVariable("SETUP_LLAMA_TERMS");
             Click(root.Q<Button>("primary"));yield return new WaitForSecondsRealtime(.4f);
             Check(root.Q("slide-Consent").resolvedStyle.display!=DisplayStyle.None,"GGUF files and license accepted for review");
             yield return Capture("llama-consent-ja");
@@ -164,7 +161,7 @@ public sealed class SetupSmokeRunner : MonoBehaviour
             yield return Wait(()=>finished,240);
             Check(result,"real llama.cpp setup generation and return");
             Check(ModelInfo.LoadFromFile()?.Mode=="Llama","explicit llama.cpp selection persisted with both runtimes installed");
-            Check(ModelInfo.LoadFromFile()?.ModelTermsUrl==Environment.GetEnvironmentVariable("SETUP_LLAMA_TERMS"),"GGUF-specific license persisted");
+            Check(ModelInfo.LoadFromFile()?.LocalModelTermsReviewed==true,"source review recorded for player-owned GGUF");
             Environment.SetEnvironmentVariable("PATH",pathBackup);
         }
         File.WriteAllText(Path.Combine(output,"result.txt"),"PASS: one slide; English/Japanese; resolved contrast; model selection; 900x700 consent; refusal; real generation; monotonic progress; automatic return; ready skip.\n");

@@ -20,6 +20,8 @@ namespace AIDrivenFW.Setup
         public string RuntimePath = "";
         public string ModelPath = "";
         public bool Installed = false;
+        // For a player-owned GGUF whose terms must be reviewed at its original source.
+        public bool ReviewModelTermsAtSource;
 
         public PlayerSetupPlan()
         {
@@ -35,7 +37,7 @@ namespace AIDrivenFW.Setup
             if (Mode != "Ollama" && Mode != "Llama") throw new ArgumentException("Unsupported runtime.");
             if (string.IsNullOrWhiteSpace(Model) || ModelBytes <= 0)
                 throw new ArgumentException("A model and its estimated size are required.");
-            ValidateHttps(ModelTerms);
+            if (Mode != "Llama" || !ReviewModelTermsAtSource || !string.IsNullOrWhiteSpace(ModelTerms)) ValidateHttps(ModelTerms);
             ValidateHttps(RuntimeTerms);
             if (Mode == "Ollama")
             {
@@ -45,7 +47,9 @@ namespace AIDrivenFW.Setup
                 ValidateHttps(ModelSource);
             }
             else if (!File.Exists(RuntimePath) || !File.Exists(ModelPath) ||
-                     !ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+                     !ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ||
+                     !(Path.GetFileName(RuntimePath).Equals("llama-server.exe", StringComparison.OrdinalIgnoreCase) ||
+                       Path.GetFileName(RuntimePath).Equals("llama-server", StringComparison.OrdinalIgnoreCase)))
                 throw new ArgumentException("Select an existing llama-server executable and GGUF model.");
         }
 
@@ -59,8 +63,10 @@ namespace AIDrivenFW.Setup
         {
             Name = Model, Mode = Mode, RuntimePath = RuntimePath, ModelPath = ModelPath,
             ConsentRevision = ModelInfo.CurrentConsentRevision, ConsentUtc = consentUtc,
-            ModelTermsUrl = ModelTerms, RuntimeTermsUrl = RuntimeTerms
+            ModelTermsUrl = ModelTerms, RuntimeTermsUrl = RuntimeTerms, LocalModelTermsReviewed = Mode == "Llama" && ReviewModelTermsAtSource
         };
+
+        public static string OllamaModelPage(string tag) => "https://ollama.com/" + (tag.Contains("/") ? "" : "library/") + tag;
 
         // The game config is the catalog; no second model list lives in the screen or setup layer.
         public static PlayerSetupPlan[] Choices() => FromConfig(AIDrivenConfig.Instance?.OllamaRecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(true));

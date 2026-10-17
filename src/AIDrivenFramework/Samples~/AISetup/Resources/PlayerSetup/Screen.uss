@@ -91,3 +91,34 @@ ProgressBar { width: 100%; height: 10px; margin-top: 36px; }
 #slide-Models .slide { padding-top: 20px; }
 #slide-Models .model-card { min-height: 66px; margin-bottom: 6px; }
 #slide-Models Button.link { min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
+
+.file-kind-icon { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; margin-right: 12px; background-color: #0056B3; }
+.file-choice .file-kind-icon { margin-bottom: 0; }
+.file-browser { width: 100%; align-items: stretch; }
+.file-browser .title { font-size: 28px; }
+.file-browser .description { font-size: 15px; margin-bottom: 12px; }
+.browser-shortcuts { flex-direction: row; align-items: center; margin-bottom: 8px; }
+.browser-shortcuts Button { padding: 6px 10px; font-size: 14px; min-height: 34px; margin-right: 6px; }
+#browser-drive { width: 80px; flex-grow: 1; margin: 0; }
+.browser-address { flex-direction: row; align-items: flex-end; }
+#browser-location { flex-grow: 1; flex-basis: 0; min-width: 0; margin-right: 8px; }
+.browser-address Button { min-height: 34px; margin-bottom: 6px; padding: 4px 12px; }
+#browser-files { height: 260px; min-height: 120px; }
+.browser-row { flex-direction: row; align-items: center; padding: 10px 12px; min-height: 66px; margin-bottom: 6px; }
+.browser-labels { flex-grow: 1; flex-shrink: 1; min-width: 0; }
+.browser-name { font-size: 15px; -unity-text-align: middle-left; }
+.browser-type { font-size: 13px; color: #484F56; margin-top: 3px; -unity-text-align: middle-left; }
+.browser-row:disabled .browser-type { color: #3A4652; }
+#gguf-catalog { margin-top: 12px; }
+#slide-Custom .file-kind-icon { width: 40px; height: 40px; }
+
+.file-browser { padding: 22px 28px 16px; }
+.file-browser .title { font-size: 26px; margin-top: 0; margin-bottom: 8px; }
+.file-browser .description { font-size: 14px; margin-bottom: 10px; }
+.file-browser .note { font-size: 13px; margin: 6px 0; }
+.file-browser TextField { margin-top: 4px; margin-bottom: 4px; }
+#browser-drive { width: 110px; flex-grow: 0; }
+#browser-drive .unity-base-popup-field__text { min-width: 0; white-space: nowrap; -unity-text-align: middle-left; }
+#browser-files { height: 230px; }
+.browser-name { margin: 0; }
+.browser-type { margin: 3px 0 0; }

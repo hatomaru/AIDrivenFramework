@@ -155,6 +155,43 @@ namespace AIDrivenFW.Tests.Unit
         public void LegacySettingsDoNotSilentlyGainConsent()
         { var settings = ModelInfo.FromJson("{\"Name\":\"old-model\",\"Mode\":\"Ollama\"}"); Assert.IsFalse(settings.HasPlayerConsent); }
 
+        [TestCase("qwen3:0.6b", "https://ollama.com/library/qwen3:0.6b")]
+        [TestCase("author/custom:tag", "https://ollama.com/author/custom:tag")]
+        public void CustomOllamaTermsUseTheCorrectDistributionPage(string tag, string page)
+            => Assert.AreEqual(page, PlayerSetupPlan.OllamaModelPage(tag));
+
+        [Test]
+        public void LocalTermsReceiptCannotReplaceOllamaTerms()
+        {
+            var plan = new PlayerSetupPlan { ModelTerms = "", ReviewModelTermsAtSource = true };
+            Assert.Throws<ArgumentException>(plan.Validate);
+            Assert.IsFalse(new ModelInfo { Mode = "Ollama", ConsentRevision = ModelInfo.CurrentConsentRevision,
+                ConsentUtc = "fixture", LocalModelTermsReviewed = true, ModelPath = "file.gguf" }.HasPlayerConsent);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerOwnedGgufCanProceedWithoutTypingLicenseUrl() => UniTask.ToCoroutine(async () =>
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "local-model-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder);
+            try
+            {
+                string runtime = Path.Combine(folder, "llama-server.exe"), model = Path.Combine(folder, "custom.gguf");
+                File.WriteAllText(runtime, "inert fixture"); File.WriteAllText(model, "inert fixture");
+                var plan = new PlayerSetupPlan { Mode = "Llama", Model = "custom.gguf", ModelTerms = "", ModelSource = "",
+                    RuntimePath = runtime, ModelPath = model, ModelBytes = 13, ReviewModelTermsAtSource = true };
+                var service = new Services(); var flow = new PlayerSetupFlow(service);
+                try { await flow.RunAsync(plan, false, CancellationToken.None); Assert.Fail("Consent required"); } catch (InvalidOperationException) { }
+                Assert.IsEmpty(service.Calls);
+                Assert.IsTrue(await flow.RunAsync(plan, true, CancellationToken.None));
+                Assert.IsEmpty(service.Saved.ModelTermsUrl); Assert.IsTrue(service.Saved.LocalModelTermsReviewed);
+                Assert.IsTrue(ModelInfo.FromJson(service.Saved.ToJson()).HasPlayerConsent);
+                plan.ReviewModelTermsAtSource = false; Assert.Throws<ArgumentException>(plan.Validate);
+                plan.ReviewModelTermsAtSource = true; plan.ModelTerms = "http://example.com/terms"; Assert.Throws<ArgumentException>(plan.Validate);
+                plan.ModelTerms = ""; plan.RuntimePath = model; Assert.Throws<ArgumentException>(plan.Validate);
+            }
+            finally { Directory.Delete(folder, true); }
+        });
+
         [Test]
         public void DiskSpacePreflightRejectsImpossibleDownload() => Assert.Throws<SetupException>(() => RuntimeAcquisition.RequireSpace(Path.GetTempPath(), long.MaxValue));
 

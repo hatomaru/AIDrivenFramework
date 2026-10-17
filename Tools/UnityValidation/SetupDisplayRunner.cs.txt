@@ -26,7 +26,7 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         output = Environment.GetEnvironmentVariable("SETUP_QA_OUTPUT"); Directory.CreateDirectory(output); Directory.SetCurrentDirectory(output);
         language = PlayerPrefs.GetString("AIDrivenFW.Setup.Language", "en"); motion = PlayerPrefs.GetInt("AIDrivenFW.Setup.ReduceMotion", 0);
         path = Environment.GetEnvironmentVariable("PATH");
-        Directory.CreateDirectory("QA"); File.WriteAllText("QA/llama-server.exe", "UI fixture, never executed"); File.WriteAllText("QA/fixture.gguf", "UI fixture, never loaded");
+        Directory.CreateDirectory("QA"); Directory.CreateDirectory("QA/Models"); File.WriteAllText("QA/unrelated.exe", "UI fixture, never executed"); File.WriteAllText("QA/llama-server.exe", "UI fixture, never executed"); File.WriteAllText("QA/fixture.gguf", "UI fixture, never loaded");
         Environment.SetEnvironmentVariable("PATH", path + Path.PathSeparator + Path.GetFullPath("QA"));
         PlayerPrefs.SetString("AIDrivenFW.Setup.Language", "ja"); PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", 0);
         Application.logMessageReceived += Log;
@@ -37,20 +37,35 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         Check(Shown("Runtime"), "Both runtimes prompt explicit choice"); yield return Capture("both-runtimes-ja");
         Click(root.Q<Button>("runtime-llama")); yield return new WaitForSecondsRealtime(.3f);
         Check(Shown("Custom"), "llama.cpp opens file selection");
-        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value), "Ollama model license is not inherited");
-        root.Q<TextField>("runtime-path").value = "QA/llama-server.exe";
-        root.Q<TextField>("model-terms").value = "https://example.com/previous-license";
+        Check(root.Q<TextField>("model-terms") == null, "No license URL input");
+        Click(root.Q<Button>("browse-runtime")); yield return new WaitForSecondsRealtime(.3f);
+        Check(Shown("Browse"), "In-game runtime file browser opens");
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return new WaitForSecondsRealtime(.2f);
+        Check(root.Query<VisualElement>(className: "file-kind-runtime").ToList().Count > 0, "Runtime icon rendered");
+        Check(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/fixture.gguf")).enabledSelf == false, "GGUF cannot be selected as runtime");
+        Check(!root.Query<Button>("file-entry").ToList().Any(b => (string)b.userData == Path.GetFullPath("QA/unrelated.exe")), "Unrelated executables are excluded");
+        Click(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/Models"))); yield return new WaitForSecondsRealtime(.1f);
+        Click(root.Q<Button>("browser-up")); yield return new WaitForSecondsRealtime(.1f);
+        root.Q<TextField>("browser-search").value = "llama"; yield return new WaitForSecondsRealtime(.1f);
+        Check(root.Query<Button>("file-entry").ToList().Count == 1, "Filename filtering works"); root.Q<TextField>("browser-search").value = "";
+        yield return Capture("browser-runtime-ja");
+        yield return ChooseBrowserFile("QA/llama-server.exe");
+        Click(root.Q<Button>("browse-model")); yield return new WaitForSecondsRealtime(.2f);
+        root.Q<TextField>("browser-location").value = Path.GetFullPath("QA"); Click(root.Q<Button>("browser-open")); yield return new WaitForSecondsRealtime(.2f);
+        Check(root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath("QA/llama-server.exe")).enabledSelf == false, "Runtime cannot be selected as model");
+        yield return Capture("browser-model-ja");
+        Click(root.Q<Button>("language-en")); yield return Capture("browser-model-en"); Click(root.Q<Button>("language-ja")); yield return new WaitForSecondsRealtime(.25f);
+        yield return ChooseBrowserFile("QA/fixture.gguf");
+        root.Q<DropdownField>("gguf-catalog").index = 1;
+        Check((string)typeof(PlayerSetupScreen).GetMethod("CustomModelTerms", Private).Invoke(screen, null) == AIDrivenConfig.Instance.RecommendModelInfos[0].LicenseUrl, "Configured GGUF terms supplied without input");
         root.Q<TextField>("gguf-path").value = "QA/fixture.gguf";
-        Check(string.IsNullOrEmpty(root.Q<TextField>("model-terms").value), "File change clears old license");
-        root.Q<TextField>("model-terms").value = "https://example.com/model-license";
+        Check(root.Q<DropdownField>("gguf-catalog").index == 0, "Changing GGUF clears configured terms association");
         yield return Capture("llama-files-ja");
-        var native = typeof(SetupFilePicker).GetNestedType("OpenFileName", BindingFlags.NonPublic);
-        Check(System.Runtime.InteropServices.Marshal.SizeOf(native) == (IntPtr.Size == 8 ? 152 : 88), "Windows picker structure layout");
         Click(root.Q<Button>("primary")); yield return new WaitForSecondsRealtime(.3f);
         Check(Shown("Consent"), "Selected files and model-specific license reach review"); yield return Capture("llama-consent-ja");
         var llama = Inject(); root.Q<Toggle>("consent").value = true; Click(root.Q<Button>("primary"));
         yield return Complete(llama, "llama-complete-ja"); Check(llama.Settings?.Mode == "Llama", "llama selection committed by fixture");
-        Check(llama.Settings?.ModelTermsUrl == "https://example.com/model-license", "GGUF-specific terms retained");
+        Check(llama.Settings?.LocalModelTermsReviewed == true && string.IsNullOrEmpty(llama.Settings.ModelTermsUrl), "Local source review recorded without fabricated URL");
         yield return Load(); Click(root.Q<Button>("change-model")); yield return new WaitForSecondsRealtime(.2f);
         Click(root.Q<Button>("runtime-ollama")); yield return new WaitForSecondsRealtime(.2f); Check(Shown("Models"), "Ollama opens configured model choices");
         Click(root.Q<Button>("model-1")); yield return new WaitForSecondsRealtime(.2f);
@@ -67,7 +82,7 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         yield return Capture("download-model-ja");
         yield return Complete(automatic, "complete-ja");
         Check(automatic.Settings?.Mode == "Ollama", "Explicit automatic choice retained");
-        File.WriteAllText(Path.Combine(output, "result.txt"), "PASS: offline display fixtures; smooth icon; config catalog; explicit dual-runtime choice; GGUF license reset/review; capacity and current stage; completion. No live inference/download or native file-dialog interaction.");
+        File.WriteAllText(Path.Combine(output, "result.txt"), "PASS: offline display fixtures; smooth vector file icons; in-game browser navigation/filter/type checks; config catalog; explicit dual-runtime choice; URL-free GGUF source review; capacity and current stage; completion. No live inference/download or native file-dialog interaction.");
         Restore(); Application.Quit(0);
     }
     IEnumerator Load()
@@ -78,6 +93,13 @@ public sealed class SetupSmokeRunner : MonoBehaviour
         if (target == null) { target = new RenderTexture(1440, 900, 24); target.Create(); }
         screen.GetComponent<UIDocument>().panelSettings.targetTexture = target;
         yield return new WaitForSecondsRealtime(.8f);
+    }
+    IEnumerator ChooseBrowserFile(string file)
+    {
+        var row = root.Query<Button>("file-entry").ToList().First(b => (string)b.userData == Path.GetFullPath(file));
+        root.Q<ScrollView>("browser-files").ScrollTo(row); yield return new WaitForSecondsRealtime(.25f);
+        Click(row); yield return new WaitForSecondsRealtime(.25f);
+        Check(Shown("Custom"), "Selecting a file returns to setup");
     }
     FixtureServices Inject()
     {

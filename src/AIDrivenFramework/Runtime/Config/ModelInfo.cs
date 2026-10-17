@@ -20,10 +20,12 @@ namespace AIDrivenFW.Config
         public string ConsentUtc = "";
         public string ModelTermsUrl = "";
         public string RuntimeTermsUrl = "";
+        public bool LocalModelTermsReviewed;
 
         public const string CurrentConsentRevision = "player-setup-1";
         public bool HasPlayerConsent => ConsentRevision == CurrentConsentRevision &&
-            !string.IsNullOrEmpty(ConsentUtc) && !string.IsNullOrEmpty(ModelTermsUrl);
+            !string.IsNullOrEmpty(ConsentUtc) && (!string.IsNullOrEmpty(ModelTermsUrl) ||
+            (Mode == "Llama" && LocalModelTermsReviewed && !string.IsNullOrEmpty(ModelPath)));
 
         public static string SettingsPath => Path.Combine(Application.persistentDataPath,
             "AIDrivenFramework", FileName);
