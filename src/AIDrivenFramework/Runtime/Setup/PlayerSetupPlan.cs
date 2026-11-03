@@ -19,6 +19,9 @@ namespace AIDrivenFW.Setup
         public long ModelBytes;
         public ModelLevel Level;
         public string RuntimePath = "";
+        public string RuntimeArchivePath = "";
+        public string RuntimeArchiveSha256 = "";
+        public long RuntimeExpandedBytes;
         public string ModelPath = "";
         public bool Installed = false;
         // No registered terms page: require explicit review at the model's original source.
@@ -47,11 +50,15 @@ namespace AIDrivenFW.Setup
                     throw new ArgumentException("Choose a local Ollama model tag.");
                 ValidateHttps(ModelSource);
             }
-            else if (!File.Exists(RuntimePath) || !File.Exists(ModelPath) ||
-                     !ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ||
-                     !(Path.GetFileName(RuntimePath).Equals("llama-server.exe", StringComparison.OrdinalIgnoreCase) ||
-                       Path.GetFileName(RuntimePath).Equals("llama-server", StringComparison.OrdinalIgnoreCase)))
-                throw new ArgumentException("Select an existing llama-server executable and GGUF model.");
+            else
+            {
+                bool archive = !string.IsNullOrWhiteSpace(RuntimeArchivePath);
+                if (!File.Exists(ModelPath) || !ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ||
+                    (archive ? !File.Exists(RuntimeArchivePath) || !LlamaRuntimeArchive.IsZip(RuntimeArchivePath) ||
+                        !Regex.IsMatch(RuntimeArchiveSha256 ?? "", "^[a-fA-F0-9]{64}$") || RuntimeExpandedBytes <= 0 :
+                        !File.Exists(RuntimePath) || !(Path.GetFileName(RuntimePath).Equals("llama-server.exe", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(RuntimePath).Equals("llama-server", StringComparison.OrdinalIgnoreCase))))
+                    throw new ArgumentException("Select a reviewed llama.cpp ZIP or installed llama-server, and a GGUF model.");
+            }
         }
 
         public static void ValidateHttps(string value)
@@ -63,6 +70,7 @@ namespace AIDrivenFW.Setup
         public ModelInfo ToSettings(string consentUtc) => new ModelInfo
         {
             Name = Model, Mode = Mode, RuntimePath = RuntimePath, ModelPath = ModelPath,
+            RuntimeArchiveSha256 = RuntimeArchiveSha256,
             ConsentRevision = ModelInfo.CurrentConsentRevision, ConsentUtc = consentUtc,
             ModelTermsUrl = ModelTerms, RuntimeTermsUrl = RuntimeTerms,
             ModelTermsReviewedAtSource = ReviewModelTermsAtSource,

@@ -1,5 +1,13 @@
 # Player setup validation
 
+## llama.cpp ZIP setup — 2026-11-03
+
+The Windows setup accepts a player-selected runtime ZIP and GGUF. It reviews the archive without extracting, then extracts only after explicit consent. The managed install retains folders, DLLs, licenses and notices. A temporary directory is published only after successful extraction. Cancellation/failure cleans only that operation's staging directory and preserves source files and previous settings. A reviewed SHA-256 detects archive changes; it does not authenticate the publisher. No native runtime or model is bundled.
+
+Unity 6000.3.27f2: **171 Unit tests passed, 0 failed, 2 optional live-model tests skipped**; **130 offline Canvas assertions passed**. Inert ZIP fixtures exercise nested files, reuse, damaged/source-only/multiple-runtime archives, architecture mismatch, traversal/symlinks/path conflicts, entry limits, changed archives, cancellation, space/access errors and consent-gated extraction. Canvas checks cover ZIP selection/type labels, review, extracted/remaining bytes, pause without save, actionable errors and return to file selection. The corrupt-archive test initially exposed an uncaught `InvalidDataException`; both review and extraction now map it to the localized ZIP error. The UI suite was run separately after the Unit runner's scene transition; the helper now opens the saved setup scene when absent. No fixture executable/model was executed or loaded. A fresh Player build and an actual vendor runtime ZIP/native generation remain unverified.
+
+Reproduce using the offline menus below. In a controlled Windows host, manually choose the correct official runtime ZIP and a GGUF, review terms, consent, check extraction progress and verify a real response before settings save. Repeat with a damaged ZIP, source-code ZIP, wrong architecture, ZIP changed after review, insufficient space, inaccessible destination and cancellation; confirm actionable Japanese/English guidance and unchanged prior settings. Use **Update ZIP Guidance** to update the existing Canvas labels without rebuilding custom layout. Historical recordings below predate ZIP support.
+
 ## Model terms resolution — 2026-11-03
 
 Manual and restored Ollama selections resolve `LicenseUrl` by their selected catalog name. Setup no longer substitutes a guessed Ollama library page or `DownloadUrl` for a missing license. When no registered page exists, it reads the selected tag's `license` text from the already-running loopback Ollama `/api/show`. Missing/unavailable/invalid/oversized metadata falls back to explicit Japanese/English manual source-review instructions with no model terms link. This metadata lookup does not start a runtime, pull weights or generate a response.

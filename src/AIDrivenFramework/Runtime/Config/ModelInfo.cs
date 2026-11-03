@@ -15,6 +15,7 @@ namespace AIDrivenFW.Config
         // 保存する実行モード: "Ollama" または "Llama"
         public string Mode = "Llama";
         public string RuntimePath = "";
+        public string RuntimeArchiveSha256 = "";
         public string ModelPath = "";
         public string ConsentRevision = "";
         public string ConsentUtc = "";

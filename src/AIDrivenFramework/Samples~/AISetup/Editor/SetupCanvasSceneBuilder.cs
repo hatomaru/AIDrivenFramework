@@ -59,6 +59,20 @@ public static class SetupCanvasSceneBuilder
         Debug.Log("CANVAS AUTHORING PASS: " + go.GetComponentsInChildren<RectTransform>(true).Length + " editable RectTransforms, 8 slides and 8 reusable file rows.");
     }
     static Transform Page(PlayerSetupScreen ui, PlayerSetupScreen.Slide slide) => ui.Slides[(int)slide].transform;
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Update ZIP Guidance")]
+    public static void UpdateZipGuidance()
+    {
+        var ui = UnityEngine.Object.FindFirstObjectByType<PlayerSetupScreen>(); if (!ui) return;
+        var label = ui.LlamaFields.transform.Find("Runtime File Label").GetComponent<SetupCanvasLabel>();
+        label.Japanese = "1. llama.cppのZIPファイル"; label.English = "1. llama.cpp ZIP archive"; label.Apply(true);
+        label = ui.LlamaButton.transform.Find("Description").GetComponent<SetupCanvasLabel>();
+        label.Japanese = "llama.cpp / GGUF\nZIPとモデルを選ぶと自動で解凍します。"; label.English = "llama.cpp / GGUF\nChoose a ZIP and model; setup extracts the files."; label.Apply(true);
+        ((Text)ui.RuntimePath.placeholder).text = "llama.cpp .zip";
+        ui.CustomCopy.text = "llama.cppのZIPとGGUFモデルを選ぶだけ。解凍はセットアップが行います。";
+        ui.BackendStatus.text = "実行ソフト・DLL・ライセンス通知をまとめて保存します。";
+        EditorSceneManager.MarkSceneDirty(ui.gameObject.scene); EditorSceneManager.SaveScene(ui.gameObject.scene);
+        Debug.Log("ZIP GUIDANCE AUTHORING PASS: existing Canvas layout preserved.");
+    }
     [MenuItem("Tools/AIDrivenFW/Canvas Setup/Add Terms Viewer")]
     public static void InstallTermsViewer()
     {
@@ -98,7 +112,7 @@ public static class SetupCanvasSceneBuilder
         Copy("Title", p, "AIの使い方を選ぶ", "How would you like to start?", 32, 568, 64, 34, true);
         Copy("Description", p, "このPCで使う方法を選んでください。\n選んだ方だけを準備・実行します。", "Choose the way that suits you.\nOnly your selection will be prepared and run.", 17, 568, 64, 112);
         ui.OllamaButton = Choice("Ollama Automatic", p, 204, hero, "かんたん自動準備", "Easy automatic setup", "Ollama・おすすめ\nモデルを選ぶだけで準備できます。", "Ollama · recommended\nChoose a model; we'll handle preparation.");
-        ui.LlamaButton = Choice("Llama Existing Files", p, 340, chip, "手持ちのモデルを使う", "Use my model files", "llama.cpp / GGUF\n実行ソフトとモデルのファイルを選びます。", "llama.cpp / GGUF\nChoose your runtime and model files.");
+        ui.LlamaButton = Choice("Llama Existing Files", p, 340, chip, "手持ちのモデルを使う", "Use my model files", "llama.cpp / GGUF\nZIPとモデルを選ぶと自動で解凍します。", "llama.cpp / GGUF\nChoose a ZIP and model; setup extracts the files.");
     }
     static void Models(PlayerSetupScreen ui)
     {
@@ -125,8 +139,8 @@ public static class SetupCanvasSceneBuilder
     {
         var p = Page(ui, PlayerSetupScreen.Slide.Custom);
         ui.CustomTitle = Text("Title", p, "手持ちのGGUFモデルを使う", 28, 568, 52, 18, Ink, true);
-        ui.CustomCopy = Text("Description", p, "ファイルを2つ選び、利用条件を確認します。コマンド入力は不要です。", 15, 568, 52, 76, Secondary);
-        ui.BackendStatus = Text("Runtime Information", p, "llama.cpp / GGUF・DLLとライセンス通知も保管してください。", 14, 568, 28, 130, Secondary);
+        ui.CustomCopy = Text("Description", p, "llama.cppのZIPとGGUFモデルを選ぶだけ。解凍はセットアップが行います。", 15, 568, 52, 76, Secondary);
+        ui.BackendStatus = Text("Runtime Information", p, "実行ソフト・DLL・ライセンス通知をまとめて保存します。", 14, 568, 28, 130, Secondary);
         var ollama = Rect("Ollama Fields", p, 0, 0); Stretch(ollama, 0, 0, 0, 0); ui.OllamaFields = ollama.gameObject;
         ui.InstalledModelsButton = Link("Installed Models", ollama, "導入済みモデルから選ぶ", "Choose an installed model", 568, 42, 172);
         Copy("Model Tag Label", ollama, "Ollamaモデル名", "Ollama model tag", 14, 568, 22, 230, false, TextAnchor.MiddleLeft);
@@ -136,9 +150,9 @@ public static class SetupCanvasSceneBuilder
         var llama = Rect("Llama Files", p, 0, 0); Stretch(llama, 0, 0, 0, 0); ui.LlamaFields = llama.gameObject;
         ui.GetRuntimeButton = Link("Get Runtime", llama, "実行ソフトを入手", "Get llama.cpp", 270, 34, 166, -145);
         ui.GetModelButton = Link("Get Model", llama, "モデルの配布ページ", "Model distribution page", 270, 34, 166, 145);
-        Copy("Runtime File Label", llama, "1. llama-serverファイル", "1. llama-server file", 14, 516, 22, 218, false, TextAnchor.MiddleLeft, 26);
+        Copy("Runtime File Label", llama, "1. llama.cppのZIPファイル", "1. llama.cpp ZIP archive", 14, 516, 22, 218, false, TextAnchor.MiddleLeft, 26);
         var ri = Image("Runtime Chip Icon", llama, chip, Color.white); Top(ri.rectTransform, 40, 40, 246, -264);
-        ui.RuntimePath = Input("Runtime File Path", llama, "", "llama-server", 390, 42, 244, -41);
+        ui.RuntimePath = Input("Runtime File Path", llama, "", "llama.cpp .zip", 390, 42, 244, -41);
         ui.BrowseRuntimeButton = Link("Choose Runtime File", llama, "ファイルを選ぶ", "Choose file", 118, 42, 244, 225);
         Copy("Model File Label", llama, "2. GGUFモデルファイル", "2. GGUF model file", 14, 516, 22, 306, false, TextAnchor.MiddleLeft, 26);
         var mi = Image("Model Layers Icon", llama, model, Color.white); Top(mi.rectTransform, 40, 40, 334, -264);

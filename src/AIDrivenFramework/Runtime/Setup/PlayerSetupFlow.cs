@@ -7,7 +7,7 @@ using Cysharp.Threading.Tasks;
 namespace AIDrivenFW.Setup
 {
     public enum SetupStage { Consent, Runtime, Model, Verify, Complete, Cancelled, Failed }
-    public enum SetupProblem { None, Space, Connection, Runtime, Model, Verification, Settings }
+    public enum SetupProblem { None, Space, Connection, Runtime, Model, Verification, Settings, RuntimeArchive }
 
     public sealed class SetupProgress
     {

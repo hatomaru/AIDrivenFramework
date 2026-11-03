@@ -12,6 +12,15 @@ The steady-state palette is checked using the [WCAG relative-luminance formula](
 
 After agreement, setup prepares the runtime, obtains the selected model, generates a short real greeting, then atomically saves verified settings in the game's writable `persistentDataPath`. An additive setup scene returns to the game automatically. `AIDrivenInitializer.Initialize()` returns `false` when the player declines; the game should offer its own retry, exit or non-AI experience. A standalone wizard displays completion without quitting the application.
 
+
+### llama.cpp ZIP setup
+
+Choose a Windows llama.cpp runtime ZIP and a GGUF model. The setup inspects the ZIP off the UI thread, finds its single `llama-server.exe`, checks the Windows/process architecture header and shows the expansion size for review. Source-code ZIPs, multiple runtime variants and incompatible executables receive an actionable error. Existing installed executable paths remain readable for older setups.
+
+After explicit consent, the ZIP is checked against the SHA-256 captured during review and extracted on a worker into a unique staging folder under `persistentDataPath/AIDrivenFramework/LlamaRuntime`. Every included file is retained in its original relative location, including DLLs, licenses and third-party notices. The completed folder is published atomically and the extracted executable path is saved only after response verification. The source ZIP and previous working settings are preserved. This digest detects changes after review; it does not authenticate the publisher. Use the upstream release link in the setup.
+
+The progress slide distinguishes extraction from downloading and shows extracted/remaining bytes. Runtime extraction has a 15-minute deadline and can be paused. Staging cleanup is best effort on failure/cancellation; inaccessible files can remain for later cleanup. A blocked OS read may finish later, but cancellation releases the setup's wait and prevents a late save. ZIP traversal/absolute/alternate-stream paths, symlinks, duplicate/conflicting Windows paths, more than 10,000 entries and expansion above 5 GiB are rejected. The space preflight reserves the declared expansion plus 64 MiB. Errors also cover damaged ZIPs, changed files, insufficient space and inaccessible destinations. Review/retry returns to file selection. If generation fails after extraction, check the GPU/runtime dependencies or choose a compatible CPU ZIP.
+
 ## Models and licenses
 
 ### Game configuration is the catalog

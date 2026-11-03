@@ -85,7 +85,7 @@ public sealed class SetupFilePicker : MonoBehaviour
     void UpdateCaptions()
     {
         Title.text = model ? L("Choose your AI model", "AIモデルを選ぶ") : L("Choose the runtime", "実行ソフトを選ぶ");
-        Description.text = model ? L("Choose a GGUF file. Open folders with one click.", "GGUFファイルを選んでください。フォルダーはクリックで開きます。") : L("Choose llama-server. Keep DLLs and license notices with it.", "llama-serverを選んでください。DLL・ライセンス通知も保管します。");
+        Description.text = model ? L("Choose a GGUF file. Open folders with one click.", "GGUFファイルを選んでください。フォルダーはクリックで開きます。") : L("Choose a llama.cpp ZIP. Setup extracts its files after you agree.", "llama.cppのZIPを選んでください。同意後にセットアップが解凍します。");
     }
     void Navigate(string value)
     {
@@ -145,7 +145,7 @@ public sealed class SetupFilePicker : MonoBehaviour
         {
             int index = page * Rows.Length + i; var row = Rows[i]; row.Button.gameObject.SetActive(index < entries.Length); if (index >= entries.Length) continue;
             var entry = entries[index]; visible++;
-            row.Name.text = entry.Name; row.Kind.text = entry.Kind == SetupFileKind.Folder ? L("Folder", "フォルダー") : entry.Kind == SetupFileKind.Model ? L("GGUF model", "GGUFモデル") : L("llama.cpp runtime", "llama.cpp実行ソフト");
+            row.Name.text = entry.Name; row.Kind.text = entry.Kind == SetupFileKind.Folder ? L("Folder", "フォルダー") : entry.Kind == SetupFileKind.Model ? L("GGUF model", "GGUFモデル") : entry.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ? L("llama.cpp ZIP archive", "llama.cpp ZIPアーカイブ") : L("Installed llama.cpp runtime", "導入済みllama.cpp実行ソフト");
             row.Icon.sprite = entry.Kind == SetupFileKind.Folder ? FolderIcon : entry.Kind == SetupFileKind.Model ? ModelIcon : RuntimeIcon;
             row.Button.interactable = entry.Kind == SetupFileKind.Folder || (model ? entry.Kind == SetupFileKind.Model : entry.Kind == SetupFileKind.Runtime);
         }
@@ -177,6 +177,7 @@ public sealed class SetupFilePicker : MonoBehaviour
     static SetupFileKind IdentifyName(string name)
     {
         if (name.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase)) return SetupFileKind.Model;
+        if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return SetupFileKind.Runtime;
         if (name.Equals("llama-server.exe", StringComparison.OrdinalIgnoreCase) || name.Equals("llama-server", StringComparison.OrdinalIgnoreCase)) return SetupFileKind.Runtime;
         return SetupFileKind.Other;
     }

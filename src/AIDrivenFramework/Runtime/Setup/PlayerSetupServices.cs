@@ -143,7 +143,19 @@ namespace AIDrivenFW.Setup
 
         public async UniTask<string> PrepareRuntimeAsync(PlayerSetupPlan plan, Action<SetupProgress> progress, CancellationToken ct)
         {
-            if (plan.Mode == "Llama") return plan.RuntimePath;
+            if (plan.Mode == "Llama")
+            {
+                if (string.IsNullOrWhiteSpace(plan.RuntimeArchivePath)) return plan.RuntimePath;
+                string managedRoot = Path.Combine(Application.persistentDataPath, "AIDrivenFramework", "LlamaRuntime");
+                using var archiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct); archiveDeadline.CancelAfter(TimeSpan.FromMinutes(15));
+                try
+                {
+                    return await LlamaRuntimeArchive.ExtractAsync(plan.RuntimeArchivePath, plan.RuntimeArchiveSha256, managedRoot,
+                        p => { if (!archiveDeadline.IsCancellationRequested) progress?.Invoke(p); }, archiveDeadline.Token).AsUniTask().AttachExternalCancellation(archiveDeadline.Token);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                { throw new SetupException(SetupProblem.RuntimeArchive, LlamaArchiveFailure.Timeout.ToString()); }
+            }
             if (await ServerReadyAsync(ct)) return File.Exists(plan.RuntimePath) ? plan.RuntimePath : FindOllama();
             string path = File.Exists(plan.RuntimePath) ? plan.RuntimePath : FindOllama();
             if (string.IsNullOrEmpty(path))

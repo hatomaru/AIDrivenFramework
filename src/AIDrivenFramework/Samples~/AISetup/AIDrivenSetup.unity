@@ -10586,10 +10586,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ced9f60e08643dfac6810263af3f26f, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::SetupCanvasLabel
-  Japanese: "llama.cpp / GGUF\n\u5B9F\u884C\u30BD\u30D5\u30C8\u3068\u30E2\u30C7\u30EB\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u3073\u307E\u3059\u3002"
+  Japanese: "llama.cpp / GGUF\nZIP\u3068\u30E2\u30C7\u30EB\u3092\u9078\u3076\u3068\u81EA\u52D5\u3067\u89E3\u51CD\u3057\u307E\u3059\u3002"
   English: 'llama.cpp / GGUF
 
-    Choose your runtime and model files.'
+    Choose a ZIP and model; setup extracts the files.'
 --- !u!114 &937449128
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10623,7 +10623,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "llama.cpp / GGUF\n\u5B9F\u884C\u30BD\u30D5\u30C8\u3068\u30E2\u30C7\u30EB\u306E\u30D5\u30A1\u30A4\u30EB\u3092\u9078\u3073\u307E\u3059\u3002"
+  m_Text: "llama.cpp / GGUF\nZIP\u3068\u30E2\u30C7\u30EB\u3092\u9078\u3076\u3068\u81EA\u52D5\u3067\u89E3\u51CD\u3057\u307E\u3059\u3002"
 --- !u!222 &937449129
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -15471,8 +15471,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ced9f60e08643dfac6810263af3f26f, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::SetupCanvasLabel
-  Japanese: "1. llama-server\u30D5\u30A1\u30A4\u30EB"
-  English: 1. llama-server file
+  Japanese: "1. llama.cpp\u306EZIP\u30D5\u30A1\u30A4\u30EB"
+  English: 1. llama.cpp ZIP archive
 --- !u!114 &1426221619
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15506,7 +15506,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "1. llama-server\u30D5\u30A1\u30A4\u30EB"
+  m_Text: "1. llama.cpp\u306EZIP\u30D5\u30A1\u30A4\u30EB"
 --- !u!222 &1426221620
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -16874,7 +16874,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "llama.cpp / GGUF\u30FBDLL\u3068\u30E9\u30A4\u30BB\u30F3\u30B9\u901A\u77E5\u3082\u4FDD\u7BA1\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
+  m_Text: "\u5B9F\u884C\u30BD\u30D5\u30C8\u30FBDLL\u30FB\u30E9\u30A4\u30BB\u30F3\u30B9\u901A\u77E5\u3092\u307E\u3068\u3081\u3066\u4FDD\u5B58\u3057\u307E\u3059\u3002"
 --- !u!222 &1599294711
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -18079,7 +18079,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\u30D5\u30A1\u30A4\u30EB\u30922\u3064\u9078\u3073\u3001\u5229\u7528\u6761\u4EF6\u3092\u78BA\u8A8D\u3057\u307E\u3059\u3002\u30B3\u30DE\u30F3\u30C9\u5165\u529B\u306F\u4E0D\u8981\u3067\u3059\u3002"
+  m_Text: "llama.cpp\u306EZIP\u3068GGUF\u30E2\u30C7\u30EB\u3092\u9078\u3076\u3060\u3051\u3002\u89E3\u51CD\u306F\u30BB\u30C3\u30C8\u30A2\u30C3\u30D7\u304C\u884C\u3044\u307E\u3059\u3002"
 --- !u!222 &1751867931
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -21735,7 +21735,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: llama-server
+  m_Text: llama.cpp .zip
 --- !u!222 &2130907638
 CanvasRenderer:
   m_ObjectHideFlags: 0

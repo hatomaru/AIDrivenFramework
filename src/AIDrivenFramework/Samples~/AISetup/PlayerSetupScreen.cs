@@ -108,7 +108,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         llama = selection.Mode == "Llama";
         ModelTag.SetTextWithoutNotify(selection.Model);
         ModelSize.SetTextWithoutNotify(Math.Ceiling(selection.ModelBytes / 1000000d).ToString(CultureInfo.InvariantCulture));
-        RuntimePath.SetTextWithoutNotify(selection.RuntimePath); ModelPath.SetTextWithoutNotify(selection.ModelPath);
+        RuntimePath.SetTextWithoutNotify(string.IsNullOrWhiteSpace(selection.RuntimeArchivePath) ? selection.RuntimePath : selection.RuntimeArchivePath); ModelPath.SetTextWithoutNotify(selection.ModelPath);
         ReduceMotionToggle.SetIsOnWithoutNotify(PlayerPrefs.GetInt("AIDrivenFW.Setup.ReduceMotion", 0) == 1);
         SetServices(new PlayerSetupServices());
         PrimaryButton.onClick.AddListener(Primary); SecondaryButton.onClick.AddListener(Secondary);
@@ -130,7 +130,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         CloseModelTermsButton.onClick.AddListener(() => { ModelTermsPanel.SetActive(false); Slides[(int)slide].SetActive(true); UpdateActions(); });
         PreviousTermsButton.onClick.AddListener(() => { termsPage--; RenderModelTerms(); });
         NextTermsButton.onClick.AddListener(() => { termsPage++; RenderModelTerms(); });
-        ResultModelButton.onClick.AddListener(() => OpenModels(ListPurpose.Ollama));
+        ResultModelButton.onClick.AddListener(() => { if (selection.Mode == "Llama") { llama = true; Go(Slide.Custom); } else OpenModels(ListPurpose.Ollama); });
         ConsentToggle.onValueChanged.AddListener(_ => UpdateActions());
         ReduceMotionToggle.onValueChanged.AddListener(value => { PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", value ? 1 : 0); PlayerPrefs.Save(); });
         foreach (var field in new[] { ModelTag, ModelSize, RuntimePath, ModelPath }) field.onValueChanged.AddListener(_ => { ConsentToggle.SetIsOnWithoutNotify(false); UpdateActions(); });
@@ -263,8 +263,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         OllamaFields.SetActive(!llama); LlamaFields.SetActive(llama);
         CustomTitle.text = llama ? L("Use your GGUF model", "手持ちのGGUFモデルを使う") : L("Use another model", "別のモデルを使う");
-        CustomCopy.text = llama ? L("Choose two files and review their terms. No terminal needed.", "ファイルを2つ選び、利用条件を確認します。コマンド入力は不要です。") : L("Choose an installed model or enter a local model tag.", "導入済みモデルを選ぶか、ローカルモデル名を指定します。");
-        BackendStatus.text = llama ? L("llama.cpp / GGUF · Keep DLLs and notices together.", "llama.cpp / GGUF・DLLとライセンス通知も保管してください。") : L("Ollama · automatic preparation", "Ollama・自動で準備");
+        CustomCopy.text = llama ? L("Choose the llama.cpp ZIP and a GGUF model. Setup handles extraction.", "llama.cppのZIPとGGUFモデルを選ぶだけ。解凍はセットアップが行います。") : L("Choose an installed model or enter a local model tag.", "導入済みモデルを選ぶか、ローカルモデル名を指定します。");
+        BackendStatus.text = llama ? L("Runtime, DLLs and license notices are kept together.", "実行ソフト・DLL・ライセンス通知をまとめて保存します。") : L("Ollama・automatic preparation", "Ollama・自動で準備");
         ModelInfoCaption.text = L("Model information: ", "モデル情報：") + (ggufIndex >= 0 ? GgufCatalog().ElementAtOrDefault(ggufIndex)?.ModelName : L("Other GGUF", "その他のGGUF"));
         ModelTermsNote.text = string.IsNullOrWhiteSpace(CustomTerms()) ? L("No terms page is registered. Manually review the license at the model's original source.", "利用条件ページが未登録です。モデルの入手元でライセンスを手動確認してください。") : L("Terms are supplied automatically. Review them on the next screen.", "利用条件は自動で表示します。次の画面で確認してください。");
     }
@@ -286,18 +286,36 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         if (busy) return;
         var plan = new PlayerSetupPlan { Mode = llama ? "Llama" : "Ollama", Model = ModelTag.text.Trim(), ModelTerms = CustomTerms(), ModelSource = PlayerSetupPlan.OllamaModelPage(ModelTag.text.Trim()), RuntimePath = RuntimePath.text.Trim().Trim('"'), ModelPath = ModelPath.text.Trim().Trim('"'), RuntimeTerms = llama ? "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE" : RuntimeRelease.TermsUrl };
+        if (llama && LlamaRuntimeArchive.IsZip(plan.RuntimePath)) { plan.RuntimeArchivePath = plan.RuntimePath; plan.RuntimePath = ""; }
         plan.ReviewModelTermsAtSource = string.IsNullOrWhiteSpace(plan.ModelTerms);
         plan.ModelBytes = double.TryParse(ModelSize.text, NumberStyles.Float, CultureInfo.InvariantCulture, out var mb) && mb > 0 && mb < 1000000 ? (long)(mb * 1000000) : 0;
         busy = true; operation = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken); UpdateActions();
-        ErrorText.color = new Color(.282f, .31f, .337f); ErrorText.text = L("Checking your selection…", "選んだ内容を確認しています…");
+        ErrorText.color = new Color(.282f, .31f, .337f); ErrorText.text = string.IsNullOrEmpty(plan.RuntimeArchivePath) ? L("Checking your selection…", "選んだ内容を確認しています…") : L("Checking the ZIP… You can pause.", "ZIPを確認しています… 中断できます。");
         try
         {
             var ct = operation.Token;
-            await System.Threading.Tasks.Task.Run(() => { if (plan.Mode == "Llama") { plan.ModelBytes = new FileInfo(plan.ModelPath).Length; plan.Model = Path.GetFileName(plan.ModelPath); } plan.Validate(); }, ct).AsUniTask().AttachExternalCancellation(ct);
+            string managedRoot = Path.Combine(Application.persistentDataPath, "AIDrivenFramework", "LlamaRuntime");
+            await System.Threading.Tasks.Task.Run(() =>
+            {
+                if (plan.Mode == "Llama")
+                {
+                    plan.ModelBytes = new FileInfo(plan.ModelPath).Length; plan.Model = Path.GetFileName(plan.ModelPath);
+                    if (!plan.ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) || plan.ModelBytes <= 0) throw new ArgumentException("Select a GGUF model.");
+                    if (!string.IsNullOrEmpty(plan.RuntimeArchivePath))
+                    {
+                        var info = LlamaRuntimeArchive.Inspect(plan.RuntimeArchivePath, ct);
+                        plan.RuntimeArchiveSha256 = info.Sha256; plan.RuntimeExpandedBytes = info.ExpandedBytes;
+                        RuntimeAcquisition.RequireSpace(managedRoot, checked(info.ExpandedBytes + 64L * 1024 * 1024));
+                    }
+                }
+                plan.Validate();
+            }, ct).AsUniTask().AttachExternalCancellation(ct);
             await UniTask.SwitchToMainThread(); if (destroyed) return;
             selection = plan; ConsentToggle.SetIsOnWithoutNotify(false); ErrorText.text = ""; busy = false; UpdateSummary(); Go(Slide.Consent);
         }
         catch (OperationCanceledException) { await UniTask.SwitchToMainThread(); if (!destroyed) ErrorText.text = L("Paused. You can review and retry.", "中断しました。確認して再開できます。"); }
+        catch (LlamaArchiveException ex) { await UniTask.SwitchToMainThread(); if (!destroyed) { ErrorText.color = new Color(.647f, .165f, .165f); ErrorText.text = ArchiveMessage(ex.Failure); } }
+        catch (SetupException ex) when (ex.Problem == SetupProblem.Space) { await UniTask.SwitchToMainThread(); if (!destroyed) { ErrorText.color = new Color(.647f, .165f, .165f); ErrorText.text = L("Not enough space to extract the ZIP. Free disk space and retry.", "ZIPの解凍用の空き容量が足りません。空きを増やして再試行してください。"); } }
         catch (Exception) { await UniTask.SwitchToMainThread(); if (!destroyed) { ErrorText.color = new Color(.647f, .165f, .165f); ErrorText.text = L("Check the model, size and selected files.", "モデル名・容量・選んだファイルを確認してください。"); } }
         finally { await UniTask.SwitchToMainThread(); busy = false; operation?.Dispose(); operation = null; if (!destroyed) UpdateActions(); }
     }
@@ -316,7 +334,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         string engine = selection.Mode == "Llama" ? "llama.cpp" : "Ollama";
         WelcomeSelection.text = ReviewName.text = engine + " · " + selection.Model;
         ReviewDownload.text = selection.Mode == "Llama" ? L("Use your files · no model download", "手持ちのファイルを使用・モデル取得なし") : exists ? L("Model installed · no download", "モデル導入済み・取得なし") : L("Model download: about ", "モデル取得：約") + FormatBytes(selection.ModelBytes);
-        ReviewRuntime.text = selection.Mode == "Llama" ? "llama.cpp / GGUF" : needsRuntime ? "Ollama " + RuntimeRelease.Version + (RuntimeRelease.CanAcquire ? L(" · about ", "・約") + FormatBytes(RuntimeRelease.Bytes) : L(" · install from ollama.com/download", "・公式ページから導入")) : L("Use installed Ollama", "導入済みOllamaを使用");
+        ReviewRuntime.text = selection.Mode == "Llama" ? string.IsNullOrEmpty(selection.RuntimeArchivePath) ? "llama.cpp / GGUF" : L("ZIP extraction: ", "ZIP解凍：約") + FormatBytes(selection.RuntimeExpandedBytes) : needsRuntime ? "Ollama " + RuntimeRelease.Version + (RuntimeRelease.CanAcquire ? L(" · about ", "・約") + FormatBytes(RuntimeRelease.Bytes) : L(" · install from ollama.com/download", "・公式ページから導入")) : L("Use installed Ollama", "導入済みOllamaを使用");
         bool sourceReview = selection.ReviewModelTermsAtSource;
         ReviewSource.text = selection.Mode == "Llama" ? L("Keep files in their chosen locations.", "指定した場所にファイルを保管してください。") : L("Sources: Ollama registry/CDN", "取得先：Ollamaの配信サーバー") + (needsRuntime ? " / GitHub" : "") + "\n" + L("Allow model size + 1 GB free. Runtime unpacking needs 5 GB.", "モデル容量＋1 GB、ソフトの展開用に5 GBの空きを確保してください。");
         bool runtimeText = !string.IsNullOrWhiteSpace(selection.ModelTermsText);
@@ -334,6 +352,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         bool viewingTerms = ModelTermsPanel.activeSelf;
         PrimaryButton.gameObject.SetActive(showPrimary && !viewingTerms); SecondaryButton.gameObject.SetActive(!complete && !viewingTerms);
         ConsentToggle.interactable = !termsLoading;
+        foreach (var field in new[] { ModelTag, ModelSize, RuntimePath, ModelPath }) field.interactable = !busy;
+        BrowseRuntimeButton.interactable = BrowseModelButton.interactable = ModelInfoButton.interactable = InstalledModelsButton.interactable = !busy;
         PrimaryButton.interactable = !busy && !termsLoading && (slide != Slide.Consent || ConsentToggle.isOn);
         var primarySurface = PrimaryButton.GetComponent<Image>();
         primarySurface.sprite = PrimaryButton.interactable ? PrimaryGradient : ButtonShape;
@@ -350,7 +370,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         { try { selection.Validate(); UpdateSummary(); Go(Slide.Consent); } catch (ArgumentException) { ErrorText.text = L("Review the model and capacity.", "モデルと容量を確認してください。"); Go(Slide.Custom); } }
         else if (slide == Slide.Custom) ApplyCustomAsync().Forget();
         else if (slide == Slide.Consent && ConsentToggle.isOn) RunAsync().Forget();
-        else if (slide == Slide.Result) { if (complete) FinishAsync(true).Forget(); else { ConsentToggle.SetIsOnWithoutNotify(false); Go(Slide.Consent); } }
+        else if (slide == Slide.Result) { if (complete) FinishAsync(true).Forget(); else { ConsentToggle.SetIsOnWithoutNotify(false); if (selection.Mode == "Llama") { llama = true; Go(Slide.Custom); } else Go(Slide.Consent); } }
     }
     void Secondary()
     {
@@ -366,7 +386,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         try
         {
             bool ok = await flow.RunAsync(selection, ConsentToggle.isOn, operation.Token); if (destroyed) return;
-            complete = ok; busy = false; services.Dispose(); DrainProgress(); RenderProgress(new SetupProgress { Stage = flow.Stage, Problem = flow.Problem });
+            complete = ok; busy = false; services.Dispose(); DrainProgress(); RenderProgress(new SetupProgress { Stage = flow.Stage, Problem = flow.Problem, Detail = flow.Detail });
             if (ok) { await UniTask.Delay(1600, ignoreTimeScale: true, cancellationToken: destroyCancellationToken); await FinishAsync(true); }
         }
         catch (OperationCanceledException) { }
@@ -388,11 +408,19 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         }
         else { DownloadedBytes.text = selection.Mode == "Llama" || p.Detail == "installed" ? L("No download needed", "ダウンロード不要") : transferring ? L("Checking download size…", "取得量を確認しています…") : L("Downloads complete", "ファイルの準備が完了しました"); RemainingBytes.text = ""; }
         if (selection.Mode == "Llama" && transferring) { StatusTitle.text = L("Checking your files", "手持ちのファイルを確認しています。"); StatusCopy.text = L("Using only your selected runtime and model.", "選んだ実行ソフトとモデルだけを使います。"); }
+        if (selection.Mode == "Llama" && !string.IsNullOrEmpty(selection.RuntimeArchivePath) && p.Stage == SetupStage.Runtime)
+        {
+            bool extracting = p.Detail == "extracting archive";
+            StatusTitle.text = extracting ? L("Extracting llama.cpp", "llama.cppを解凍しています。") : L("Checking the ZIP", "ZIPを確認しています。");
+            StatusCopy.text = L("Keeping the runtime, DLLs and license notices together.", "実行ソフト・DLL・ライセンス通知をまとめて保存します。");
+            DownloadedBytes.text = extracting ? L("Extracted ", "解凍済み ") + FormatBytes(p.CompletedBytes) + " / " + FormatBytes(p.TotalBytes) : L("No download needed", "ダウンロード不要");
+            RemainingBytes.text = extracting ? L("Remaining ", "解凍の残り ") + FormatBytes(Math.Max(0, p.TotalBytes - p.CompletedBytes)) : "";
+        }
         if (p.Stage == SetupStage.Model && (p.Detail == "verifying sha256 digest" || p.Detail == "writing manifest")) StatusCopy.text = L("Download complete. Checking integrity.", "取得が完了しました。モデルの整合性を確認しています。");
         if (p.Stage == SetupStage.Complete || p.Stage == SetupStage.Cancelled || p.Stage == SetupStage.Failed)
         {
             ResultTitle.text = p.Stage == SetupStage.Complete ? L("You're ready.", "準備ができました。") : p.Stage == SetupStage.Cancelled ? L("Paused.", "中断しました。") : L("Let's try again.", "もう一度、準備しましょう。");
-            ResultCopy.text = p.Stage == SetupStage.Complete ? L("A real response was checked. Returning to your game…", "実際の応答を確認しました。ゲームへ戻ります…") : p.Stage == SetupStage.Cancelled ? L("Downloaded model data is kept. Review your selection to resume.", "取得済みのモデルデータは保持します。内容を確認して再開できます。") : ProblemText(p.Problem);
+            ResultCopy.text = p.Stage == SetupStage.Complete ? L("A real response was checked. Returning to your game…", "実際の応答を確認しました。ゲームへ戻ります…") : p.Stage == SetupStage.Cancelled ? L("Your source files are kept. Review your selection to resume.", "元のファイルは保持しています。内容を確認して再開できます。") : p.Problem == SetupProblem.RuntimeArchive && Enum.TryParse<LlamaArchiveFailure>(p.Detail, out var archiveFailure) ? ArchiveMessage(archiveFailure) : ProblemText(p.Problem);
             ResultSymbol.text = p.Stage == SetupStage.Complete ? "✓" : p.Stage == SetupStage.Cancelled ? "Ⅱ" : "!";
             ResultFill.transform.parent.gameObject.SetActive(p.Stage == SetupStage.Complete); ResultPercent.gameObject.SetActive(p.Stage == SetupStage.Complete); ResultModelButton.gameObject.SetActive(p.Stage != SetupStage.Complete);
             ConsentToggle.SetIsOnWithoutNotify(false); if (slide != Slide.Result) Go(Slide.Result);
@@ -404,11 +432,27 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         switch (p)
         {
             case SetupProblem.Space: return L("Free some disk space, then retry. Previous settings are kept.", "空き容量を増やして再試行してください。以前の設定は保持しています。");
-            case SetupProblem.Runtime: return L("Check connection/permissions. Install Ollama from ollama.com/download if needed.", "通信とOSの許可を確認してください。必要ならOllama公式ページから導入できます。");
+            case SetupProblem.Runtime: return selection.Mode == "Llama" ? L("Check the selected ZIP/runtime and its required DLLs, then retry.", "選んだZIP・実行ソフトと必要なDLLを確認して再試行してください。") : L("Check connection/permissions. Install Ollama from ollama.com/download if needed.", "通信とOSの許可を確認してください。必要ならOllama公式ページから導入できます。");
+            case SetupProblem.RuntimeArchive: return ArchiveMessage(LlamaArchiveFailure.InvalidZip);
             case SetupProblem.Model: return L("Choose a model for local text generation.", "ローカルで文章を生成できるモデルを選んでください。");
             case SetupProblem.Verification: return L("Try a smaller model or close other apps. Previous settings are kept.", "小さいモデルに変えるか、他のアプリを閉じてください。以前の設定は保持しています。");
             case SetupProblem.Settings: return L("Check write permission for the game's data folder.", "ゲームの保存先への書き込み権限を確認してください。");
             default: return L("Check your connection and retry. Ollama resumes downloaded model data.", "ネット接続を確認して再試行してください。取得済みモデルの続きから再開します。");
+        }
+    }
+    string ArchiveMessage(LlamaArchiveFailure failure)
+    {
+        switch (failure)
+        {
+            case LlamaArchiveFailure.MissingServer: return L("No llama-server.exe in this ZIP. Choose a Windows runtime ZIP, not source code.", "llama-server.exeがありません。ソースコードではなくWindows用の実行ソフトのZIPを選んでください。");
+            case LlamaArchiveFailure.MultipleServers: return L("Several llama-server files were found. Choose a ZIP with one runtime variant.", "実行ソフトが複数あります。使う種類が1つ入ったZIPを選んでください。");
+            case LlamaArchiveFailure.WrongPlatform: return L("This runtime does not match this game/PC. Choose the matching Windows ZIP.", "このゲーム・PCに対応していません。対応するWindows用ZIPを選んでください。");
+            case LlamaArchiveFailure.UnsafeEntry: return L("This ZIP contains unsafe or conflicting paths. Get the official runtime ZIP again.", "ZIPに安全に解凍できないパスが含まれています。公式の実行ソフトZIPを取得し直してください。");
+            case LlamaArchiveFailure.TooLarge: return L("This ZIP exceeds the extraction limit. Choose a runtime-only ZIP.", "ZIPの解凍上限を超えています。実行ソフトだけのZIPを選んでください。");
+            case LlamaArchiveFailure.Changed: return L("The ZIP changed after review. Select it again and review before retrying.", "確認後にZIPが変更されました。選び直して内容を確認してください。");
+            case LlamaArchiveFailure.Access: return L("The ZIP or extraction folder cannot be accessed. Check permissions and available storage.", "ZIPまたは保存先にアクセスできません。アクセス権限と保存先を確認してください。");
+            case LlamaArchiveFailure.Timeout: return L("Extraction took too long. Copy the ZIP to a local drive and retry.", "ZIPの解凍に時間がかかりすぎています。ZIPをPC内のドライブへ移して再試行してください。");
+            default: return L("The ZIP is damaged or incomplete. Download it again and select the new file.", "ZIPが壊れているか不完全です。取得し直したZIPを選んでください。");
         }
     }
     async UniTask FinishAsync(bool success)
