@@ -1,5 +1,17 @@
 # Player setup validation
 
+## Canvas update — 2026-11-03
+
+Unity 6000.3.27f2 compiled the sample in the existing Windows project. The saved scene now contains a uGUI Canvas, 8 slides, 218 RectTransforms and 8 reusable browser rows. Scene GUID and existing Build Settings entry were preserved. All visual objects and sprite references exist before Play; runtime code switches panels and updates data. Text uses the bundled, unmodified OFL Noto Sans JP font.
+
+**99 offline Canvas assertions passed in Editor Play Mode**, including every controller object reference, active input module, navigation raycast/pointer handler, Japanese/English glyph coverage, explicit runtime choice with both available, config model choices, file icons/type restrictions, slow reads, cancellation/stale results, timeout/recovery, URL-free local-source consent, consent gating, pause without commit, received/remaining byte labels and commit only after injected verification. No acquisition or native inference was performed. The Runtime Unit suite, fresh Player build and live inference were not rerun for this Canvas update. Earlier Player recordings and proof frames below show the preceding UI Toolkit presentation.
+
+To reproduce the current Canvas checks, import the regenerated setup package, open `Assets/AIDrivenFW/AISetup/AIDrivenSetup.unity`, copy `Tools/UnityValidation/SetupCanvasValidation.cs.txt` to `Assets/Editor/SetupCanvasValidation.cs`, then choose **Tools > AIDrivenFW > Canvas Setup > Validate Offline**. It enters and exits Play automatically, restores process PATH and language/motion preferences, and writes `FrameworkCanvasProof/result.txt` under the OS temporary directory. The marker runtime/model files are inert and never executed or loaded. Use a separate validation project when replacing custom setup assets.
+
+Manual layout check: expand **AI Setup Canvas > Glass Card** before Play. Select the Canvas controller and use its **Preview** buttons for each slide. Inspect Japanese/English, the four-step setup bar, download bytes, consent text, motion preference and file scrolling at 1440×900 and 900×700. Changes to positions, labels and icons are ordinary scene edits; do not run **Rebuild Authored Scene** over custom work without saving it separately.
+
+## Previous UI Toolkit validation
+
 Validated on 2026-10-17 JST with Unity 6000.3.10f1 and Windows x64. Current presentation/flow proof uses an isolated project and injected offline services. It does not represent a new live inference or download run.
 
 | Check | Observed result |

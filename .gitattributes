@@ -1,3 +1,5 @@
 # Keep the optional UnityPackage reproducible across Windows and Unix checkouts.
 src/AIDrivenFramework/Samples~/** text eol=lf
 *.unitypackage binary
+src/AIDrivenFramework/Samples~/AISetup/Visuals/*.png binary
+src/AIDrivenFramework/Samples~/AISetup/Visuals/*.otf binary

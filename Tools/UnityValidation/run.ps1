@@ -39,7 +39,13 @@ function Invoke-ValidationUnity([string[]]$Extra, [string]$LogName) {
 }
 Invoke-ValidationUnity @('-nographics', '-executeMethod', 'SetupValidation.Import') 'import.log'
 Invoke-ValidationUnity @('-nographics', '-runTests', '-testPlatform', 'EditMode', '-testFilter', 'AIDrivenFW.Tests.Unit', '-testResults', ('"' + (Join-Path $HostDirectory 'unit.xml') + '"')) 'unit.log'
-$runner = if ($DisplayOnly) { 'SetupDisplayRunner.cs.txt' } else { 'SetupSmokeRunner.cs.txt' }
+if ($DisplayOnly) {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'SetupCanvasValidation.cs.txt') -Destination (Join-Path $HostDirectory 'Assets/Editor/SetupCanvasValidation.cs')
+    Invoke-ValidationUnity @('-executeMethod', 'SetupValidation.ValidateCanvas') 'canvas.log'
+    Write-Output "Canvas validation complete: $HostDirectory"
+    return
+}
+$runner = 'SetupSmokeRunner.cs.txt'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot $runner) -Destination (Join-Path $HostDirectory 'Assets/SetupSmokeRunner.cs')
 Invoke-ValidationUnity @('-quit', '-executeMethod', 'SetupValidation.Build') 'build.log'
 $player = Start-Process -FilePath (Join-Path $HostDirectory 'Build/SetupValidation.exe') -ArgumentList @('-screen-width', '1440', '-screen-height', '900', '-screen-fullscreen', '0', '-logFile', ('"' + (Join-Path $HostDirectory 'player.log') + '"')) -WindowStyle Hidden -Wait -PassThru
