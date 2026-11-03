@@ -22,6 +22,8 @@ namespace AIDrivenFW.Tests.Unit
             public string Show = "{\"capabilities\":[\"completion\"]}";
             public string Generate = "{\"done\":true,\"response\":\"Hello!\"}";
             public HttpStatusCode PullCode = HttpStatusCode.OK;
+            public HttpStatusCode ShowCode = HttpStatusCode.OK;
+            public string ShowRequest;
             public Action OnPull;
             public string GenerateRequest;
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -34,13 +36,33 @@ namespace AIDrivenFW.Tests.Unit
                     case "/api/version": body = "{\"version\":\"fixture\"}"; break;
                     case "/api/tags": body = Tags; break;
                     case "/api/pull": OnPull?.Invoke(); ct.ThrowIfCancellationRequested(); body = Pull; break;
-                    case "/api/show": body = Show; break;
+                    case "/api/show": ShowRequest = await request.Content.ReadAsStringAsync(); body = Show; break;
                     case "/api/generate": GenerateRequest = await request.Content.ReadAsStringAsync(); body = Generate; break;
                     default: throw new AssertionException("Unexpected setup HTTP path: " + path);
                 }
-                return new HttpResponseMessage(path == "/api/pull" ? PullCode : HttpStatusCode.OK) { Content = new StringContent(body) };
+                return new HttpResponseMessage(path == "/api/pull" ? PullCode : path == "/api/show" ? ShowCode : HttpStatusCode.OK) { Content = new StringContent(body) };
             }
         }
+
+        [UnityTest]
+        public IEnumerator ModelLicenseReadsOnlyTheSelectedModelsMetadata() => UniTask.ToCoroutine(async () =>
+        {
+            using var handler = new Handler { Show = "{\"license\":\"Exact model terms\\nSecond line\"}" }; using var client = new HttpClient(handler);
+            Assert.AreEqual("Exact model terms\nSecond line", await PlayerSetupServices.ReadModelLicenseAsync(client, "http://127.0.0.1:12345", "author/custom:1b", CancellationToken.None));
+            StringAssert.Contains("author/custom:1b", handler.ShowRequest);
+            CollectionAssert.AreEqual(new[] { "/api/show" }, handler.Calls);
+        });
+
+        [UnityTest]
+        public IEnumerator MissingMalformedOrOversizedLicenseFallsBackToManualReview() => UniTask.ToCoroutine(async () =>
+        {
+            using var handler = new Handler(); using var client = new HttpClient(handler);
+            foreach (string json in new[] { "{}", "{\"license\":\" \"}", "not json", "{\"license\":\"" + new string('x', 262145) + "\"}", new string('x', 1048577) })
+            { handler.Show = json; Assert.IsEmpty(await PlayerSetupServices.ReadModelLicenseAsync(client, "http://127.0.0.1:12345", "custom:1b", CancellationToken.None)); }
+            handler.ShowCode = HttpStatusCode.NotFound;
+            Assert.IsEmpty(await PlayerSetupServices.ReadModelLicenseAsync(client, "http://127.0.0.1:12345", "missing:1b", CancellationToken.None));
+            Assert.IsTrue(handler.Calls.TrueForAll(p => p == "/api/show"));
+        });
 
         [UnityTest]
         public IEnumerator InstalledServiceDoesNotLaunchSoftware() => UniTask.ToCoroutine(async () =>

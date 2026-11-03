@@ -49,6 +49,13 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     [Header("Selection review")]
     public Text WelcomeSelection, ReviewName, ReviewDownload, ReviewRuntime, ReviewSource, ConsentCaption;
     public Button ModelLicenseButton, RuntimeLicenseButton;
+    public GameObject ModelTermsPanel;
+    public Text ModelTermsBody, ModelTermsTitle;
+    public Button CloseModelTermsButton;
+    public ScrollRect ModelTermsScroll;
+    public Button PreviousTermsButton, NextTermsButton;
+    public Text TermsPageCaption;
+    public Func<string, CancellationToken, UniTask<string>> ModelLicenseReader { get; set; }
     [Header("Preparation and result")]
     public Text StatusTitle, StatusCopy, StageCaption, Percent, DownloadedBytes, RemainingBytes;
     public Image ProgressFill, ResultFill;
@@ -63,6 +70,10 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     InstalledModel[] installedModels = Array.Empty<InstalledModel>();
     SetupCompletion completion;
     CancellationTokenSource operation;
+    CancellationTokenSource termsRequest;
+    int termsGeneration;
+    bool termsLoading;
+    int termsPage;
     Slide slide;
     ListPurpose listPurpose;
     int modelPage, ggufIndex = -1;
@@ -74,7 +85,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
 
     void Awake()
     {
-        if (Canvas == null || Slides == null || Slides.Length != 8 || PrimaryButton == null || Browser == null)
+        if (Canvas == null || Slides == null || Slides.Length != 8 || PrimaryButton == null || Browser == null || ModelTermsPanel == null)
         { Debug.LogError("Open the authored AIDrivenSetup scene. Canvas references are required."); enabled = false; return; }
         ja = PlayerPrefs.GetString("AIDrivenFW.Setup.Language", Application.systemLanguage == SystemLanguage.Japanese ? "ja" : "en") == "ja";
         selection = PlayerSetupPlan.Choices().FirstOrDefault() ?? new PlayerSetupPlan { Model = "", ModelSource = "", ModelTerms = "", ModelBytes = 0 };
@@ -93,6 +104,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
                 ModelSource = PlayerSetupPlan.OllamaModelPage(saved.Name), ReviewModelTermsAtSource = saved.LocalModelTermsReviewed
             };
         }
+        selection.ModelTermsText = "";
         llama = selection.Mode == "Llama";
         ModelTag.SetTextWithoutNotify(selection.Model);
         ModelSize.SetTextWithoutNotify(Math.Ceiling(selection.ModelBytes / 1000000d).ToString(CultureInfo.InvariantCulture));
@@ -114,7 +126,10 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         BrowseRuntimeButton.onClick.AddListener(() => OpenBrowser(false)); BrowseModelButton.onClick.AddListener(() => OpenBrowser(true));
         GetRuntimeButton.onClick.AddListener(() => OpenTerms("https://github.com/ggml-org/llama.cpp/releases"));
         GetModelButton.onClick.AddListener(() => { var entry = GgufCatalog().FirstOrDefault(); if (entry != null) OpenTerms(entry.DownloadUrl); });
-        ModelLicenseButton.onClick.AddListener(() => OpenTerms(selection.ModelTerms)); RuntimeLicenseButton.onClick.AddListener(() => OpenTerms(selection.RuntimeTerms));
+        ModelLicenseButton.onClick.AddListener(OpenModelTerms); RuntimeLicenseButton.onClick.AddListener(() => OpenTerms(selection.RuntimeTerms));
+        CloseModelTermsButton.onClick.AddListener(() => { ModelTermsPanel.SetActive(false); Slides[(int)slide].SetActive(true); UpdateActions(); });
+        PreviousTermsButton.onClick.AddListener(() => { termsPage--; RenderModelTerms(); });
+        NextTermsButton.onClick.AddListener(() => { termsPage++; RenderModelTerms(); });
         ResultModelButton.onClick.AddListener(() => OpenModels(ListPurpose.Ollama));
         ConsentToggle.onValueChanged.AddListener(_ => UpdateActions());
         ReduceMotionToggle.onValueChanged.AddListener(value => { PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", value ? 1 : 0); PlayerPrefs.Save(); });
@@ -137,6 +152,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         OllamaButton.interactable = AIDrivenConfig.Instance?.IsAllaiveOllama ?? true;
         RefreshCustom(); RefreshModels(); UpdateSummary(); UpdateActions();
         if (slide == Slide.Browse) Browser.SetLanguage(ja);
+        if (ModelTermsPanel.activeSelf) ModelTermsTitle.text = L("Model terms · ", "モデルの利用条件 ・ ") + selection.Model;
     }
     public void ShowEditorPreview(Slide value, bool japanese)
     {
@@ -145,12 +161,55 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     }
     public void Go(Slide value)
     {
+        termsGeneration++; termsRequest?.Cancel(); termsRequest?.Dispose(); termsRequest = null; termsLoading = false;
+        ModelTermsPanel.SetActive(false);
         if (slide == Slide.Browse && value != Slide.Browse) Browser.Close();
         slide = value;
         for (int i = 0; i < Slides.Length; i++) Slides[i].SetActive(i == (int)value);
         if (value == Slide.Custom) RefreshCustom();
         if (value == Slide.Models) RefreshModels();
         UpdateActions(); Motion.Arrive(Slides[(int)value].GetComponent<RectTransform>(), complete && value == Slide.Result);
+        if (value == Slide.Consent && selection.Mode == "Ollama" && string.IsNullOrWhiteSpace(selection.ModelTerms)) ReadModelTermsAsync().Forget();
+    }
+    async UniTaskVoid ReadModelTermsAsync()
+    {
+        int generation = termsGeneration; string tag = selection.Model;
+        termsRequest = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+        var request = termsRequest; termsLoading = true; selection.ModelTermsText = ""; ConsentToggle.SetIsOnWithoutNotify(false); UpdateSummary(); UpdateActions();
+        try
+        {
+            string text = await (ModelLicenseReader ?? PlayerSetupServices.ModelLicenseAsync)(tag, request.Token).AttachExternalCancellation(request.Token);
+            if (!destroyed && generation == termsGeneration && selection.Model == tag) selection.ModelTermsText = text ?? "";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* Missing/unavailable metadata falls back to explicit manual review. */ }
+        finally
+        {
+            if (!destroyed && generation == termsGeneration) { termsLoading = false; UpdateSummary(); UpdateActions(); }
+        }
+    }
+    void OpenModelTerms()
+    {
+        if (!string.IsNullOrWhiteSpace(selection.ModelTermsText))
+        {
+            ModelTermsTitle.text = L("Model terms · ", "モデルの利用条件 ・ ") + selection.Model;
+            foreach (var panel in Slides) panel.SetActive(false); ModelTermsPanel.SetActive(true);
+            termsPage = 0; RenderModelTerms(); UpdateActions();
+        }
+        else if (!selection.ReviewModelTermsAtSource) OpenTerms(selection.ModelTerms);
+    }
+    void RenderModelTerms()
+    {
+        const int chunk = 2200;
+        string text = selection.ModelTermsText; int count = Math.Max(1, (text.Length + chunk - 1) / chunk);
+        termsPage = Mathf.Clamp(termsPage, 0, count - 1);
+        int start = termsPage * chunk, end = Math.Min(text.Length, start + chunk);
+        if (start > 0 && char.IsLowSurrogate(text[start])) start--;
+        if (end < text.Length && char.IsLowSurrogate(text[end])) end--;
+        ModelTermsBody.text = text.Substring(start, end - start);
+        TermsPageCaption.text = (termsPage + 1) + " / " + count;
+        PreviousTermsButton.interactable = termsPage > 0; NextTermsButton.interactable = termsPage + 1 < count;
+        Canvas.ForceUpdateCanvases(); ModelTermsScroll.verticalNormalizedPosition = 1;
     }
     void OpenModels(ListPurpose purpose) { listPurpose = purpose; modelPage = 0; Go(Slide.Models); }
     void RefreshModels()
@@ -189,15 +248,17 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     void Select(PlayerSetupPlan plan)
     {
         selection = plan.Snapshot(); llama = false; ConsentToggle.SetIsOnWithoutNotify(false); ErrorText.text = "";
+        selection.ModelTermsText = "";
         ModelTag.SetTextWithoutNotify(selection.Model); ModelSize.SetTextWithoutNotify(Math.Ceiling(selection.ModelBytes / 1000000d).ToString(CultureInfo.InvariantCulture)); RefreshModels(); UpdateSummary(); UpdateActions();
     }
     static ModelInfoConfig[] GgufCatalog() => (AIDrivenConfig.Instance?.RecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(false)).Where(e => e != null && !string.IsNullOrWhiteSpace(e.ModelName)).ToArray();
     string CustomTerms()
     {
-        if (llama) { var e = ggufIndex >= 0 ? GgufCatalog().ElementAtOrDefault(ggufIndex) : null; return !string.IsNullOrWhiteSpace(e?.LicenseUrl) ? e.LicenseUrl : e?.DownloadUrl ?? ""; }
-        string configured = PlayerSetupPlan.Choices().FirstOrDefault(p => p.Model.Equals(ModelTag.text.Trim(), StringComparison.OrdinalIgnoreCase))?.ModelTerms;
-        return !string.IsNullOrWhiteSpace(configured) ? configured : PlayerSetupPlan.OllamaModelPage(ModelTag.text.Trim());
+        if (llama) { var e = ggufIndex >= 0 ? GgufCatalog().ElementAtOrDefault(ggufIndex) : null; return PlayerSetupPlan.ConfiguredModelTerms(e?.ModelName, e == null ? null : new[] { e }); }
+        return OllamaTerms(ModelTag.text);
     }
+    static string OllamaTerms(string tag) => PlayerSetupPlan.ConfiguredModelTerms(tag,
+        AIDrivenConfig.Instance?.OllamaRecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(true));
     void RefreshCustom()
     {
         OllamaFields.SetActive(!llama); LlamaFields.SetActive(llama);
@@ -205,7 +266,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         CustomCopy.text = llama ? L("Choose two files and review their terms. No terminal needed.", "ファイルを2つ選び、利用条件を確認します。コマンド入力は不要です。") : L("Choose an installed model or enter a local model tag.", "導入済みモデルを選ぶか、ローカルモデル名を指定します。");
         BackendStatus.text = llama ? L("llama.cpp / GGUF · Keep DLLs and notices together.", "llama.cpp / GGUF・DLLとライセンス通知も保管してください。") : L("Ollama · automatic preparation", "Ollama・自動で準備");
         ModelInfoCaption.text = L("Model information: ", "モデル情報：") + (ggufIndex >= 0 ? GgufCatalog().ElementAtOrDefault(ggufIndex)?.ModelName : L("Other GGUF", "その他のGGUF"));
-        ModelTermsNote.text = llama && string.IsNullOrWhiteSpace(CustomTerms()) ? L("No URL to enter. Review your model's terms where you obtained it.", "URL入力は不要です。モデルの入手元で利用条件を確認してください。") : L("Terms are supplied automatically. Review them on the next screen.", "利用条件は自動で表示します。次の画面で確認してください。");
+        ModelTermsNote.text = string.IsNullOrWhiteSpace(CustomTerms()) ? L("No terms page is registered. Manually review the license at the model's original source.", "利用条件ページが未登録です。モデルの入手元でライセンスを手動確認してください。") : L("Terms are supplied automatically. Review them on the next screen.", "利用条件は自動で表示します。次の画面で確認してください。");
     }
     void OpenBrowser(bool model)
     {
@@ -225,7 +286,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         if (busy) return;
         var plan = new PlayerSetupPlan { Mode = llama ? "Llama" : "Ollama", Model = ModelTag.text.Trim(), ModelTerms = CustomTerms(), ModelSource = PlayerSetupPlan.OllamaModelPage(ModelTag.text.Trim()), RuntimePath = RuntimePath.text.Trim().Trim('"'), ModelPath = ModelPath.text.Trim().Trim('"'), RuntimeTerms = llama ? "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE" : RuntimeRelease.TermsUrl };
-        plan.ReviewModelTermsAtSource = llama && string.IsNullOrWhiteSpace(plan.ModelTerms);
+        plan.ReviewModelTermsAtSource = string.IsNullOrWhiteSpace(plan.ModelTerms);
         plan.ModelBytes = double.TryParse(ModelSize.text, NumberStyles.Float, CultureInfo.InvariantCulture, out var mb) && mb > 0 && mb < 1000000 ? (long)(mb * 1000000) : 0;
         busy = true; operation = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken); UpdateActions();
         ErrorText.color = new Color(.282f, .31f, .337f); ErrorText.text = L("Checking your selection…", "選んだ内容を確認しています…");
@@ -248,17 +309,20 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     void UpdateSummary()
     {
         if (selection == null) return;
+        // Re-resolve restored/custom Ollama selections by their own tag, never a previous model's link.
+        if (selection.Mode == "Ollama") { selection.ModelTerms = OllamaTerms(selection.Model); selection.ReviewModelTermsAtSource = string.IsNullOrWhiteSpace(selection.ModelTerms); }
         bool exists = installedModels.Any(m => m.name.Equals(selection.Model, StringComparison.OrdinalIgnoreCase));
         bool needsRuntime = selection.Mode == "Ollama" && string.IsNullOrEmpty(PlayerSetupServices.FindOllama()) && installedModels.Length == 0;
         string engine = selection.Mode == "Llama" ? "llama.cpp" : "Ollama";
         WelcomeSelection.text = ReviewName.text = engine + " · " + selection.Model;
         ReviewDownload.text = selection.Mode == "Llama" ? L("Use your files · no model download", "手持ちのファイルを使用・モデル取得なし") : exists ? L("Model installed · no download", "モデル導入済み・取得なし") : L("Model download: about ", "モデル取得：約") + FormatBytes(selection.ModelBytes);
         ReviewRuntime.text = selection.Mode == "Llama" ? "llama.cpp / GGUF" : needsRuntime ? "Ollama " + RuntimeRelease.Version + (RuntimeRelease.CanAcquire ? L(" · about ", "・約") + FormatBytes(RuntimeRelease.Bytes) : L(" · install from ollama.com/download", "・公式ページから導入")) : L("Use installed Ollama", "導入済みOllamaを使用");
-        bool sourceReview = selection.Mode == "Llama" && selection.ReviewModelTermsAtSource;
+        bool sourceReview = selection.ReviewModelTermsAtSource;
         ReviewSource.text = selection.Mode == "Llama" ? L("Keep files in their chosen locations.", "指定した場所にファイルを保管してください。") : L("Sources: Ollama registry/CDN", "取得先：Ollamaの配信サーバー") + (needsRuntime ? " / GitHub" : "") + "\n" + L("Allow model size + 1 GB free. Runtime unpacking needs 5 GB.", "モデル容量＋1 GB、ソフトの展開用に5 GBの空きを確保してください。");
-        if (sourceReview) ReviewSource.text += "\n" + L("Review model terms at its source; its license is not identified here.", "モデルの条件は入手元で確認してください。この画面ではライセンスを特定していません。");
-        ModelLicenseButton.gameObject.SetActive(!sourceReview);
-        ConsentCaption.text = sourceReview ? L("I reviewed the model terms at its source and the runtime license, and agree to run these files.", "モデルの入手元の利用条件と実行ソフトのライセンスを確認し、このファイルの実行に同意します。") : L("I reviewed both licenses and agree to download and run this selection.", "両方の利用条件を確認し、取得と実行に同意します。");
+        bool runtimeText = !string.IsNullOrWhiteSpace(selection.ModelTermsText);
+        if (sourceReview) ReviewSource.text = termsLoading ? L("Checking this model's terms in Ollama…", "Ollamaでこのモデルの利用条件を確認しています…") : runtimeText ? L("Model terms were supplied by this PC's Ollama.\nRead the full text with the Model terms button.", "このPCのOllamaからモデルの利用条件を取得しました。\n「モデルの利用条件」で全文を確認してください。") : L("No model terms page or text is available.\nManually review the license at the model's original source before agreeing.", "モデルの利用条件ページ・本文を取得できません。\n同意する前に、モデルの入手元でライセンスを手動確認してください。");
+        ModelLicenseButton.gameObject.SetActive(!termsLoading && (!sourceReview || runtimeText));
+        ConsentCaption.text = sourceReview && !runtimeText ? L("I manually reviewed the model terms at its source and the runtime license, and agree to prepare and run this selection.", "モデルの入手元の利用条件と実行ソフトのライセンスを手動確認し、準備と実行に同意します。") : L("I reviewed both licenses and agree to download and run this selection.", "両方の利用条件を確認し、取得と実行に同意します。");
     }
     void UpdateActions()
     {
@@ -267,8 +331,10 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         SetupStageCaption.text = L("Setup ", "セットアップ ") + step + " / 4";
         bool showPrimary = slide != Slide.Runtime && slide != Slide.Browse && slide != Slide.Progress;
         if (slide == Slide.Models && listPurpose != ListPurpose.Ollama) showPrimary = false;
-        PrimaryButton.gameObject.SetActive(showPrimary); SecondaryButton.gameObject.SetActive(!complete);
-        PrimaryButton.interactable = !busy && (slide != Slide.Consent || ConsentToggle.isOn);
+        bool viewingTerms = ModelTermsPanel.activeSelf;
+        PrimaryButton.gameObject.SetActive(showPrimary && !viewingTerms); SecondaryButton.gameObject.SetActive(!complete && !viewingTerms);
+        ConsentToggle.interactable = !termsLoading;
+        PrimaryButton.interactable = !busy && !termsLoading && (slide != Slide.Consent || ConsentToggle.isOn);
         var primarySurface = PrimaryButton.GetComponent<Image>();
         primarySurface.sprite = PrimaryButton.interactable ? PrimaryGradient : ButtonShape;
         primarySurface.type = PrimaryButton.interactable ? Image.Type.Simple : Image.Type.Sliced;
@@ -363,7 +429,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     }
     void DrainProgress() { lock (progressLock) while (pending.Count > 0) RenderProgress(pending.Dequeue()); }
     void Update() => DrainProgress();
-    void OnDestroy() { destroyed = true; Browser?.Close(); operation?.Cancel(); services?.Dispose(); }
+    void OnDestroy() { destroyed = true; Browser?.Close(); operation?.Cancel(); termsRequest?.Cancel(); termsRequest?.Dispose(); services?.Dispose(); }
     static void OpenTerms(string url) { try { PlayerSetupPlan.ValidateHttps(url); Application.OpenURL(url); } catch (ArgumentException) { } }
     static string FormatBytes(long value) => value >= 1000000000 ? (value / 1000000000d).ToString("0.0", CultureInfo.InvariantCulture) + " GB" : value >= 1000000 ? (value / 1000000d).ToString(value < 100000000 ? "0.0" : "0", CultureInfo.InvariantCulture) + " MB" : value >= 1000 ? (value / 1000d).ToString("0", CultureInfo.InvariantCulture) + " KB" : Math.Max(0, value) + " B";
 }

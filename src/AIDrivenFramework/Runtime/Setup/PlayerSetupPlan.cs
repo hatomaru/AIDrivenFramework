@@ -13,6 +13,7 @@ namespace AIDrivenFW.Setup
         public string Model;
         public string Mode = "Ollama";
         public string ModelTerms;
+        public string ModelTermsText = "";
         public string ModelSource;
         public string RuntimeTerms = RuntimeRelease.TermsUrl;
         public long ModelBytes;
@@ -20,7 +21,7 @@ namespace AIDrivenFW.Setup
         public string RuntimePath = "";
         public string ModelPath = "";
         public bool Installed = false;
-        // For a player-owned GGUF whose terms must be reviewed at its original source.
+        // No registered terms page: require explicit review at the model's original source.
         public bool ReviewModelTermsAtSource;
 
         public PlayerSetupPlan()
@@ -37,7 +38,7 @@ namespace AIDrivenFW.Setup
             if (Mode != "Ollama" && Mode != "Llama") throw new ArgumentException("Unsupported runtime.");
             if (string.IsNullOrWhiteSpace(Model) || ModelBytes <= 0)
                 throw new ArgumentException("A model and its estimated size are required.");
-            if (Mode != "Llama" || !ReviewModelTermsAtSource || !string.IsNullOrWhiteSpace(ModelTerms)) ValidateHttps(ModelTerms);
+            if (!ReviewModelTermsAtSource || !string.IsNullOrWhiteSpace(ModelTerms)) ValidateHttps(ModelTerms);
             ValidateHttps(RuntimeTerms);
             if (Mode == "Ollama")
             {
@@ -63,17 +64,35 @@ namespace AIDrivenFW.Setup
         {
             Name = Model, Mode = Mode, RuntimePath = RuntimePath, ModelPath = ModelPath,
             ConsentRevision = ModelInfo.CurrentConsentRevision, ConsentUtc = consentUtc,
-            ModelTermsUrl = ModelTerms, RuntimeTermsUrl = RuntimeTerms, LocalModelTermsReviewed = Mode == "Llama" && ReviewModelTermsAtSource
+            ModelTermsUrl = ModelTerms, RuntimeTermsUrl = RuntimeTerms,
+            ModelTermsReviewedAtSource = ReviewModelTermsAtSource,
+            ModelTermsTextSha256 = TermsDigest(ModelTermsText),
+            LocalModelTermsReviewed = Mode == "Llama" && ReviewModelTermsAtSource
         };
 
         public static string OllamaModelPage(string tag) => "https://ollama.com/" + (tag.Contains("/") ? "" : "library/") + tag;
+
+        static string TermsDigest(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            return BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(text))).Replace("-", "").ToLowerInvariant();
+        }
 
         // The game config is the catalog; no second model list lives in the screen or setup layer.
         public static PlayerSetupPlan[] Choices() => FromConfig(AIDrivenConfig.Instance?.OllamaRecommendModelInfos ?? AIDrivenConfig.CreateRecommendedModels(true));
         public static PlayerSetupPlan[] FromConfig(ModelInfoConfig[] entries) => (entries ?? Array.Empty<ModelInfoConfig>())
             .Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.ModelName))
             .Select(entry => new PlayerSetupPlan { Model = entry.ModelName, ModelSource = entry.DownloadUrl,
-                ModelTerms = entry.LicenseUrl, ModelBytes = entry.EstimatedDownloadBytes, Level = entry.Level }).ToArray();
+                ModelTerms = entry.LicenseUrl, ReviewModelTermsAtSource = string.IsNullOrWhiteSpace(entry.LicenseUrl),
+                ModelBytes = entry.EstimatedDownloadBytes, Level = entry.Level }).ToArray();
+
+        public static string ConfiguredModelTerms(string model, ModelInfoConfig[] entries)
+        {
+            string url = entries?.FirstOrDefault(e => e != null && string.Equals(e.ModelName, model?.Trim(), StringComparison.OrdinalIgnoreCase))?.LicenseUrl;
+            try { ValidateHttps(url); return url.Trim(); }
+            catch (ArgumentException) { return ""; }
+        }
     }
 
     public static class RuntimeRelease

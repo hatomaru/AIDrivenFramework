@@ -11,6 +11,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
+using UnityEditor.TestTools.TestRunner.Api;
 
 // Install in Assets/Editor of the validation host. Uses inert files and injected services only.
 public static class SetupCanvasValidation
@@ -18,6 +19,35 @@ public static class SetupCanvasValidation
     const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
     static int assertions;
     static readonly string Output = Environment.GetEnvironmentVariable("SETUP_QA_OUTPUT") ?? Path.Combine(Path.GetTempPath(), "FrameworkCanvasProof");
+    static TestRunnerApi unitRunner;
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Validate All Offline")]
+    public static void ValidateAllOffline()
+    {
+        SessionState.SetBool("CanvasValidation.AfterUnits", true); RunUnitChecks();
+    }
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Run Unit Checks")]
+    public static void RunUnitChecks()
+    {
+        Directory.CreateDirectory(Output); unitRunner = ScriptableObject.CreateInstance<TestRunnerApi>();
+        unitRunner.RegisterCallbacks(new UnitResults());
+        unitRunner.Execute(new ExecutionSettings(new Filter { testMode = TestMode.EditMode, assemblyNames = new[] { "AIDrivenFW.Unit.Tests" } }));
+    }
+    sealed class UnitResults : ICallbacks
+    {
+        public void RunStarted(ITestAdaptor testsToRun) { }
+        public void TestStarted(ITestAdaptor test) { }
+        public void TestFinished(ITestResultAdaptor result) { }
+        public void RunFinished(ITestResultAdaptor result)
+        {
+            TestRunnerApi.SaveResultToFile(result, Path.Combine(Output, "unit.xml"));
+            Debug.Log("SETUP UNIT RESULTS: " + result.PassCount + " passed; " + result.FailCount + " failed; " + result.SkipCount + " skipped");
+            if (SessionState.GetBool("CanvasValidation.AfterUnits", false))
+            {
+                SessionState.SetBool("CanvasValidation.AfterUnits", false);
+                if (result.FailCount == 0 && result.PassCount > 0) EditorApplication.delayCall += Start;
+            }
+        }
+    }
     [MenuItem("Tools/AIDrivenFW/Canvas Setup/Validate Offline")]
     public static void Start()
     {
@@ -56,6 +86,8 @@ public static class SetupCanvasValidation
             Check(hits.Count > 0 && hits[0].gameObject.GetComponentInParent<Button>() == ui.ChangeModelButton, "Authored navigation receives pointer raycasts");
             ExecuteEvents.Execute(ui.ChangeModelButton.gameObject, pointer, ExecuteEvents.pointerClickHandler);
             Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Runtime, "Pointer handler opens runtime selection"); ui.Go(PlayerSetupScreen.Slide.Welcome);
+            await ModelTermsChecks(ui); ui.ModelLicenseReader = (tag, ct) => UniTask.FromResult(""); ui.Go(PlayerSetupScreen.Slide.Welcome);
+            typeof(PlayerSetupScreen).GetField("runtimeChosen", Private).SetValue(ui, false);
             var fixture = Path.Combine(Output, "Files"); Directory.CreateDirectory(fixture); Directory.CreateDirectory(Path.Combine(fixture, "Models"));
             File.WriteAllText(Path.Combine(fixture, "llama-server.exe"), "inert fixture; never execute"); File.WriteAllText(Path.Combine(fixture, "fixture.gguf"), "inert fixture; never load"); File.WriteAllText(Path.Combine(fixture, "other.exe"), "inert fixture");
             Environment.SetEnvironmentVariable("PATH", fixture + Path.PathSeparator + path);
@@ -99,6 +131,35 @@ public static class SetupCanvasValidation
         }
     }
     static async UniTask WaitBrowser(SetupFilePicker b) { for (int i = 0; b.IsLoading && i < 100; i++) await UniTask.Delay(30); Check(!b.IsLoading, "Directory read finished"); }
+    static async UniTask ModelTermsChecks(PlayerSetupScreen ui)
+    {
+        string requested = null; string terms = "<b>Plain model license</b>\n" + new string('a', 2300) + new string('b', 2400);
+        ui.ModelLicenseReader = (tag, ct) => { requested = tag; return UniTask.FromResult(terms); };
+        ui.ChangeModelButton.onClick.Invoke(); ui.OllamaButton.onClick.Invoke(); ui.CustomModelButton.onClick.Invoke();
+        ui.ModelTag.text = "fixture/custom:1b"; ui.ModelSize.text = "12"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Consent && requested == "fixture/custom:1b", "Metadata request uses the manually selected tag");
+        Check(ui.ModelLicenseButton.gameObject.activeSelf && ui.ReviewSource.text.Contains("Ollama"), "Ollama license text is offered instead of an invented URL");
+        var selection = (PlayerSetupPlan)typeof(PlayerSetupScreen).GetField("selection", Private).GetValue(ui);
+        Check(string.IsNullOrEmpty(selection.ModelTerms) && selection.ModelTermsText == terms, "Custom model does not inherit another model's license URL");
+        ui.ModelLicenseButton.onClick.Invoke(); Check(ui.ModelTermsPanel.activeSelf && !ui.ModelTermsBody.supportRichText && ui.ModelTermsBody.text.StartsWith("<b>"), "License viewer uses authored Canvas controls and plain text");
+        ui.SetLanguage(false); Check(ui.ModelTermsTitle.text.StartsWith("Model terms"), "License viewer title switches to English"); ui.SetLanguage(true);
+        Check(ui.TermsPageCaption.text == "1 / 3" && !ui.PrimaryButton.gameObject.activeSelf, "Long license is paged without setup actions over it");
+        ui.NextTermsButton.onClick.Invoke(); Check(ui.TermsPageCaption.text == "2 / 3", "License page navigation works");
+        ui.NextTermsButton.onClick.Invoke(); Check(!ui.NextTermsButton.interactable && ui.ModelTermsBody.text.EndsWith("bbbb"), "Final license page is accessible");
+        ui.CloseModelTermsButton.onClick.Invoke(); Check(!ui.ModelTermsPanel.activeSelf && ui.Slides[(int)PlayerSetupScreen.Slide.Consent].activeSelf && !ui.ConsentToggle.isOn, "Reading terms does not automatically grant consent");
+        ui.ModelLicenseReader = (tag, ct) => UniTask.FromResult("");
+        ui.Go(PlayerSetupScreen.Slide.Custom); ui.ModelTag.text = "fixture/missing:1b"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        Check(!ui.ModelLicenseButton.gameObject.activeSelf && ui.ReviewSource.text.Contains("手動確認") && ui.ConsentCaption.text.Contains("手動確認"), "Missing model terms show explicit Japanese manual review");
+        Check(ui.ReviewSource.preferredHeight <= ui.ReviewSource.rectTransform.rect.height, "Manual review instructions fit the saved layout");
+        ui.SetLanguage(false); Check(ui.ReviewSource.text.Contains("Manually") && ui.ConsentCaption.text.Contains("manually"), "Missing model terms show English manual review"); ui.SetLanguage(true);
+        var delayed = new UniTaskCompletionSource<string>(); ui.ModelLicenseReader = (tag, ct) => delayed.Task;
+        ui.Go(PlayerSetupScreen.Slide.Custom); ui.ModelTag.text = "fixture/old:1b"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        Check(!ui.PrimaryButton.interactable && !ui.ConsentToggle.interactable, "Pending metadata keeps consent disabled");
+        ui.Go(PlayerSetupScreen.Slide.Custom); ui.ModelLicenseReader = (tag, ct) => UniTask.FromResult("New model terms"); ui.ModelTag.text = "fixture/new:1b"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        delayed.TrySetResult("Wrong old model terms"); await UniTask.Delay(80);
+        selection = (PlayerSetupPlan)typeof(PlayerSetupScreen).GetField("selection", Private).GetValue(ui);
+        Check(selection.Model == "fixture/new:1b" && selection.ModelTermsText == "New model terms", "Late metadata cannot replace the new model's terms");
+    }
     static double Contrast(Color a, Color b)
     {
         double Linear(float c) => c <= .04045 ? c / 12.92 : Math.Pow((c + .055) / 1.055, 2.4);

@@ -50,6 +50,7 @@ public static class SetupCanvasSceneBuilder
         var layout = actions.gameObject.AddComponent<HorizontalLayoutGroup>(); layout.childAlignment = TextAnchor.MiddleCenter; layout.childControlWidth = layout.childControlHeight = layout.childForceExpandWidth = layout.childForceExpandHeight = false; layout.spacing = 12;
         ui.SecondaryButton = Button("Back or Cancel", actions, 130, 46, 0, 0, false); ui.SecondaryCaption = PlainCaption(ui.SecondaryButton, "今はやめる", 16);
         ui.PrimaryButton = Button("Continue or Prepare", actions, 158, 46, 0, 0, true); ui.PrimaryCaption = PlainCaption(ui.PrimaryButton, "続ける", 16, Color.white);
+        TermsViewer(ui, card.transform);
         ui.Labels = labels.ToArray(); motion.FloatingIcons = icons.ToArray(); motion.Sparks = sparks.ToArray();
         for (int i = 0; i < 8; i++) ui.Slides[i].SetActive(i == 0);
         ui.OllamaFields.SetActive(false); ui.LlamaFields.SetActive(true);
@@ -58,6 +59,31 @@ public static class SetupCanvasSceneBuilder
         Debug.Log("CANVAS AUTHORING PASS: " + go.GetComponentsInChildren<RectTransform>(true).Length + " editable RectTransforms, 8 slides and 8 reusable file rows.");
     }
     static Transform Page(PlayerSetupScreen ui, PlayerSetupScreen.Slide slide) => ui.Slides[(int)slide].transform;
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Add Terms Viewer")]
+    public static void InstallTermsViewer()
+    {
+        var ui = UnityEngine.Object.FindFirstObjectByType<PlayerSetupScreen>();
+        if (!ui || ui.ModelTermsPanel) return;
+        font = AssetDatabase.LoadAssetAtPath<Font>(Art + "/NotoSansJP-Regular.otf"); round = AssetDatabase.LoadAssetAtPath<Sprite>(Art + "/Rounded.png");
+        labels.Clear(); TermsViewer(ui, ui.Slides[0].transform.parent);
+        var combined = new List<SetupCanvasLabel>(ui.Labels); combined.AddRange(labels); ui.Labels = combined.ToArray();
+        EditorSceneManager.MarkSceneDirty(ui.gameObject.scene); EditorSceneManager.SaveScene(ui.gameObject.scene);
+        Debug.Log("TERMS VIEWER AUTHORING PASS: added saved Canvas controls without replacing existing layout.");
+    }
+    static void TermsViewer(PlayerSetupScreen ui, Transform card)
+    {
+        var p = Image("Model Terms Viewer", card, round, new Color32(250, 251, 254, 255)); Stretch(p.rectTransform, 0, 0, 0, 0); p.raycastTarget = true; ui.ModelTermsPanel = p.gameObject;
+        ui.ModelTermsTitle = Text("Model Terms Title", p.transform, "モデルの利用条件", 23, 568, 64, 24, Ink, true);
+        Copy("Source", p.transform, "Ollamaが返した本文です。内容を確認してください。", "Text supplied by Ollama. Please review it carefully.", 14, 568, 40, 90);
+        var viewport = Image("Terms Viewport", p.transform, round, Color.white); Top(viewport.rectTransform, 568, 416, 142); viewport.gameObject.AddComponent<RectMask2D>(); viewport.raycastTarget = true;
+        var text = Text("Terms Text", viewport.transform, "", 14, 536, 416, 0, Ink); text.alignment = TextAnchor.UpperLeft; text.supportRichText = false; text.rectTransform.pivot = new Vector2(.5f, 1); text.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        ui.ModelTermsBody = text; var scroll = viewport.gameObject.AddComponent<ScrollRect>(); scroll.viewport = viewport.rectTransform; scroll.content = text.rectTransform; scroll.horizontal = false; scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 32; ui.ModelTermsScroll = scroll;
+        ui.PreviousTermsButton = Link("Previous Terms Page", p.transform, "前へ", "Previous", 108, 36, 574, -222);
+        ui.NextTermsButton = Link("Next Terms Page", p.transform, "次へ", "Next", 108, 36, 574, 222);
+        ui.TermsPageCaption = Text("Terms Page", p.transform, "1 / 1", 14, 240, 36, 574, Secondary);
+        ui.CloseModelTermsButton = Link("Close Terms", p.transform, "内容を確認して戻る", "Back to setup", 250, 42, 622);
+        p.gameObject.SetActive(false);
+    }
     static void Welcome(PlayerSetupScreen ui)
     {
         var p = Page(ui, PlayerSetupScreen.Slide.Welcome); Hero(p, 34);

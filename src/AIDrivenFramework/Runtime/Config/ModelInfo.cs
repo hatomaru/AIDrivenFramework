@@ -21,11 +21,14 @@ namespace AIDrivenFW.Config
         public string ModelTermsUrl = "";
         public string RuntimeTermsUrl = "";
         public bool LocalModelTermsReviewed;
+        public bool ModelTermsReviewedAtSource;
+        public string ModelTermsTextSha256 = "";
 
         public const string CurrentConsentRevision = "player-setup-1";
         public bool HasPlayerConsent => ConsentRevision == CurrentConsentRevision &&
             !string.IsNullOrEmpty(ConsentUtc) && (!string.IsNullOrEmpty(ModelTermsUrl) ||
-            (Mode == "Llama" && LocalModelTermsReviewed && !string.IsNullOrEmpty(ModelPath)));
+            (Mode == "Llama" && LocalModelTermsReviewed && !string.IsNullOrEmpty(ModelPath)) ||
+            (Mode == "Ollama" && ModelTermsReviewedAtSource && !string.IsNullOrWhiteSpace(Name)));
 
         public static string SettingsPath => Path.Combine(Application.persistentDataPath,
             "AIDrivenFramework", FileName);

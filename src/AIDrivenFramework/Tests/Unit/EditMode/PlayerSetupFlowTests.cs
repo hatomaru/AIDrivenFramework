@@ -157,16 +157,44 @@ namespace AIDrivenFW.Tests.Unit
 
         [TestCase("qwen3:0.6b", "https://ollama.com/library/qwen3:0.6b")]
         [TestCase("author/custom:tag", "https://ollama.com/author/custom:tag")]
-        public void CustomOllamaTermsUseTheCorrectDistributionPage(string tag, string page)
+        public void OllamaSourceUsesTheCorrectDistributionPage(string tag, string page)
             => Assert.AreEqual(page, PlayerSetupPlan.OllamaModelPage(tag));
 
         [Test]
-        public void LocalTermsReceiptCannotReplaceOllamaTerms()
+        public void OllamaManualReviewRequiresItsOwnExplicitReceipt()
         {
             var plan = new PlayerSetupPlan { ModelTerms = "", ReviewModelTermsAtSource = true };
-            Assert.Throws<ArgumentException>(plan.Validate);
-            Assert.IsFalse(new ModelInfo { Mode = "Ollama", ConsentRevision = ModelInfo.CurrentConsentRevision,
+            Assert.DoesNotThrow(plan.Validate);
+            var settings = ModelInfo.FromJson(plan.ToSettings("fixture").ToJson());
+            Assert.IsTrue(settings.HasPlayerConsent); Assert.IsTrue(settings.ModelTermsReviewedAtSource);
+            Assert.IsFalse(settings.LocalModelTermsReviewed); Assert.IsEmpty(settings.ModelTermsUrl);
+            plan.ReviewModelTermsAtSource = false; Assert.Throws<ArgumentException>(plan.Validate);
+            Assert.IsFalse(new ModelInfo { Name = "fixture:1b", Mode = "Ollama", ConsentRevision = ModelInfo.CurrentConsentRevision,
                 ConsentUtc = "fixture", LocalModelTermsReviewed = true, ModelPath = "file.gguf" }.HasPlayerConsent);
+        }
+
+        [Test]
+        public void TermsResolveOnlyFromTheSelectedModelsExplicitLicense()
+        {
+            var entries = new[] {
+                new ModelInfoConfig("known:1b", "https://example.com/download", 0, 0, ModelLevel.Light) { LicenseUrl = "https://example.com/known-license" },
+                new ModelInfoConfig("custom:1b", "https://example.com/not-a-license", 0, 0, ModelLevel.Light)
+            };
+            Assert.AreEqual("https://example.com/known-license", PlayerSetupPlan.ConfiguredModelTerms("known:1b", entries));
+            Assert.IsEmpty(PlayerSetupPlan.ConfiguredModelTerms("custom:1b", entries));
+            Assert.IsEmpty(PlayerSetupPlan.ConfiguredModelTerms("another:1b", entries));
+            entries[1].LicenseUrl = "file:///license";
+            Assert.IsEmpty(PlayerSetupPlan.ConfiguredModelTerms("custom:1b", entries));
+        }
+
+        [Test]
+        public void MetadataTermsReceiptRetainsTheExactTextDigest()
+        {
+            var plan = new PlayerSetupPlan { ModelTerms = "", ModelTermsText = "Ollama fixture terms", ReviewModelTermsAtSource = true };
+            var receipt = ModelInfo.FromJson(plan.Snapshot().ToSettings("fixture").ToJson());
+            using var sha = SHA256.Create();
+            Assert.AreEqual(BitConverter.ToString(sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(plan.ModelTermsText))).Replace("-", "").ToLowerInvariant(), receipt.ModelTermsTextSha256);
+            Assert.IsTrue(receipt.HasPlayerConsent); Assert.IsEmpty(receipt.ModelTermsUrl);
         }
 
         [UnityTest]

@@ -1,5 +1,15 @@
 # Player setup validation
 
+## Model terms resolution — 2026-11-03
+
+Manual and restored Ollama selections resolve `LicenseUrl` by their selected catalog name. Setup no longer substitutes a guessed Ollama library page or `DownloadUrl` for a missing license. When no registered page exists, it reads the selected tag's `license` text from the already-running loopback Ollama `/api/show`. Missing/unavailable/invalid/oversized metadata falls back to explicit Japanese/English manual source-review instructions with no model terms link. This metadata lookup does not start a runtime, pull weights or generate a response.
+
+The existing scene layout was preserved and a saved Canvas terms viewer added. Long text uses plain-text rendering, scrolling and pagination; viewing it never checks consent. Metadata lookup disables consent until it finishes, and cancellation/generation guards discard old model responses. Ollama source-review receipts now persist without a fabricated URL; supplied text records a SHA-256 digest. The legacy GGUF-only receipt still cannot substitute for Ollama review.
+
+Unity 6000.3.27f2: **147 Unit tests passed, 0 failed, 2 optional live-model tests skipped**, followed by **121 offline Canvas assertions passed**. Added checks cover exact model/license association, manual receipt and text digest, HTTP request model/path, missing/malformed/oversized/404 metadata, authored viewer pagination/plain text/language, no automatic consent, fitting manual instructions, pending-state gating and stale results. A read-only request to the existing Ollama service returned **8,432 license characters for gemma3:4b**; no runtime was launched and no inference/download was performed. A fresh Player build was not run.
+
+To reproduce both suites in the open validation project, install `SetupCanvasValidation.cs.txt` under `Assets/Editor` and choose **Tools > AIDrivenFW > Canvas Setup > Validate All Offline**. Results are `unit.xml` and `result.txt` under `FrameworkCanvasProof` in the OS temp folder (or `SETUP_QA_OUTPUT`). To extend an older Canvas scene without replacing its existing layout, use **Add Terms Viewer** once; imported current packages already contain these controls.
+
 ## Canvas update — 2026-11-03
 
 Unity 6000.3.27f2 compiled the sample in the existing Windows project. The saved scene now contains a uGUI Canvas, 8 slides, 218 RectTransforms and 8 reusable browser rows. Scene GUID and existing Build Settings entry were preserved. All visual objects and sprite references exist before Play; runtime code switches panels and updates data. Text uses the bundled, unmodified OFL Noto Sans JP font.

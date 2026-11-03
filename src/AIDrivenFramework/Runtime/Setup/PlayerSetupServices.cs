@@ -19,6 +19,7 @@ namespace AIDrivenFW.Setup
     [Serializable] sealed class ModelBody { public string model; public bool stream = true; }
     [Serializable] sealed class PullLine { public string status; public string digest; public long completed; public long total; public string error; }
     [Serializable] sealed class ModelDetails { public string remote_host; public string remote_model; public string[] capabilities; }
+    [Serializable] sealed class ModelLicenseDetails { public string license; }
     [Serializable] sealed class ProbeBody
     {
         public string model;
@@ -87,6 +88,32 @@ namespace AIDrivenFW.Setup
 
         public static async UniTask<InstalledModel[]> InstalledModelsAsync(CancellationToken ct)
             => await ReadInstalledAsync(local, Server, ct);
+
+        // Metadata only: never starts a server, pulls weights or generates a response.
+        public static UniTask<string> ModelLicenseAsync(string model, CancellationToken ct)
+            => ReadModelLicenseAsync(local, Server, model, ct);
+
+        internal static async UniTask<string> ReadModelLicenseAsync(HttpClient http, string address, string model, CancellationToken ct)
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            deadline.CancelAfter(TimeSpan.FromSeconds(2));
+            try
+            {
+                using var body = new StringContent(JsonUtility.ToJson(new ModelBody { model = model, stream = false }), Encoding.UTF8, "application/json");
+                using var request = new HttpRequestMessage(HttpMethod.Post, address + "/api/show") { Content = body };
+                using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+                if (!response.IsSuccessStatusCode) return "";
+                const int maximum = 1024 * 1024;
+                if (response.Content.Headers.ContentLength > maximum) return "";
+                using var stream = await response.Content.ReadAsStreamAsync();
+                using var bytes = new MemoryStream(); var buffer = new byte[8192]; int count;
+                while ((count = await stream.ReadAsync(buffer, 0, buffer.Length, deadline.Token)) > 0)
+                { if (bytes.Length + count > maximum) return ""; bytes.Write(buffer, 0, count); }
+                string text = JsonUtility.FromJson<ModelLicenseDetails>(Encoding.UTF8.GetString(bytes.ToArray()))?.license;
+                return !string.IsNullOrWhiteSpace(text) && text.Length <= 262144 ? text : "";
+            }
+            catch (Exception) when (!ct.IsCancellationRequested) { return ""; }
+        }
 
         static async UniTask<InstalledModel[]> ReadInstalledAsync(HttpClient client, string address, CancellationToken ct)
         {
