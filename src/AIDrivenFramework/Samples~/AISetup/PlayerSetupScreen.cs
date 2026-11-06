@@ -74,6 +74,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     int termsGeneration;
     bool termsLoading;
     int termsPage;
+    const int CompletionCountdownSeconds = 3;
+    int completionSecondsRemaining;
     Slide slide;
     ListPurpose listPurpose;
     int modelPage, ggufIndex = -1;
@@ -151,6 +153,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         foreach (var label in Labels) if (label != null) label.Apply(ja);
         OllamaButton.interactable = AIDrivenConfig.Instance?.IsAllaiveOllama ?? true;
         RefreshCustom(); RefreshModels(); UpdateSummary(); UpdateActions();
+        if (slide == Slide.Result && complete) UpdateCompletionCopy();
         if (slide == Slide.Browse) Browser.SetLanguage(ja);
         if (ModelTermsPanel.activeSelf) ModelTermsTitle.text = L("Model terms · ", "モデルの利用条件 ・ ") + selection.Model;
     }
@@ -354,11 +357,11 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         ConsentToggle.interactable = !termsLoading;
         foreach (var field in new[] { ModelTag, ModelSize, RuntimePath, ModelPath }) field.interactable = !busy;
         BrowseRuntimeButton.interactable = BrowseModelButton.interactable = ModelInfoButton.interactable = InstalledModelsButton.interactable = !busy;
-        PrimaryButton.interactable = !busy && !termsLoading && (slide != Slide.Consent || ConsentToggle.isOn);
+        PrimaryButton.interactable = !busy && !(complete && closing) && !termsLoading && (slide != Slide.Consent || ConsentToggle.isOn);
         var primarySurface = PrimaryButton.GetComponent<Image>();
         primarySurface.sprite = PrimaryButton.interactable ? PrimaryGradient : ButtonShape;
         primarySurface.type = PrimaryButton.interactable ? Image.Type.Simple : Image.Type.Sliced;
-        PrimaryCaption.text = slide == Slide.Consent ? L("Agree & prepare", "同意して準備する") : slide == Slide.Result ? complete ? L("Back to game", "ゲームへ進む") : L("Review & retry", "確認して再開") : L("Continue", "続ける");
+        PrimaryCaption.text = slide == Slide.Consent ? L("Agree & prepare", "同意して準備する") : slide == Slide.Result ? complete ? L("Setup complete", "セットアップ完了") : L("Review & retry", "確認して再開") : L("Continue", "続ける");
         PrimaryCaption.color = PrimaryButton.interactable ? Color.white : new Color(.227f, .275f, .322f);
         SecondaryCaption.text = busy ? L("Pause", "中断する") : slide == Slide.Welcome || slide == Slide.Result ? L("Not now", "今はやめる") : L("Back", "戻る");
     }
@@ -386,12 +389,31 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         try
         {
             bool ok = await flow.RunAsync(selection, ConsentToggle.isOn, operation.Token); if (destroyed) return;
-            complete = ok; busy = false; services.Dispose(); DrainProgress(); RenderProgress(new SetupProgress { Stage = flow.Stage, Problem = flow.Problem, Detail = flow.Detail });
-            if (ok) { await UniTask.Delay(1600, ignoreTimeScale: true, cancellationToken: destroyCancellationToken); await FinishAsync(true); }
+            complete = ok; busy = false;
+            completionSecondsRemaining = ok ? CompletionCountdownSeconds : 0;
+            services.Dispose(); DrainProgress(); RenderProgress(new SetupProgress { Stage = flow.Stage, Problem = flow.Problem, Detail = flow.Detail });
+            if (ok) await CompleteAfterCountdownAsync();
         }
         catch (OperationCanceledException) { }
         catch (Exception e) { busy = false; Debug.LogWarning("Player setup could not continue: " + e.Message); RenderProgress(new SetupProgress { Stage = SetupStage.Failed, Problem = SetupProblem.Settings }); }
         finally { operation?.Dispose(); operation = null; }
+    }
+    async UniTask CompleteAfterCountdownAsync()
+    {
+        while (completionSecondsRemaining > 0)
+        {
+            await UniTask.Delay(1000, ignoreTimeScale: true, cancellationToken: destroyCancellationToken);
+            if (closing || slide != Slide.Result) return;
+            completionSecondsRemaining--;
+            if (completionSecondsRemaining > 0) UpdateCompletionCopy();
+        }
+        Primary();
+    }
+    void UpdateCompletionCopy()
+    {
+        ResultCopy.text = closing || completionSecondsRemaining == 0
+            ? L("Setup is complete.", "セットアップが完了しました。")
+            : L($"Returning to the game in {completionSecondsRemaining} s.", $"{completionSecondsRemaining}秒後にゲームへ戻ります。");
     }
     void RenderProgress(SetupProgress p)
     {
@@ -420,7 +442,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         if (p.Stage == SetupStage.Complete || p.Stage == SetupStage.Cancelled || p.Stage == SetupStage.Failed)
         {
             ResultTitle.text = p.Stage == SetupStage.Complete ? L("You're ready.", "準備ができました。") : p.Stage == SetupStage.Cancelled ? L("Paused.", "中断しました。") : L("Let's try again.", "もう一度、準備しましょう。");
-            ResultCopy.text = p.Stage == SetupStage.Complete ? L("A real response was checked. Returning to your game…", "実際の応答を確認しました。ゲームへ戻ります…") : p.Stage == SetupStage.Cancelled ? L("Your source files are kept. Review your selection to resume.", "元のファイルは保持しています。内容を確認して再開できます。") : p.Problem == SetupProblem.RuntimeArchive && Enum.TryParse<LlamaArchiveFailure>(p.Detail, out var archiveFailure) ? ArchiveMessage(archiveFailure) : ProblemText(p.Problem);
+            if (p.Stage == SetupStage.Complete) UpdateCompletionCopy();
+            else ResultCopy.text = p.Stage == SetupStage.Cancelled ? L("Your source files are kept. Review your selection to resume.", "元のファイルは保持しています。内容を確認して再開できます。") : p.Problem == SetupProblem.RuntimeArchive && Enum.TryParse<LlamaArchiveFailure>(p.Detail, out var archiveFailure) ? ArchiveMessage(archiveFailure) : ProblemText(p.Problem);
             ResultSymbol.text = p.Stage == SetupStage.Complete ? "✓" : p.Stage == SetupStage.Cancelled ? "Ⅱ" : "!";
             ResultFill.transform.parent.gameObject.SetActive(p.Stage == SetupStage.Complete); ResultPercent.gameObject.SetActive(p.Stage == SetupStage.Complete); ResultModelButton.gameObject.SetActive(p.Stage != SetupStage.Complete);
             ConsentToggle.SetIsOnWithoutNotify(false); if (slide != Slide.Result) Go(Slide.Result);
@@ -459,7 +482,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         if (destroyed || closing) return; closing = true; AIDrivenInitializer.ReportSetupResult(success);
         if (SceneManager.sceneCount > 1) { await SceneManager.UnloadSceneAsync(gameObject.scene); return; }
-        if (success) { PrimaryCaption.text = L("Setup complete", "セットアップ完了"); PrimaryButton.interactable = false; }
+        if (success) { UpdateCompletionCopy(); UpdateActions(); }
         else { Go(Slide.Welcome); closing = false; }
     }
     static string FindLlama()

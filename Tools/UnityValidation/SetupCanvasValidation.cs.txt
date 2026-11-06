@@ -169,6 +169,16 @@ public static class SetupCanvasValidation
             Check(ui.DownloadedBytes.text.Contains("251") && ui.RemainingBytes.text.Contains("272"), "Download shows 251 MB received and 272 MB remaining");
             await UniTask.Delay(1700); Check(services.Settings != null && services.Verified && ui.Flow.Stage == SetupStage.Complete, "Only verified selection commits");
             Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Result && ui.ResultFill.fillAmount == 1, "Completion uses authored result slide");
+            Check(ui.ResultCopy.text.Contains("3秒後") && ui.PrimaryButton.interactable, "Completion starts a visible three-second countdown with a manual action");
+            ui.SetLanguage(false);
+            Check(ui.ResultCopy.text.Contains("in 3 s"), "Language switch preserves the countdown");
+            for (int i = 0; i < 40 && !ui.ResultCopy.text.Contains("in 2 s"); i++) await UniTask.Delay(25);
+            Check(ui.ResultCopy.text.Contains("in 2 s") && ui.PrimaryButton.interactable, "Countdown ticks without completing early");
+            var setupScene = ui.gameObject.scene;
+            var gameScene = UnityEngine.SceneManagement.SceneManager.CreateScene("Setup Countdown Game Fixture");
+            UnityEngine.SceneManagement.SceneManager.SetActiveScene(gameScene);
+            for (int i = 0; i < 120 && setupScene.isLoaded; i++) await UniTask.Delay(25);
+            Check(!setupScene.isLoaded && gameScene.isLoaded, "Countdown closes additive setup and leaves the game scene open");
             File.WriteAllText(Path.Combine(Output, "result.txt"), "PASS: " + assertions + " Canvas assertions\nNo model acquisition or native inference was performed.\n"); Debug.Log("CANVAS VALIDATION PASS: " + assertions); passed = true;
         }
         catch (Exception e) { Debug.LogException(e); File.WriteAllText(Path.Combine(Output, "result.txt"), "FAIL: " + e); }
