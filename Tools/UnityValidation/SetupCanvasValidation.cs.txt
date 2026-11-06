@@ -88,6 +88,12 @@ public static class SetupCanvasValidation
             Check(ui.PrimaryCaption.text == "続ける", "Japanese navigation"); ui.SetLanguage(false); Check(ui.PrimaryCaption.text == "Continue", "English navigation"); ui.SetLanguage(true);
             ui.ReduceMotionToggle.isOn = false; Check(!ui.ReduceMotionToggle.isOn, "Motion enabled");
             Check(EventSystem.current && EventSystem.current.currentInputModule, "Active UI input module exists");
+            ClickToggleCaption(ui.ReduceMotionToggle);
+            Check(ui.ReduceMotionToggle.isOn, "Japanese reduce-motion caption checks its toggle");
+            ui.SetLanguage(false);
+            ClickToggleCaption(ui.ReduceMotionToggle);
+            Check(!ui.ReduceMotionToggle.isOn, "English reduce-motion caption unchecks its toggle");
+            ui.SetLanguage(true);
             Canvas.ForceUpdateCanvases(); var pointer = new PointerEventData(EventSystem.current);
             pointer.position = RectTransformUtility.WorldToScreenPoint(null, ui.ChangeModelButton.GetComponent<RectTransform>().TransformPoint(ui.ChangeModelButton.GetComponent<RectTransform>().rect.center));
             var hits = new List<RaycastResult>(); EventSystem.current.RaycastAll(pointer, hits);
@@ -141,7 +147,14 @@ public static class SetupCanvasValidation
             Check(Contrast(ui.PrimaryCaption.color, ui.PrimaryButton.colors.disabledColor) >= 4.5, "Disabled consent caption contrast at least 4.5:1");
             Check(!ui.ModelLicenseButton.gameObject.activeSelf && ui.ConsentCaption.text.Contains("入手元"), "Unknown GGUF requires source review without fabricated terms");
             Check(services.Calls == 0 && services.Settings == null, "No preparation or commit before consent");
-            ui.ConsentToggle.isOn = true; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(180); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Progress, "Consent starts progress slide");
+            ClickToggleCaption(ui.ConsentToggle);
+            Check(ui.ConsentToggle.isOn && ui.PrimaryButton.interactable, "Japanese consent caption enables preparation");
+            ui.SetLanguage(false);
+            ClickToggleCaption(ui.ConsentToggle);
+            Check(!ui.ConsentToggle.isOn && !ui.PrimaryButton.interactable, "English consent caption unchecks consent");
+            ui.SetLanguage(true);
+            ClickToggleCaption(ui.ConsentToggle);
+            ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(180); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Progress, "Consent starts progress slide");
             Check(ui.StatusTitle.text.Contains("解凍") && ui.DownloadedBytes.text.Contains("解凍済み") && ui.RemainingBytes.text.Contains("残り"), "ZIP progress distinguishes extraction from download");
             ui.SecondaryButton.onClick.Invoke(); await UniTask.Delay(180); Check(ui.Flow.Stage == SetupStage.Cancelled && services.Settings == null, "Pause prevents saving settings");
             services = new Fixture { RuntimeFailure = new SetupException(SetupProblem.RuntimeArchive, LlamaArchiveFailure.Changed.ToString()) }; ui.SetServices(services);
@@ -164,6 +177,21 @@ public static class SetupCanvasValidation
             Environment.SetEnvironmentVariable("PATH", path); PlayerPrefs.SetString("AIDrivenFW.Setup.Language", language); PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", motion); PlayerPrefs.Save(); EditorApplication.isPlaying = false;
             if (Application.isBatchMode) EditorApplication.delayCall += () => EditorApplication.Exit(passed ? 0 : 1);
         }
+    }
+    static void ClickToggleCaption(Toggle toggle)
+    {
+        Canvas.ForceUpdateCanvases();
+        var caption = toggle.transform.Find("Caption").GetComponent<Text>();
+        var rect = caption.rectTransform;
+        var pointer = new PointerEventData(EventSystem.current)
+        {
+            position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(new Vector2(rect.rect.xMin + 10, rect.rect.center.y))),
+            button = PointerEventData.InputButton.Left
+        };
+        var hits = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointer, hits);
+        Check(hits.Count > 0 && hits[0].gameObject == caption.gameObject, "Caption receives pointer raycast: " + toggle.name);
+        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
     }
     static async UniTask WaitBrowser(SetupFilePicker b) { for (int i = 0; b.IsLoading && i < 100; i++) await UniTask.Delay(30); Check(!b.IsLoading, "Directory read finished"); }
     static async UniTask ModelTermsChecks(PlayerSetupScreen ui)

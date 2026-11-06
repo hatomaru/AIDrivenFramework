@@ -262,7 +262,9 @@ public static class SetupCanvasSceneBuilder
     {
         var root = Rect(name, parent, width, height); var t = root.gameObject.AddComponent<Toggle>(); var box = Image("Checkbox", root, round, Color.white); Center(box.rectTransform, 22, 22, -width / 2 + 16); box.raycastTarget = true; var outline = box.gameObject.AddComponent<Outline>(); outline.effectColor = Secondary; outline.effectDistance = new Vector2(1, -1);
         var mark = Image("Check", box.transform, round, Blue); Center(mark.rectTransform, 14, 14); t.targetGraphic = box; t.graphic = mark; t.isOn = false;
-        Copy("Caption", root, jp, en, size, width - 42, height, 0, false, TextAnchor.MiddleLeft, 21); return t;
+        var caption = Copy("Caption", root, jp, en, size, width - 42, height, 0, false, TextAnchor.MiddleLeft, 21);
+        caption.raycastTarget = true;
+        return t;
     }
     static InputField Input(string name, Transform parent, string value, string placeholder, float width, float height, float top, float x = 0)
     {
