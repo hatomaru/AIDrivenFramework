@@ -1,5 +1,6 @@
 using AIDrivenFW.Config;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -48,6 +49,7 @@ namespace AIDrivenFW.Core
         private readonly bool _redirectStdIn;
         private readonly bool _redirectStdOut;
         private readonly bool _redirectStdErr;
+        private GenAIConfig ownedConfig;
 
         /// <summary>
         /// AIプロセスのコンストラクタ、プロセスを開始する
@@ -56,11 +58,13 @@ namespace AIDrivenFW.Core
         /// <param name="redirectStdOut">標準出力をリダイレクトするか</param>
         /// <param name="redirectStdIn">標準入力をリダイレクトするか</param>
         /// <param name="redirectStdErr">標準エラー出力をリダイレクトするか</param>
-        public AIProcess(GenAIConfig genAIConfig = null, bool redirectStdIn = true, bool redirectStdOut = true, bool redirectStdErr = true)
+        public AIProcess(GenAIConfig genAIConfig = null, bool redirectStdIn = true, bool redirectStdOut = true, bool redirectStdErr = true,
+            IDictionary<string, string> environment = null)
         {
             if (genAIConfig == null)
             {
-                genAIConfig = new GenAIConfig();
+                ownedConfig = GenAIConfigLifecycle.CreateOwned();
+                genAIConfig = ownedConfig;
             }
             aiConfig = genAIConfig;
             _redirectStdIn = redirectStdIn;
@@ -80,6 +84,9 @@ namespace AIDrivenFW.Core
                 RedirectStandardError = redirectStdErr,
                 // StandardOutputEncoding/StandardErrorEncoding are set below only when redirection is enabled
             };
+            Directory.CreateDirectory(psi.WorkingDirectory);
+            if (environment != null)
+                foreach (var pair in environment) psi.EnvironmentVariables[pair.Key] = pair.Value;
             UnityEngine.Debug.Log($"{psi.FileName} {psi.Arguments}");
             state = AIState.Prepare;
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
@@ -98,7 +105,8 @@ namespace AIDrivenFW.Core
             {
                 psi.StandardErrorEncoding = Encoding.UTF8;
             }
-            Boot(psi);
+            try { Boot(psi); }
+            catch { GenAIConfigLifecycle.DestroyOwned(ref ownedConfig); throw; }
         }
 
         /// <summary>
@@ -116,9 +124,9 @@ namespace AIDrivenFW.Core
                 outputBuilder.Clear();
                 errorBuilder.Clear();
             }
-            Application.quitting += KillProcess;
             // プロセスを開始
             persistentProc.Start();
+            Application.quitting += KillProcess;
             // stdout を BaseStream から直接読み取るスレッドを起動
             if (_redirectStdOut)
             {
@@ -232,7 +240,8 @@ namespace AIDrivenFW.Core
         {
             lock (_lock)
             {
-                return persistentProc != null && !persistentProc.HasExited && state >= AIState.Running;
+                try { return state == AIState.Running && persistentProc != null && !persistentProc.HasExited; }
+                catch (InvalidOperationException) { return false; }
             }
         }
 
@@ -263,6 +272,7 @@ namespace AIDrivenFW.Core
         {
             if (persistentProc == null)
             {
+                GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
                 return;
             }
             lock (_lock)
@@ -280,6 +290,7 @@ namespace AIDrivenFW.Core
 
                 persistentProc = null;
                 procStdinStream = null;
+                GenAIConfigLifecycle.DestroyOwned(ref ownedConfig);
             }
         }
 

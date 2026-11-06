@@ -21,42 +21,42 @@ namespace AIDrivenFW.Config
         private static string s_softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         private static string[] s_aiSoftwareFileFilters = { "*.zip", "*.tar.gz", "*.tar" };
         private static string[] s_modelFileFilters = { "*.gguf" };
-        // Reviewed 2026-09-08. See Docs/recommended-models.md for sources and caveats.
+        // Player-setup defaults reviewed 2026-10-17. Existing serialized catalogs remain untouched.
         // VRAM bands assume short text contexts and Q4-class weights, with room for Unity.
         private static ModelInfoConfig[] s_ollamaRecommendModelInfos = CreateRecommendedModels(true);
         private static ModelInfoConfig[] s_recommendModelInfos = CreateRecommendedModels(false);
 
-        private static ModelInfoConfig[] CreateRecommendedModels(bool ollama)
+        public static ModelInfoConfig[] CreateRecommendedModels(bool ollama)
         {
             return new ModelInfoConfig[]
             {
                 new ModelInfoConfig(
-                    modelName: "gemma3:1b",
+                    modelName: "qwen3:0.6b",
                     downloadUrl: ollama
-                        ? "https://ollama.com/library/gemma3:1b"
-                        : "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF",
+                        ? "https://ollama.com/library/qwen3:0.6b"
+                        : "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF",
                     minVRAM: 2048,
                     maxVRAM: 6143,
                     level: ModelLevel.Light
-                ),
+                ) { EstimatedDownloadBytes = ollama ? 523000000 : 639000000, LicenseUrl = "https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/LICENSE" },
                 new ModelInfoConfig(
-                    modelName: "gemma3:4b",
+                    modelName: "qwen3:1.7b",
                     downloadUrl: ollama
-                        ? "https://ollama.com/library/gemma3:4b"
-                        : "https://huggingface.co/unsloth/gemma-3-4b-it-GGUF",
+                        ? "https://ollama.com/library/qwen3:1.7b"
+                        : "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF",
                     minVRAM: 6144,
                     maxVRAM: 12287,
                     level: ModelLevel.Balanced
-                ),
+                ) { EstimatedDownloadBytes = ollama ? 1400000000 : 1830000000, LicenseUrl = "https://huggingface.co/Qwen/Qwen3-1.7B/blob/main/LICENSE" },
                 new ModelInfoConfig(
-                    modelName: "gemma4:12b",
+                    modelName: "qwen3:4b",
                     downloadUrl: ollama
-                        ? "https://ollama.com/library/gemma4:12b"
-                        : "https://huggingface.co/unsloth/gemma-4-12b-it-GGUF",
+                        ? "https://ollama.com/library/qwen3:4b"
+                        : "https://huggingface.co/Qwen/Qwen3-4B-GGUF",
                     minVRAM: 12288,
                     maxVRAM: 65536,
                     level: ModelLevel.Powerful
-                )
+                ) { EstimatedDownloadBytes = ollama ? 2500000000 : 4280000000, LicenseUrl = "https://huggingface.co/Qwen/Qwen3-4B/blob/main/LICENSE" }
             };
         }
 

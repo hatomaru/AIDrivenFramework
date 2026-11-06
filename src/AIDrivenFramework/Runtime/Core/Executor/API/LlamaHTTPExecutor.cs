@@ -66,6 +66,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
     private string ServerUrl => $"http://{ServerHost}:{ServerPort}";
 
     private AIProcess aiProcess;
+    private GenAIConfig ownedProcessConfig;
     private string _lastResponse = string.Empty;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
@@ -78,6 +79,8 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
 
     private static string FindServerExecutable()
     {
+        var saved = ModelInfo.LoadFromFile();
+        if (saved?.Mode == "Llama" && File.Exists(saved.RuntimePath)) return saved.RuntimePath;
         string root = Path.Combine(Application.persistentDataPath, AIDrivenConfig.baseFilePath);
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
         const string name = "llama-server";
@@ -101,13 +104,14 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
             throw new FileNotFoundException("llama-server executable was not found.", AISoftwarePath);
 
         // Keep the caller's asset and argument template unchanged.
-        var processConfig = new GenAIConfig();
-        processConfig.aiSoftwarePath = AISoftwarePath;
-        processConfig.modelFilePath = config?.modelFilePath ?? AIDrivenConfig.autoDetect;
-        processConfig.sysPrompt = config?.sysPrompt ?? "";
-        processConfig.arguments = SetArguments(config?.arguments, processConfig);
+        ownedProcessConfig = GenAIConfigLifecycle.CreateOwned();
+        var processConfig = ownedProcessConfig;
         try
         {
+            processConfig.aiSoftwarePath = AISoftwarePath;
+            processConfig.modelFilePath = config?.modelFilePath ?? AIDrivenConfig.autoDetect;
+            processConfig.sysPrompt = config?.sysPrompt ?? "";
+            processConfig.arguments = SetArguments(config?.arguments, processConfig);
             aiProcess = new AIProcess(processConfig, redirectStdIn: false);
             await WaitUntilReadyAsync(ct, progress, timeoutMs);
         }
@@ -318,6 +322,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
     {
         aiProcess?.KillProcess();
         aiProcess = null;
+        GenAIConfigLifecycle.DestroyOwned(ref ownedProcessConfig);
         _lastResponse = string.Empty;
     }
 

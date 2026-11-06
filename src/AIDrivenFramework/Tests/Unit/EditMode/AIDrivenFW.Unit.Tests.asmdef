@@ -7,7 +7,8 @@
         "UniTask",
         "AIFW.API",
         "AIFW.Core",
-        "AIFW.Config"
+        "AIFW.Config",
+        "AIFW.Setup"
     ],
     "includePlatforms": [
         "Editor"

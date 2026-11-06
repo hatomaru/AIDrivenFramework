@@ -18,7 +18,9 @@
   ],
   "dependencies": {
     "com.cysharp.unitask": "2.5.10",
-    "com.annulusgames.lit-motion": "2.0.1"
+    "com.annulusgames.lit-motion": "2.0.1",
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.ugui": "2.0.0"
   },
   "repository": {
     "type": "git",

@@ -2,6 +2,7 @@ using AIDrivenFW.Config;
 using AIDrivenFW.Core;
 using Cysharp.Threading.Tasks;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -49,11 +50,26 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
 
     public OllamaHTTPExecutor()
     {
-        AISoftwarePath = "ollama";
+        var saved = ModelInfo.LoadFromFile();
+        AISoftwarePath = saved?.Mode == "Ollama" && File.Exists(saved.RuntimePath) ? saved.RuntimePath : "ollama";
     }
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig config = null, IProgress<float> progress = null, int timeoutMs = 120000)
     {
+        ct.ThrowIfCancellationRequested();
+        // Reuse an installed service without launching or taking ownership of it.
+        try
+        {
+            using var probe = await httpClient.GetAsync($"{ServerUrl}/api/version", ct);
+            if (probe.IsSuccessStatusCode)
+            {
+                _serverReady = true;
+                progress?.Report(1f);
+                return;
+            }
+        }
+        catch (HttpRequestException) { }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { }
         if (_ollamaProcess != null && _ollamaProcess.IsProcessAlive())
         {
             _ollamaProcess.KillProcess();
@@ -76,13 +92,20 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
             gen.aiSoftwarePath = AISoftwarePath;
             gen.arguments = "serve";
             // Ollama serve does not use stdio for streaming, so disable redirection.
-            _ollamaProcess = new AIDrivenFW.Core.AIProcess(gen, redirectStdIn: false, redirectStdOut: false, redirectStdErr: true);
+            var environment = new Dictionary<string, string> { ["OLLAMA_HOST"] = "127.0.0.1:11434" };
+            if (AISoftwarePath.StartsWith(Path.Combine(Application.persistentDataPath, "AIDrivenFramework", "Runtime"), StringComparison.OrdinalIgnoreCase))
+            {
+                environment["OLLAMA_MODELS"] = Path.Combine(Application.persistentDataPath, "AIDrivenFramework", "OllamaModels");
+                environment["OLLAMA_NO_CLOUD"] = "1";
+            }
+            _ollamaProcess = new AIDrivenFW.Core.AIProcess(gen, redirectStdIn: false, redirectStdOut: false, redirectStdErr: true, environment: environment);
             UnityEngine.Debug.Log($"[AIProcess] VRAM={UnityEngine.SystemInfo.graphicsMemorySize}MB, gpu-layers={AIDrivenConfig.RecommendedGpuLayers}, batch-size={AIDrivenConfig.RecommendedBatchSize}");
             UnityEngine.Debug.Log($"Starting process with command: {AISoftwarePath} serve");
         }
         catch (Exception e)
         {
-            UnityEngine.Debug.LogError($"❌ Ollama起動に失敗しました: {e.Message}");
+            KillProcess();
+            throw new GenAIConfigurationException($"Ollama could not start: {e.Message}");
         }
 
         await WaitUntilReadyAsync(ct, progress, timeoutMs);
