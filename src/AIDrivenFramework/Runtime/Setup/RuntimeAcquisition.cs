@@ -25,26 +25,47 @@ namespace AIDrivenFW.Setup
             catch (Exception ex) { throw new SetupException(SetupProblem.Space, "Could not check available disk space.", ex); }
         }
 
-        public static async Task<string> AcquireAsync(string destination, Action<SetupProgress> progress, CancellationToken ct)
+        public static Task<string> AcquireAsync(string destination, Action<SetupProgress> progress, CancellationToken ct)
         {
+            var asset = RuntimeRelease.Current;
+            if (asset == null) throw new SetupException(SetupProblem.Runtime, "No portable Ollama release is available for this platform.");
+            return AcquireAsync(destination, asset, downloads, progress, ct);
+        }
+
+        internal static bool IsVerifiedInstall(string destination, RuntimeRelease.Asset asset)
+        {
+            if (asset == null) return false;
+            try
+            {
+                string stamp = Path.Combine(destination, "verified.sha256");
+                return File.Exists(Path.Combine(destination, "ollama.exe")) && File.Exists(stamp) &&
+                    new FileInfo(stamp).Length == 64 && string.Equals(File.ReadAllText(stamp), asset.Sha256, StringComparison.Ordinal);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { return false; }
+        }
+
+        internal static async Task<string> AcquireAsync(string destination, RuntimeRelease.Asset asset, HttpClient http,
+            Action<SetupProgress> progress, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
             var executable = Path.Combine(destination, "ollama.exe");
-            var stamp = Path.Combine(destination, "verified.sha256");
-            if (File.Exists(executable) && File.Exists(stamp) && File.ReadAllText(stamp) == RuntimeRelease.Sha256)
-                return executable;
+            if (IsVerifiedInstall(destination, asset)) return executable;
             if (Directory.Exists(destination))
                 throw new SetupException(SetupProblem.Runtime, "The runtime folder exists but could not be verified. Choose an installed runtime or repair this folder.");
 
-            RequireSpace(destination, RuntimeRelease.Bytes + 5 * GiB);
-            string parent = Path.GetDirectoryName(destination);
-            Directory.CreateDirectory(parent);
+            RequireSpace(destination, asset.Bytes + 5 * GiB);
+            string parent = Path.GetDirectoryName(Path.GetFullPath(destination));
             string staging = Path.Combine(parent, ".setup-" + Guid.NewGuid().ToString("N"));
             string archive = staging + ".zip";
             try
             {
+                Directory.CreateDirectory(parent);
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 deadline.CancelAfter(TimeSpan.FromMinutes(45));
-                using var response = await downloads.GetAsync(RuntimeRelease.Url, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+                using var response = await http.GetAsync(asset.Url, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
                 response.EnsureSuccessStatusCode();
+                if (response.Content.Headers.ContentLength is long length && length != asset.Bytes)
+                    throw new InvalidDataException("Unexpected runtime download size.");
                 using (var body = await response.Content.ReadAsStreamAsync())
                 using (var output = new FileStream(archive, FileMode.CreateNew, FileAccess.Write, FileShare.None, 131072, true))
                 {
@@ -57,18 +78,20 @@ namespace AIDrivenFW.Setup
                         int read = await body.ReadAsync(buffer, 0, buffer.Length, idle.Token);
                         if (read == 0) break;
                         count += read;
-                        if (count > RuntimeRelease.Bytes) throw new InvalidDataException("Unexpected runtime download size.");
+                        if (count > asset.Bytes) throw new InvalidDataException("Unexpected runtime download size.");
                         await output.WriteAsync(buffer, 0, read, deadline.Token);
-                        progress?.Invoke(new SetupProgress { Stage = SetupStage.Runtime, CompletedBytes = count, TotalBytes = RuntimeRelease.Bytes });
+                        progress?.Invoke(new SetupProgress { Stage = SetupStage.Runtime, CompletedBytes = count, TotalBytes = asset.Bytes });
                     }
-                    if (count != RuntimeRelease.Bytes) throw new InvalidDataException("The runtime download is incomplete.");
+                    if (count != asset.Bytes) throw new InvalidDataException("The runtime download is incomplete.");
                 }
-                await Task.Run(() => VerifyAndExtract(archive, staging, RuntimeRelease.Sha256, deadline.Token), deadline.Token);
+                await Task.Run(() => VerifyAndExtract(archive, staging, asset.Sha256, deadline.Token), deadline.Token);
                 deadline.Token.ThrowIfCancellationRequested();
                 if (!File.Exists(Path.Combine(staging, "ollama.exe")))
                     throw new InvalidDataException("The archive contains no Ollama executable.");
-                File.WriteAllText(Path.Combine(staging, "verified.sha256"), RuntimeRelease.Sha256);
-                Directory.Move(staging, destination);
+                File.WriteAllText(Path.Combine(staging, "verified.sha256"), asset.Sha256);
+                deadline.Token.ThrowIfCancellationRequested();
+                try { Directory.Move(staging, destination); }
+                catch (IOException) when (IsVerifiedInstall(destination, asset)) { } // Another setup finished first.
                 return executable;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -80,8 +103,10 @@ namespace AIDrivenFW.Setup
             finally
             {
                 // Both paths are unique to this attempt; a working install is never removed.
-                if (File.Exists(archive)) File.Delete(archive);
-                if (Directory.Exists(staging)) Directory.Delete(staging, true);
+                try { File.Delete(archive); }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { }
+                try { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { }
             }
         }
 

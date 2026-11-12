@@ -337,9 +337,16 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         string engine = selection.Mode == "Llama" ? "llama.cpp" : "Ollama";
         WelcomeSelection.text = ReviewName.text = engine + " · " + selection.Model;
         ReviewDownload.text = selection.Mode == "Llama" ? L("Use your files · no model download", "手持ちのファイルを使用・モデル取得なし") : exists ? L("Model installed · no download", "モデル導入済み・取得なし") : L("Model download: about ", "モデル取得：約") + FormatBytes(selection.ModelBytes);
-        ReviewRuntime.text = selection.Mode == "Llama" ? string.IsNullOrEmpty(selection.RuntimeArchivePath) ? "llama.cpp / GGUF" : L("ZIP extraction: ", "ZIP解凍：約") + FormatBytes(selection.RuntimeExpandedBytes) : needsRuntime ? "Ollama " + RuntimeRelease.Version + (RuntimeRelease.CanAcquire ? L(" · about ", "・約") + FormatBytes(RuntimeRelease.Bytes) : L(" · install from ollama.com/download", "・公式ページから導入")) : L("Use installed Ollama", "導入済みOllamaを使用");
+        var asset = RuntimeRelease.Current;
+        ReviewRuntime.text = selection.Mode == "Llama"
+            ? (string.IsNullOrEmpty(selection.RuntimeArchivePath) ? "llama.cpp / GGUF" : L("ZIP extraction: ", "ZIP解凍：約") + FormatBytes(selection.RuntimeExpandedBytes))
+            : !needsRuntime ? L("Use installed Ollama", "導入済みOllamaを使用")
+            : asset == null ? L("Install Ollama from ollama.com/download", "Ollama公式ページから導入")
+            : $"Ollama {asset.Version} · {asset.Platform} · {FormatBytes(asset.Bytes)} · GitHub";
         bool sourceReview = selection.ReviewModelTermsAtSource;
-        ReviewSource.text = selection.Mode == "Llama" ? L("Keep files in their chosen locations.", "指定した場所にファイルを保管してください。") : L("Sources: Ollama registry/CDN", "取得先：Ollamaの配信サーバー") + (needsRuntime ? " / GitHub" : "") + "\n" + L("Allow model size + 1 GB free. Runtime unpacking needs 5 GB.", "モデル容量＋1 GB、ソフトの展開用に5 GBの空きを確保してください。");
+        ReviewSource.text = selection.Mode == "Llama" ? L("Keep files in their chosen locations.", "指定した場所にファイルを保管してください。") : L("Sources: Ollama registry/CDN", "取得先：Ollamaの配信サーバー") + "\n" + (needsRuntime && asset != null
+            ? L("Keep space for the ZIP and 5 GiB to unpack.", "ZIPと展開用の5 GiBの空きを確保してください。")
+            : L("Allow model size + 1 GiB free.", "モデル容量＋1 GiBの空きを確保してください。"));
         bool runtimeText = !string.IsNullOrWhiteSpace(selection.ModelTermsText);
         if (sourceReview) ReviewSource.text = termsLoading ? L("Checking this model's terms in Ollama…", "Ollamaでこのモデルの利用条件を確認しています…") : runtimeText ? L("Model terms were supplied by this PC's Ollama.\nRead the full text with the Model terms button.", "このPCのOllamaからモデルの利用条件を取得しました。\n「モデルの利用条件」で全文を確認してください。") : L("No model terms page or text is available.\nManually review the license at the model's original source before agreeing.", "モデルの利用条件ページ・本文を取得できません。\n同意する前に、モデルの入手元でライセンスを手動確認してください。");
         ModelLicenseButton.gameObject.SetActive(!termsLoading && (!sourceReview || runtimeText));

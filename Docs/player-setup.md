@@ -49,18 +49,18 @@ The UI uses simple code-defined shapes and fonts already installed on the operat
 
 ## Runtime acquisition and network use
 
-An existing local Ollama service is reused without taking ownership of it. If needed, an installed executable is started. On **Windows x64**, a missing runtime is acquired from the pinned official GitHub release below. Its size and SHA-256 must match before it is extracted to an attempt-specific staging directory and atomically moved into place. No installer, administrator access or global PATH change is required. OS security or firewall confirmation may still be necessary.
+An existing local Ollama service is reused without taking ownership of it. If needed, an installed executable is started. On **Windows x64 and ARM64**, setup selects the native ZIP from a pinned manifest. The consent screen shows the version, architecture, estimated size and GitHub source before download, with a link to the runtime terms. The size and SHA-256 must match before extraction and placement. No installer, administrator access or global PATH change is required. OS security or firewall confirmation may still be necessary.
 
-| Item | Value |
-| --- | --- |
-| Runtime | Ollama v0.40.5, Windows amd64 ZIP |
-| Source | [official release](https://github.com/ollama/ollama/releases/tag/v0.40.5) |
-| Archive bytes | 1,471,226,485 |
-| SHA-256 | `5134ce7e3bc8e94d0494721c799ec293b429450d0c52461b0ee3647dd3bb4bb7` |
-| Runtime terms | [upstream license](https://github.com/ollama/ollama/blob/v0.40.5/LICENSE) |
-| Metadata verification | 2026-10-16, GitHub Releases API |
+The manifest pins [Ollama v0.40.5](https://github.com/ollama/ollama/releases/tag/v0.40.5) and its [upstream license](https://github.com/ollama/ollama/blob/v0.40.5/LICENSE). Asset metadata was checked against the GitHub Releases API on 2026-11-13.
 
-Allow archive size plus 5 GiB for runtime preparation and at least model size plus 1 GiB for models. Checks are conservative, not guarantees against a disk filling during setup. A user-managed Ollama service may use a model directory that differs from the launching game's environment; configure `OLLAMA_MODELS` consistently. Portable Ollama models use the game's `persistentDataPath/AIDrivenFramework/OllamaModels` directory. macOS, Linux and Windows ARM can use an already installed local Ollama service; when absent, the UI directs the player to [Ollama's download page](https://ollama.com/download) and explains possible OS confirmation. Automatic acquisition on those platforms remains outside this implementation.
+| Platform | Archive | Bytes |
+| --- | --- | ---: |
+| Windows x64 | `ollama-windows-amd64.zip` | 1,471,226,485 |
+| Windows ARM64 | `ollama-windows-arm64.zip` | 210,479,146 |
+
+Asset selection and failure/retry paths have automated coverage. Native ARM64 startup and generation require a separate device test. The local completion marker records successful archive verification; setup does not rehash all extracted files at each launch.
+
+Allow archive size plus 5 GiB for runtime preparation and at least model size plus 1 GiB for models. A user-managed Ollama service may use a model directory that differs from the game's environment; configure `OLLAMA_MODELS` consistently. Portable Ollama models use the game's `persistentDataPath/AIDrivenFramework/OllamaModels` directory. On other platforms, an existing local Ollama service can be reused; when absent, install and start Ollama from its [official download page](https://ollama.com/download) if supported, then retry. llama.cpp still uses the existing ZIP/file selection path.
 
 Model downloads are requested through the local Ollama API and use its registry/CDN. AI prompts are sent to `127.0.0.1`; cloud model tags and remote models are rejected. This describes the local AI path, not other networking features of the game. License links open the player's browser explicitly.
 

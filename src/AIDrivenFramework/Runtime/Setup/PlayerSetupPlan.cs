@@ -105,18 +105,55 @@ namespace AIDrivenFW.Setup
 
     public static class RuntimeRelease
     {
-        // Pinned official release. Upgrade deliberately, together with size and SHA-256.
+        // Version and asset metadata are pinned together; never resolve "latest" at setup time.
         public const string Version = "v0.40.5";
         public const long Bytes = 1471226485;
         public const string Sha256 = "5134ce7e3bc8e94d0494721c799ec293b429450d0c52461b0ee3647dd3bb4bb7";
-        public const string Url = "https://github.com/ollama/ollama/releases/download/" + Version + "/ollama-windows-amd64.zip";
+        const string DownloadRoot = "https://github.com/ollama/ollama/releases/download/" + Version + "/";
+        public const string Url = DownloadRoot + "ollama-windows-amd64.zip";
         public const string TermsUrl = "https://github.com/ollama/ollama/blob/" + Version + "/LICENSE";
+
+        public sealed class Asset
+        {
+            public string Platform { get; }
+            public string Version => RuntimeRelease.Version;
+            public string Url { get; }
+            public long Bytes { get; }
+            public string Sha256 { get; }
+            public string TermsUrl => RuntimeRelease.TermsUrl;
+            internal string InstallFolder { get; }
+
+            internal Asset(string platform, string url, long bytes, string sha256, string installFolder)
+            {
+                Platform = platform; Url = url; Bytes = bytes; Sha256 = sha256; InstallFolder = installFolder;
+            }
+        }
+
+        static readonly Asset WindowsX64 = new Asset("Windows x64", Url, Bytes, Sha256, Version);
+        static readonly Asset WindowsArm64 = new Asset("Windows ARM64", DownloadRoot + "ollama-windows-arm64.zip",
+            210479146, "c3d469e4410ba9cfe3a8806b7c7c7799c365e77ccd24ab8efe2e9eec1fce8f4e", Version + "-windows-arm64");
+
+        public static Asset Select(RuntimePlatform platform, System.Runtime.InteropServices.Architecture architecture)
+        {
+            if (platform != RuntimePlatform.WindowsPlayer && platform != RuntimePlatform.WindowsEditor) return null;
+            switch (architecture)
+            {
+                case System.Runtime.InteropServices.Architecture.X64: return WindowsX64;
+                case System.Runtime.InteropServices.Architecture.Arm64: return WindowsArm64;
+                default: return null;
+            }
+        }
+
+        public static Asset Current => Select(Application.platform, System.Runtime.InteropServices.RuntimeInformation.OSArchitecture);
+        public static bool CanAcquire => Current != null;
         public static string DirectoryPath => Path.Combine(Application.persistentDataPath,
-            "AIDrivenFramework", "Runtime", Version);
+            "AIDrivenFramework", "Runtime", Current?.InstallFolder ?? Version);
         public static string ExecutablePath => Path.Combine(DirectoryPath, "ollama.exe");
-        public static bool CanAcquire => Application.platform == RuntimePlatform.WindowsPlayer ||
-            Application.platform == RuntimePlatform.WindowsEditor
-            ? System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.X64
-            : false;
+
+        internal static bool IsManagedPath(string path) =>
+            CanAcquire && string.Equals(path, ExecutablePath, StringComparison.OrdinalIgnoreCase);
+
+        internal static bool CanUseExecutable(string path) =>
+            File.Exists(path) && (!IsManagedPath(path) || RuntimeAcquisition.IsVerifiedInstall(DirectoryPath, Current));
     }
 }

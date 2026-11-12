@@ -66,21 +66,21 @@ namespace AIDrivenFW.Setup
 
         public static string FindOllama()
         {
-            if (File.Exists(RuntimeRelease.ExecutablePath)) return RuntimeRelease.ExecutablePath;
+            if (RuntimeAcquisition.IsVerifiedInstall(RuntimeRelease.DirectoryPath, RuntimeRelease.Current)) return RuntimeRelease.ExecutablePath;
             var saved = ModelInfo.LoadFromFile();
-            if (saved?.Mode == "Ollama" && File.Exists(saved.RuntimePath)) return saved.RuntimePath;
+            if (saved?.Mode == "Ollama" && RuntimeRelease.CanUseExecutable(saved.RuntimePath)) return saved.RuntimePath;
             string[] candidates =
             {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Ollama", "ollama.exe"),
                 "/usr/local/bin/ollama", "/opt/homebrew/bin/ollama", "/usr/bin/ollama",
                 "/Applications/Ollama.app/Contents/Resources/ollama"
             };
-            foreach (string path in candidates) if (File.Exists(path)) return path;
+            foreach (string path in candidates) if (RuntimeRelease.CanUseExecutable(path)) return path;
             string filename = Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer
                 ? "ollama.exe" : "ollama";
             foreach (string path in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
             {
-                try { string candidate = Path.Combine(path.Trim('"'), filename); if (File.Exists(candidate)) return candidate; }
+                try { string candidate = Path.Combine(path.Trim('"'), filename); if (RuntimeRelease.CanUseExecutable(candidate)) return candidate; }
                 catch (ArgumentException) { }
             }
             return "";
@@ -156,8 +156,8 @@ namespace AIDrivenFW.Setup
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 { throw new SetupException(SetupProblem.RuntimeArchive, LlamaArchiveFailure.Timeout.ToString()); }
             }
-            if (await ServerReadyAsync(ct)) return File.Exists(plan.RuntimePath) ? plan.RuntimePath : FindOllama();
-            string path = File.Exists(plan.RuntimePath) ? plan.RuntimePath : FindOllama();
+            if (await ServerReadyAsync(ct)) return RuntimeRelease.CanUseExecutable(plan.RuntimePath) ? plan.RuntimePath : FindOllama();
+            string path = RuntimeRelease.CanUseExecutable(plan.RuntimePath) ? plan.RuntimePath : FindOllama();
             if (string.IsNullOrEmpty(path))
             {
                 if (!RuntimeRelease.CanAcquire)
@@ -171,7 +171,7 @@ namespace AIDrivenFW.Setup
                 WorkingDirectory = Path.GetDirectoryName(path)
             };
             // A managed portable runtime stores models in the game's writable data directory.
-            if (path == RuntimeRelease.ExecutablePath)
+            if (RuntimeRelease.IsManagedPath(path))
             {
                 start.EnvironmentVariables["OLLAMA_MODELS"] = ManagedModelDirectory;
                 start.EnvironmentVariables["OLLAMA_NO_CLOUD"] = "1";
@@ -205,7 +205,7 @@ namespace AIDrivenFW.Setup
             if (exists) progress?.Invoke(new SetupProgress { Stage = SetupStage.Model, Detail = "installed" });
             if (!exists)
             {
-                string modelDirectory = plan.RuntimePath == RuntimeRelease.ExecutablePath ? ManagedModelDirectory :
+                string modelDirectory = RuntimeRelease.IsManagedPath(plan.RuntimePath) ? ManagedModelDirectory :
                     Environment.GetEnvironmentVariable("OLLAMA_MODELS") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ollama", "models");
                 RuntimeAcquisition.RequireSpace(modelDirectory, checked(plan.ModelBytes + 1024L * 1024 * 1024));
                 await PullAtAsync(client, endpoint, plan.Model, progress, ct);

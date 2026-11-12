@@ -3,6 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Net;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Text.RegularExpressions;
@@ -219,6 +223,96 @@ namespace AIDrivenFW.Tests.Unit
             }
             finally { Directory.Delete(folder, true); }
         });
+
+        [Test]
+        public void RuntimeManifestUsesTheNativeWindowsAssetOnly()
+        {
+            var x64 = RuntimeRelease.Select(RuntimePlatform.WindowsPlayer, Architecture.X64);
+            var arm = RuntimeRelease.Select(RuntimePlatform.WindowsEditor, Architecture.Arm64);
+            StringAssert.EndsWith("ollama-windows-amd64.zip", x64.Url);
+            StringAssert.EndsWith("ollama-windows-arm64.zip", arm.Url);
+            Assert.AreNotEqual(x64.Bytes, arm.Bytes);
+            Assert.AreNotEqual(x64.Sha256, arm.Sha256);
+            Assert.AreNotEqual(x64.InstallFolder, arm.InstallFolder);
+            Assert.IsNull(RuntimeRelease.Select(RuntimePlatform.WindowsPlayer, Architecture.X86));
+            Assert.IsNull(RuntimeRelease.Select(RuntimePlatform.OSXPlayer, Architecture.Arm64));
+            Assert.IsNull(RuntimeRelease.Select(RuntimePlatform.LinuxPlayer, Architecture.X64));
+        }
+
+        sealed class DownloadFixture : HttpMessageHandler
+        {
+            public byte[] Payload;
+            public bool Disconnected;
+            public int Requests;
+            public Uri Url;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            {
+                Requests++;
+                Url = request.RequestUri;
+                if (Disconnected) throw new HttpRequestException("Disconnected");
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Payload) });
+            }
+        }
+
+        static async Task<T> CaptureFailureAsync<T>(Func<Task> action) where T : Exception
+        {
+            try { await action(); }
+            catch (T error) { return error; }
+            Assert.Fail($"Expected {typeof(T).Name}.");
+            return null;
+        }
+
+        [Test]
+        public async Task PortableRuntimeRetriesAndReusesOnlyVerifiedInstallation()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "framework-runtime-" + Guid.NewGuid().ToString("N"));
+            string destination = Path.Combine(root, "version");
+            using var zipBuffer = new MemoryStream();
+            using (var zip = new ZipArchive(zipBuffer, ZipArchiveMode.Create, true))
+            using (var data = zip.CreateEntry("ollama.exe").Open())
+                data.WriteByte(1); // Inert fixture; never launched.
+            byte[] payload = zipBuffer.ToArray();
+            using var sha = SHA256.Create();
+            string digest = BitConverter.ToString(sha.ComputeHash(payload)).Replace("-", "").ToLowerInvariant();
+            var asset = new RuntimeRelease.Asset("Fixture", "https://example.com/runtime.zip", payload.Length, digest, "version");
+            using var handler = new DownloadFixture { Payload = payload, Disconnected = true };
+            using var http = new HttpClient(handler);
+            using var cancelled = new CancellationTokenSource();
+            try
+            {
+                await CaptureFailureAsync<SetupException>(() =>
+                    RuntimeAcquisition.AcquireAsync(destination, asset, http, null, CancellationToken.None));
+                Assert.IsEmpty(Directory.GetFileSystemEntries(root));
+                handler.Disconnected = false;
+                handler.Payload = (byte[])payload.Clone();
+                handler.Payload[0] ^= 0x01;
+                await CaptureFailureAsync<SetupException>(() =>
+                    RuntimeAcquisition.AcquireAsync(destination, asset, http, null, CancellationToken.None));
+                Assert.IsEmpty(Directory.GetFileSystemEntries(root));
+                handler.Payload = payload;
+                await CaptureFailureAsync<OperationCanceledException>(() =>
+                    RuntimeAcquisition.AcquireAsync(destination, asset, http, _ => cancelled.Cancel(), cancelled.Token));
+                Assert.IsEmpty(Directory.GetFileSystemEntries(root));
+
+                Directory.CreateDirectory(destination);
+                string executable = Path.Combine(destination, "ollama.exe");
+                File.WriteAllText(executable, "existing unverified install");
+                Assert.IsFalse(RuntimeAcquisition.IsVerifiedInstall(destination, asset));
+                await CaptureFailureAsync<SetupException>(() =>
+                    RuntimeAcquisition.AcquireAsync(destination, asset, http, null, CancellationToken.None));
+                Assert.AreEqual("existing unverified install", File.ReadAllText(executable));
+                Assert.AreEqual(3, handler.Requests);
+                string fresh = Path.Combine(root, "fresh");
+                string installed = await RuntimeAcquisition.AcquireAsync(fresh, asset, http, null, CancellationToken.None);
+                Assert.AreEqual(new Uri(asset.Url), handler.Url);
+                Assert.IsTrue(RuntimeAcquisition.IsVerifiedInstall(fresh, asset));
+                CollectionAssert.AreEqual(new byte[] { 1 }, File.ReadAllBytes(installed));
+                Assert.AreEqual(installed, await RuntimeAcquisition.AcquireAsync(fresh, asset, http, null, CancellationToken.None));
+                Assert.AreEqual(4, handler.Requests);
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        }
 
         [Test]
         public void DiskSpacePreflightRejectsImpossibleDownload() => Assert.Throws<SetupException>(() => RuntimeAcquisition.RequireSpace(Path.GetTempPath(), long.MaxValue));
