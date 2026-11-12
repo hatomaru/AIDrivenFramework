@@ -328,7 +328,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 1.4 GB
+  m_Text: 3.4 GB
 --- !u!222 &20098541
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4046,7 +4046,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: qwen3:1.7b
+  m_Text: gemma3:4b
 --- !u!222 &399867552
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -5530,7 +5530,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 2.5 GB
+  m_Text: 8.2 GB
 --- !u!222 &540042011
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -6262,7 +6262,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: qwen3:4b
+  m_Text: gemma3:12b
 --- !u!222 &589736678
 CanvasRenderer:
   m_ObjectHideFlags: 0

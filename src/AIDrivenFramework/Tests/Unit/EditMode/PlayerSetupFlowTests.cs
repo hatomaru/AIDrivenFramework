@@ -151,6 +151,43 @@ namespace AIDrivenFW.Tests.Unit
         public void EveryRecommendedChoiceHasSeparateTermsAndPositiveSize()
         { foreach (var plan in PlayerSetupPlan.Choices()) { Assert.DoesNotThrow(plan.Validate); Assert.Greater(plan.ModelBytes, 0); Assert.AreNotEqual(plan.ModelTerms, plan.RuntimeTerms); } }
 
+        [TestCase(true)]
+        [TestCase(false)]
+        public void ExistingCatalogUpdatesOnlyWhenAccepted(bool accept)
+        {
+            var config = ScriptableObject.CreateInstance<AIDrivenConfig>();
+            try
+            {
+                var customOllama = new ModelInfoConfig("custom:1b", "https://example.com/ollama", 0, 0, ModelLevel.Light);
+                var customGguf = new ModelInfoConfig("custom.gguf", "https://example.com/gguf", 0, 0, ModelLevel.Light);
+                config.OllamaRecommendModelInfos[0] = customOllama;
+                config.RecommendModelInfos[0] = customGguf;
+                config.AiSoftwareFileName = "custom-runtime";
+                Assert.IsTrue(config.HasPendingRecommendedModelsUpdate);
+
+                config.ReviewRecommendedModelsUpdate(accept);
+                config.ReviewRecommendedModelsUpdate(!accept);
+
+                Assert.IsFalse(config.HasPendingRecommendedModelsUpdate);
+                Assert.AreEqual("custom-runtime", config.AiSoftwareFileName);
+                if (accept)
+                {
+                    var ollama = PlayerSetupPlan.FromConfig(config.OllamaRecommendModelInfos);
+                    CollectionAssert.AreEqual(new[] { "qwen3:0.6b", "gemma3:4b", "gemma3:12b" },
+                        System.Array.ConvertAll(ollama, plan => plan.Model));
+                    Assert.AreEqual("https://ai.google.dev/gemma/terms", ollama[1].ModelTerms);
+                    Assert.AreEqual("gemma3:12b", config.RecommendModelInfos[2].ModelName);
+                    StringAssert.StartsWith("https://huggingface.co/", config.RecommendModelInfos[2].DownloadUrl);
+                }
+                else
+                {
+                    Assert.AreSame(customOllama, config.OllamaRecommendModelInfos[0]);
+                    Assert.AreSame(customGguf, config.RecommendModelInfos[0]);
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(config); }
+        }
+
         [Test]
         public void LegacySettingsDoNotSilentlyGainConsent()
         { var settings = ModelInfo.FromJson("{\"Name\":\"old-model\",\"Mode\":\"Ollama\"}"); Assert.IsFalse(settings.HasPlayerConsent); }

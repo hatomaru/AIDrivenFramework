@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Globalization;
+using AIDrivenFW.Config;
 using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -119,13 +121,18 @@ public static class SetupCanvasSceneBuilder
         var p = Page(ui, PlayerSetupScreen.Slide.Models);
         ui.ModelsTitle = Text("Title", p, "AIモデルを選ぶ", 32, 568, 60, 24, Ink, true);
         ui.ModelsCopy = Text("Description", p, "まずは軽いモデルから。自由に選べます。", 17, 568, 54, 94, Secondary);
+        var catalog = AIDrivenConfig.CreateRecommendedModels(true);
         ui.ModelSlots = new PlayerSetupScreen.ModelSlot[3];
         for (int i = 0; i < 3; i++)
         {
             var b = Button("Model Slot " + (i + 1), p, 568, 76, 0, 0, false); Top(b.GetComponent<RectTransform>(), 568, 76, 158 + i * 86);
             var tier = Text("Tier", b.transform, i == 0 ? "ライト・おすすめ" : i == 1 ? "ミディアム" : "ラージ", 18, 360, 26, 12, Ink, true); tier.alignment = TextAnchor.MiddleLeft; tier.rectTransform.anchoredPosition = new Vector2(-78, -12);
-            var name = Text("Model Name", b.transform, i == 0 ? "qwen3:0.6b" : i == 1 ? "qwen3:1.7b" : "qwen3:4b", 14, 360, 22, 42, Secondary); name.alignment = TextAnchor.MiddleLeft; name.rectTransform.anchoredPosition = new Vector2(-78, -42);
-            var size = Text("Download Size", b.transform, i == 0 ? "523 MB" : i == 1 ? "1.4 GB" : "2.5 GB", 16, 124, 32, 22, Secondary); size.rectTransform.anchoredPosition = new Vector2(204, -22);
+            var name = Text("Model Name", b.transform, catalog[i].ModelName, 14, 360, 22, 42, Secondary); name.alignment = TextAnchor.MiddleLeft; name.rectTransform.anchoredPosition = new Vector2(-78, -42);
+            long bytes = catalog[i].EstimatedDownloadBytes;
+            string capacity = bytes >= 1000000000
+                ? (bytes / 1000000000d).ToString("0.0", CultureInfo.InvariantCulture) + " GB"
+                : (bytes / 1000000d).ToString("0", CultureInfo.InvariantCulture) + " MB";
+            var size = Text("Download Size", b.transform, capacity, 16, 124, 32, 22, Secondary); size.rectTransform.anchoredPosition = new Vector2(204, -22);
             ui.ModelSlots[i] = new PlayerSetupScreen.ModelSlot { Button = b, Tier = tier, Name = name, Capacity = size, Surface = b.GetComponent<Image>() };
         }
         Copy("Memory Note", p, "大きいモデルほどメモリを使い、遅くなる場合があります。", "Larger models use more memory and may respond slower.", 14, 568, 32, 422);

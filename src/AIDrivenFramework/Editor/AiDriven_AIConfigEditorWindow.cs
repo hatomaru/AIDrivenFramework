@@ -138,11 +138,13 @@ internal static class AIDrivenRecommendedModelsUpgrade
             // A read-only asset cannot persist the decision; wait for a later reload/import.
             if (!AssetDatabase.IsOpenForEdit(path)) continue;
 
+            string lineup = string.Join("\n", System.Array.ConvertAll(AIDrivenConfig.CreateRecommendedModels(true),
+                model => $"{model.Level}: {model.ModelName}"));
             bool updateModels = EditorUtility.DisplayDialog(
                 "AIDrivenFW: Update Recommended Models",
                 $"{path}\n\n" +
                 "Update the recommended models for Ollama and llama.cpp?\n\n" +
-                "Light: Qwen3 0.6B\nBalanced: Qwen3 1.7B\nPowerful: Qwen3 4B\n\n" +
+                $"{lineup}\n\n" +
                 "This replaces both model lists, including any custom model names, URLs, and VRAM settings. " +
                 "Other settings, such as file paths, will be preserved. No models will be downloaded.\n\n" +
                 "This prompt will not appear again for this update, regardless of your choice.",

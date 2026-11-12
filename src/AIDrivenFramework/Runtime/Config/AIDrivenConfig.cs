@@ -21,7 +21,7 @@ namespace AIDrivenFW.Config
         private static string s_softwareLink = "https://github.com/ggml-org/llama.cpp/releases/";
         private static string[] s_aiSoftwareFileFilters = { "*.zip", "*.tar.gz", "*.tar" };
         private static string[] s_modelFileFilters = { "*.gguf" };
-        // Player-setup defaults reviewed 2026-10-17. Existing serialized catalogs remain untouched.
+        // Player-setup defaults. Existing serialized catalogs are updated only with developer approval.
         // VRAM bands assume short text contexts and Q4-class weights, with room for Unity.
         private static ModelInfoConfig[] s_ollamaRecommendModelInfos = CreateRecommendedModels(true);
         private static ModelInfoConfig[] s_recommendModelInfos = CreateRecommendedModels(false);
@@ -40,23 +40,23 @@ namespace AIDrivenFW.Config
                     level: ModelLevel.Light
                 ) { EstimatedDownloadBytes = ollama ? 523000000 : 639000000, LicenseUrl = "https://huggingface.co/Qwen/Qwen3-0.6B/blob/main/LICENSE" },
                 new ModelInfoConfig(
-                    modelName: "qwen3:1.7b",
+                    modelName: "gemma3:4b",
                     downloadUrl: ollama
-                        ? "https://ollama.com/library/qwen3:1.7b"
-                        : "https://huggingface.co/Qwen/Qwen3-1.7B-GGUF",
+                        ? "https://ollama.com/library/gemma3:4b"
+                        : "https://huggingface.co/unsloth/gemma-3-4b-it-GGUF",
                     minVRAM: 6144,
                     maxVRAM: 12287,
                     level: ModelLevel.Balanced
-                ) { EstimatedDownloadBytes = ollama ? 1400000000 : 1830000000, LicenseUrl = "https://huggingface.co/Qwen/Qwen3-1.7B/blob/main/LICENSE" },
+                ) { EstimatedDownloadBytes = ollama ? 3400000000L : 2490000000L, LicenseUrl = "https://ai.google.dev/gemma/terms" },
                 new ModelInfoConfig(
-                    modelName: "qwen3:4b",
+                    modelName: "gemma3:12b",
                     downloadUrl: ollama
-                        ? "https://ollama.com/library/qwen3:4b"
-                        : "https://huggingface.co/Qwen/Qwen3-4B-GGUF",
+                        ? "https://ollama.com/library/gemma3:12b"
+                        : "https://huggingface.co/unsloth/gemma-3-12b-it-GGUF",
                     minVRAM: 12288,
                     maxVRAM: 65536,
                     level: ModelLevel.Powerful
-                ) { EstimatedDownloadBytes = ollama ? 2500000000 : 4280000000, LicenseUrl = "https://huggingface.co/Qwen/Qwen3-4B/blob/main/LICENSE" }
+                ) { EstimatedDownloadBytes = ollama ? 8200000000L : 7300000000L, LicenseUrl = "https://ai.google.dev/gemma/terms" }
             };
         }
 
@@ -78,7 +78,7 @@ namespace AIDrivenFW.Config
 
         // Keep the serialized default at zero so assets from before this migration are detected.
         // Increment only when a new recommended-model catalog should be offered to existing users.
-        public const int RecommendedModelsRevision = 0;
+        public const int RecommendedModelsRevision = 1;
         [SerializeField, HideInInspector] private int _reviewedRecommendedModelsRevision;
         public bool HasPendingRecommendedModelsUpdate =>
             _reviewedRecommendedModelsRevision < RecommendedModelsRevision;
