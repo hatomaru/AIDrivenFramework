@@ -4,6 +4,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 using AIDrivenFW.Config;
 using AIDrivenFW.Setup;
 using Cysharp.Threading.Tasks;
@@ -61,6 +64,97 @@ namespace AIDrivenFW.Tests.Unit
             Assert.AreEqual(executable, await LlamaRuntimeArchive.ExtractAsync(archive, info.Sha256, install, null, CancellationToken.None));
             Assert.AreEqual(1, Directory.GetDirectories(install).Length); Assert.IsTrue(File.Exists(archive));
         });
+        [Test]
+        public void AutomaticRuntimeSelectsOnlySupportedProcessArchitecture()
+        {
+            var x64 = LlamaRuntimeDownload.Select(UnityEngine.RuntimePlatform.WindowsPlayer, Architecture.X64);
+            var arm = LlamaRuntimeDownload.Select(UnityEngine.RuntimePlatform.WindowsEditor, Architecture.Arm64);
+            StringAssert.EndsWith("-win-cpu-x64.zip", x64.Url);
+            StringAssert.EndsWith("-win-cpu-arm64.zip", arm.Url);
+            Assert.AreEqual(24814829, x64.Bytes);
+            Assert.AreNotEqual(x64.Sha256, arm.Sha256);
+            Assert.IsNull(LlamaRuntimeDownload.Select(UnityEngine.RuntimePlatform.WindowsPlayer, Architecture.X86));
+            Assert.IsNull(LlamaRuntimeDownload.Select(UnityEngine.RuntimePlatform.LinuxPlayer, Architecture.X64));
+        }
+
+        [Test]
+        public void AutomaticRuntimePlanPinsTheReviewedReleaseAndTerms()
+        {
+            var plan = Plan(RuntimeZip());
+            plan.RuntimeArchivePath = "";
+            plan.LlamaRuntimeVersion = LlamaRuntimeDownload.Version;
+            plan.RuntimeTerms = LlamaRuntimeDownload.TermsUrl;
+            Assert.DoesNotThrow(plan.Validate);
+            Assert.AreEqual(plan.LlamaRuntimeVersion, plan.Snapshot().LlamaRuntimeVersion);
+            plan.LlamaRuntimeVersion = "different-release";
+            Assert.Throws<ArgumentException>(plan.Validate);
+            plan.LlamaRuntimeVersion = LlamaRuntimeDownload.Version;
+            plan.RuntimeTerms = RuntimeRelease.TermsUrl;
+            Assert.Throws<ArgumentException>(plan.Validate);
+        }
+
+        sealed class DownloadFixture : HttpMessageHandler
+        {
+            public byte[] Payload;
+            public bool Disconnected;
+            public int Requests;
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+            {
+                Requests++;
+                if (Disconnected) throw new HttpRequestException("fixture disconnect");
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Payload) });
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator DownloadVerifiesThenReusesWithoutAnotherRequest() => UniTask.ToCoroutine(async () =>
+        {
+            string archive = Zip(("llama-server.exe", Executable()), ("ggml.dll", new byte[] { 1, 2, 3 }), ("LICENSE", new byte[] { 4 }));
+            var info = LlamaRuntimeArchive.Inspect(archive, CancellationToken.None);
+            using var handler = new DownloadFixture { Payload = File.ReadAllBytes(archive) };
+            using var http = new HttpClient(handler);
+            var asset = new LlamaRuntimeDownload.Asset("Fixture", "https://example.com/runtime.zip", handler.Payload.Length, info.Sha256);
+            string install = Path.Combine(root, "automatic");
+            string exe = await LlamaRuntimeDownload.AcquireAsync(install, asset, http, null, CancellationToken.None);
+            Assert.IsTrue(File.Exists(exe));
+            Assert.IsEmpty(Directory.GetFiles(install, ".download-*"));
+            string second = await LlamaRuntimeDownload.AcquireAsync(install, asset, http, null, CancellationToken.None);
+            Assert.AreEqual(exe, second);
+            Assert.AreEqual(1, handler.Requests);
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(exe), "ggml.dll")));
+            Assert.IsTrue(File.Exists(Path.Combine(install, info.Sha256, "LICENSE")));
+        });
+
+        [UnityTest]
+        public IEnumerator DownloadFailureAndCancellationKeepExistingFiles() => UniTask.ToCoroutine(async () =>
+        {
+            string archive = Zip(("llama-server.exe", Executable()), ("LICENSE", new byte[] { 1 }));
+            var info = LlamaRuntimeArchive.Inspect(archive, CancellationToken.None);
+            using var handler = new DownloadFixture { Payload = File.ReadAllBytes(archive), Disconnected = true };
+            using var http = new HttpClient(handler);
+            var asset = new LlamaRuntimeDownload.Asset("Fixture", "https://example.com/runtime.zip", handler.Payload.Length, info.Sha256);
+            string install = Path.Combine(root, "automatic"); Directory.CreateDirectory(install);
+            string prior = Path.Combine(install, "previous.txt"); File.WriteAllText(prior, "keep");
+            try { await LlamaRuntimeDownload.AcquireAsync(install, asset, http, null, CancellationToken.None); Assert.Fail("Disconnected"); }
+            catch (SetupException) { }
+            handler.Disconnected = false;
+            var wrongSize = new LlamaRuntimeDownload.Asset("Fixture", asset.Url, asset.Bytes + 1, asset.Sha256);
+            try { await LlamaRuntimeDownload.AcquireAsync(install, wrongSize, http, null, CancellationToken.None); Assert.Fail("Wrong size"); }
+            catch (SetupException) { }
+            byte first = handler.Payload[0]; handler.Payload[0] ^= 1;
+            try { await LlamaRuntimeDownload.AcquireAsync(install, asset, http, null, CancellationToken.None); Assert.Fail("Hash mismatch"); }
+            catch (SetupException) { }
+            handler.Payload[0] = first;
+            using var cancelled = new CancellationTokenSource();
+            try { await LlamaRuntimeDownload.AcquireAsync(install, asset, http, _ => cancelled.Cancel(), cancelled.Token); Assert.Fail("Cancelled"); }
+            catch (OperationCanceledException) { }
+            Assert.AreEqual("keep", File.ReadAllText(prior));
+            Assert.IsEmpty(Directory.GetFiles(install, ".download-*"));
+            string exe = await LlamaRuntimeDownload.AcquireAsync(install, asset, http, null, CancellationToken.None);
+            Assert.AreEqual(exe, await LlamaRuntimeDownload.AcquireAsync(install, asset, http, null, CancellationToken.None));
+            Assert.AreEqual(5, handler.Requests);
+        });
+
         [Test] public void DamagedZipHasTypedFailure()
         {
             string path = Path.Combine(root, "broken.zip"); File.WriteAllText(path, "not a ZIP");

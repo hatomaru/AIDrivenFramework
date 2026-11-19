@@ -1,0 +1,93 @@
+using System;
+using System.IO;
+using System.Linq;
+using System.Net.NetworkInformation;
+using System.Threading;
+using AIDrivenFW.API;
+using AIDrivenFW.Config;
+using AIDrivenFW.Core;
+using AIDrivenFW.Setup;
+using Cysharp.Threading.Tasks;
+using UnityEditor;
+using UnityEngine;
+
+// Explicit live validation in an isolated host. Inputs are existing, locally reviewed GGUF weights.
+public static class LlamaAcquisitionProof
+{
+    public static void Run() => EditorApplication.delayCall += () => RunAsync().Forget();
+    static async UniTaskVoid RunAsync()
+    {
+        string root = Environment.GetEnvironmentVariable("LLAMA_QA_OUTPUT");
+        int exit = 1;
+        try
+        {
+            if (string.IsNullOrEmpty(root)) throw new ArgumentException("LLAMA_QA_OUTPUT is required.");
+            Directory.CreateDirectory(root);
+            if (IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(p => p.Port == 8080))
+                throw new InvalidOperationException("Port 8080 is occupied; leave the existing service untouched.");
+            string model = Environment.GetEnvironmentVariable("LLAMA_QA_MODEL");
+            var plan = new PlayerSetupPlan
+            {
+                Mode = "Llama", Model = Path.GetFileName(model), ModelPath = model,
+                ModelBytes = new FileInfo(model).Length,
+                LlamaRuntimeVersion = LlamaRuntimeDownload.Version,
+                RuntimeTerms = LlamaRuntimeDownload.TermsUrl,
+                ModelTerms = Environment.GetEnvironmentVariable("LLAMA_QA_MODEL_TERMS")
+            };
+            plan.Validate();
+            using var services = new ProofServices(root);
+            var flow = new PlayerSetupFlow(services);
+            flow.Changed += p => Debug.Log($"LLAMA QA: {p.Stage} {p.CompletedBytes}/{p.TotalBytes} {p.Detail}");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+            try { await flow.RunAsync(plan, false, timeout.Token); throw new Exception("Consent gate missing."); }
+            catch (InvalidOperationException) { if (services.Calls != 0) throw new Exception("Preparation before consent."); }
+            if (!await flow.RunAsync(plan, true, timeout.Token))
+                throw new Exception($"Setup failed: {flow.Problem}: {flow.Detail}");
+            if (services.Saved?.HasPlayerConsent != true || string.IsNullOrWhiteSpace(services.Response))
+                throw new Exception("Missing generated reply or verified receipt.");
+            File.WriteAllText(Path.Combine(root, "result.txt"),
+                "PASS: official CPU ZIP acquired and verified, native llama.cpp generation, consent gate, proof-only settings.\nReply: " + services.Response);
+            exit = 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogException(ex);
+            if (!string.IsNullOrEmpty(root)) File.WriteAllText(Path.Combine(root, "result.txt"), "FAIL: " + ex);
+        }
+        finally { EditorApplication.Exit(exit); }
+    }
+    sealed class ProofServices : IPlayerSetupServices
+    {
+        readonly string root;
+        public int Calls;
+        public ModelInfo Saved;
+        public string Response;
+        public ProofServices(string root) => this.root = root;
+        public async UniTask<string> PrepareRuntimeAsync(PlayerSetupPlan plan, Action<SetupProgress> progress, CancellationToken ct)
+        {
+            Calls++;
+            string exe = await LlamaRuntimeDownload.AcquireAsync(Path.Combine(root, "Runtime"), progress, ct);
+            plan.RuntimeArchiveSha256 = LlamaRuntimeDownload.Current.Sha256;
+            return exe;
+        }
+        public UniTask PrepareModelAsync(PlayerSetupPlan plan, Action<SetupProgress> progress, CancellationToken ct)
+            => UniTask.CompletedTask;
+        public async UniTask VerifyAsync(PlayerSetupPlan plan, CancellationToken ct)
+        {
+            var config = ScriptableObject.CreateInstance<GenAIConfig>();
+            var ai = new GenAI(new AIExecutorContext(new LlamaHTTPExecutor()));
+            try
+            {
+                config.aiSoftwarePath = plan.RuntimePath; config.modelFilePath = plan.ModelPath;
+                config.arguments = "-m {ModelPath} --host 127.0.0.1 --port 8080 --gpu-layers 0 --ctx-size 2048 --parallel 1 --batch-size 16";
+                Response = await ai.Generate("Reply with exactly one short greeting. /no_think", config, ct: ct, retryAfterInitialization: false);
+                if (string.IsNullOrWhiteSpace(Response)) throw new Exception("No generated greeting.");
+            }
+            finally { ai.KillProcess(); UnityEngine.Object.DestroyImmediate(config); }
+        }
+        public void RecordAttempt(PlayerSetupPlan plan, string consentUtc, SetupStage stage) { Calls++; }
+        public void Commit(ModelInfo settings)
+        { Saved = settings; ModelInfo.WriteAtomic(Path.Combine(root, "proof-settings.json"), settings.ToJson()); }
+        public void Dispose() { }
+    }
+}

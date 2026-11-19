@@ -145,6 +145,22 @@ namespace AIDrivenFW.Setup
         {
             if (plan.Mode == "Llama")
             {
+                if (!string.IsNullOrEmpty(plan.LlamaRuntimeVersion))
+                {
+                    plan.Validate();
+                    plan.RuntimeArchiveSha256 = LlamaRuntimeDownload.Current.Sha256;
+                    using var downloadDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    downloadDeadline.CancelAfter(TimeSpan.FromMinutes(15));
+                    try
+                    {
+                        return await LlamaRuntimeDownload.AcquireAsync(Path.Combine(Application.persistentDataPath,
+                            "AIDrivenFramework", "LlamaRuntime"),
+                            p => { if (!downloadDeadline.IsCancellationRequested) progress?.Invoke(p); }, downloadDeadline.Token)
+                            .AsUniTask().AttachExternalCancellation(downloadDeadline.Token);
+                    }
+                    catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                    { throw new SetupException(SetupProblem.RuntimeArchive, LlamaArchiveFailure.Timeout.ToString()); }
+                }
                 if (string.IsNullOrWhiteSpace(plan.RuntimeArchivePath)) return plan.RuntimePath;
                 string managedRoot = Path.Combine(Application.persistentDataPath, "AIDrivenFramework", "LlamaRuntime");
                 using var archiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct); archiveDeadline.CancelAfter(TimeSpan.FromMinutes(15));

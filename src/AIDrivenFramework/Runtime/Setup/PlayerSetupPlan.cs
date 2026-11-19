@@ -20,6 +20,7 @@ namespace AIDrivenFW.Setup
         public ModelLevel Level;
         public string RuntimePath = "";
         public string RuntimeArchivePath = "";
+        public string LlamaRuntimeVersion = "";
         public string RuntimeArchiveSha256 = "";
         public long RuntimeExpandedBytes;
         public string ModelPath = "";
@@ -52,6 +53,15 @@ namespace AIDrivenFW.Setup
             }
             else
             {
+                if (!string.IsNullOrEmpty(LlamaRuntimeVersion))
+                {
+                    if (LlamaRuntimeVersion != LlamaRuntimeDownload.Version ||
+                        LlamaRuntimeDownload.Current == null || RuntimeTerms != LlamaRuntimeDownload.TermsUrl ||
+                        !string.IsNullOrWhiteSpace(RuntimePath) || !string.IsNullOrWhiteSpace(RuntimeArchivePath) ||
+                        !File.Exists(ModelPath) || !ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase))
+                        throw new ArgumentException("Review the current llama.cpp CPU release and select a GGUF model.");
+                    return;
+                }
                 bool archive = !string.IsNullOrWhiteSpace(RuntimeArchivePath);
                 if (!File.Exists(ModelPath) || !ModelPath.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase) ||
                     (archive ? !File.Exists(RuntimeArchivePath) || !LlamaRuntimeArchive.IsZip(RuntimeArchivePath) ||

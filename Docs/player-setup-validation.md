@@ -1,5 +1,11 @@
 # Player setup validation
 
+## CPU runtime acquisition verification (2026-11-19)
+
+Unity 6000.3.27f2 passed 177 EditMode tests, with no failures and 2 optional live tests skipped. The imported Canvas passed 149 offline assertions, including selecting llama.cpp automatic CPU acquisition, displaying the pinned release before consent, and checking English/Japanese instruction bounds. HTTP fixtures cover pinned hashes, failures, cancellation, retry and completed-install reuse. The official b12541 Windows x64 ZIP was downloaded separately and matched the pinned size and SHA-256. This does not establish native generation or Player support.
+
+For explicit native validation, copy `Tools/UnityValidation/LlamaAcquisitionProof.cs.txt` to `Assets/Editor/LlamaAcquisitionProof.cs` in the isolated host created by `run.ps1 -DisplayOnly`. Set `LLAMA_QA_MODEL` to an existing reviewed `.gguf`, `LLAMA_QA_MODEL_TERMS` to its HTTPS terms page, and `LLAMA_QA_OUTPUT` to a dedicated writable proof folder. Launch that host with Unity's `-batchmode -nographics -executeMethod LlamaAcquisitionProof.Run -logFile <log>` options. It requires unused port 8080, downloads the pinned CPU ZIP, generates a short response with CPU-only arguments, kills its owned process and writes the response plus proof-only settings. It does not modify the game's saved setup or download model weights. Native execution of this helper has not yet been verified.
+
 ## llama.cpp ZIP setup — 2026-11-03
 
 The Windows setup accepts a player-selected runtime ZIP and GGUF. It reviews the archive without extracting, then extracts only after explicit consent. The managed install retains folders, DLLs, licenses and notices. A temporary directory is published only after successful extraction. Cancellation/failure cleans only that operation's staging directory and preserves source files and previous settings. A reviewed SHA-256 detects archive changes; it does not authenticate the publisher. No native runtime or model is bundled.

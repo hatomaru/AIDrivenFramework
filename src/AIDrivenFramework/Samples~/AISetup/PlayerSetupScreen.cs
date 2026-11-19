@@ -126,7 +126,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         NextModelsButton.onClick.AddListener(() => { modelPage++; RefreshModels(); });
         for (int i = 0; i < ModelSlots.Length; i++) { int slot = i; ModelSlots[i].Button.onClick.AddListener(() => SelectSlot(slot)); }
         BrowseRuntimeButton.onClick.AddListener(() => OpenBrowser(false)); BrowseModelButton.onClick.AddListener(() => OpenBrowser(true));
-        GetRuntimeButton.onClick.AddListener(() => OpenTerms("https://github.com/ggml-org/llama.cpp/releases"));
+        GetRuntimeButton.onClick.AddListener(() => { if (LlamaRuntimeDownload.Current != null) { RuntimePath.text = ""; RefreshCustom(); } else OpenTerms("https://github.com/ggml-org/llama.cpp/releases"); });
         GetModelButton.onClick.AddListener(() => { var entry = GgufCatalog().FirstOrDefault(); if (entry != null) OpenTerms(entry.DownloadUrl); });
         ModelLicenseButton.onClick.AddListener(OpenModelTerms); RuntimeLicenseButton.onClick.AddListener(() => OpenTerms(selection.RuntimeTerms));
         CloseModelTermsButton.onClick.AddListener(() => { ModelTermsPanel.SetActive(false); Slides[(int)slide].SetActive(true); UpdateActions(); });
@@ -137,6 +137,7 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         ReduceMotionToggle.onValueChanged.AddListener(value => { PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", value ? 1 : 0); PlayerPrefs.Save(); });
         foreach (var field in new[] { ModelTag, ModelSize, RuntimePath, ModelPath }) field.onValueChanged.AddListener(_ => { ConsentToggle.SetIsOnWithoutNotify(false); UpdateActions(); });
         ModelTag.onValueChanged.AddListener(_ => RefreshCustom());
+        RuntimePath.onValueChanged.AddListener(_ => RefreshCustom());
         ModelPath.onValueChanged.AddListener(value => { ggufIndex = -1; ReadFileSizeAsync(value).Forget(); RefreshCustom(); });
         RefreshLanguage(); Go(Slide.Welcome); LoadInstalledAsync().Forget();
     }
@@ -266,8 +267,18 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         OllamaFields.SetActive(!llama); LlamaFields.SetActive(llama);
         CustomTitle.text = llama ? L("Use your GGUF model", "手持ちのGGUFモデルを使う") : L("Use another model", "別のモデルを使う");
-        CustomCopy.text = llama ? L("Choose the llama.cpp ZIP and a GGUF model. Setup handles extraction.", "llama.cppのZIPとGGUFモデルを選ぶだけ。解凍はセットアップが行います。") : L("Choose an installed model or enter a local model tag.", "導入済みモデルを選ぶか、ローカルモデル名を指定します。");
-        BackendStatus.text = llama ? L("Runtime, DLLs and license notices are kept together.", "実行ソフト・DLL・ライセンス通知をまとめて保存します。") : L("Ollama・automatic preparation", "Ollama・自動で準備");
+        bool canDownload = LlamaRuntimeDownload.Current != null;
+        CustomCopy.text = llama ? canDownload
+            ? L("Choose your GGUF. Leave runtime empty for CPU setup, or select a ZIP.", "GGUFを選びます。実行ソフトは空欄でCPU版を自動準備。ZIPも選べます。")
+            : L("Choose the llama.cpp ZIP and a GGUF model. Setup handles extraction.", "llama.cppのZIPとGGUFモデルを選ぶだけ。解凍はセットアップが行います。")
+            : L("Choose an installed model or enter a local model tag.", "導入済みモデルを選ぶか、ローカルモデル名を指定します。");
+        BackendStatus.text = llama ? canDownload && string.IsNullOrWhiteSpace(RuntimePath.text)
+            ? L("CPU runtime downloads only after agreement.", "CPU版の取得は次の画面で同意した後に始まります。")
+            : L("Runtime, DLLs and license notices are kept together.", "実行ソフト・DLL・ライセンス通知をまとめて保存します。")
+            : L("Ollama・automatic preparation", "Ollama・自動で準備");
+        GetRuntimeButton.GetComponentInChildren<Text>().text = canDownload
+            ? L("Use automatic CPU setup", "CPU版を自動で準備")
+            : L("Get llama.cpp", "実行ソフトを入手");
         ModelInfoCaption.text = L("Model information: ", "モデル情報：") + (ggufIndex >= 0 ? GgufCatalog().ElementAtOrDefault(ggufIndex)?.ModelName : L("Other GGUF", "その他のGGUF"));
         ModelTermsNote.text = string.IsNullOrWhiteSpace(CustomTerms()) ? L("No terms page is registered. Manually review the license at the model's original source.", "利用条件ページが未登録です。モデルの入手元でライセンスを手動確認してください。") : L("Terms are supplied automatically. Review them on the next screen.", "利用条件は自動で表示します。次の画面で確認してください。");
     }
@@ -289,6 +300,8 @@ public sealed class PlayerSetupScreen : MonoBehaviour
     {
         if (busy) return;
         var plan = new PlayerSetupPlan { Mode = llama ? "Llama" : "Ollama", Model = ModelTag.text.Trim(), ModelTerms = CustomTerms(), ModelSource = PlayerSetupPlan.OllamaModelPage(ModelTag.text.Trim()), RuntimePath = RuntimePath.text.Trim().Trim('"'), ModelPath = ModelPath.text.Trim().Trim('"'), RuntimeTerms = llama ? "https://github.com/ggml-org/llama.cpp/blob/master/LICENSE" : RuntimeRelease.TermsUrl };
+        if (llama && string.IsNullOrWhiteSpace(plan.RuntimePath) && LlamaRuntimeDownload.Current != null)
+        { plan.LlamaRuntimeVersion = LlamaRuntimeDownload.Version; plan.RuntimeTerms = LlamaRuntimeDownload.TermsUrl; }
         if (llama && LlamaRuntimeArchive.IsZip(plan.RuntimePath)) { plan.RuntimeArchivePath = plan.RuntimePath; plan.RuntimePath = ""; }
         plan.ReviewModelTermsAtSource = string.IsNullOrWhiteSpace(plan.ModelTerms);
         plan.ModelBytes = double.TryParse(ModelSize.text, NumberStyles.Float, CultureInfo.InvariantCulture, out var mb) && mb > 0 && mb < 1000000 ? (long)(mb * 1000000) : 0;
@@ -338,15 +351,21 @@ public sealed class PlayerSetupScreen : MonoBehaviour
         WelcomeSelection.text = ReviewName.text = engine + " · " + selection.Model;
         ReviewDownload.text = selection.Mode == "Llama" ? L("Use your files · no model download", "手持ちのファイルを使用・モデル取得なし") : exists ? L("Model installed · no download", "モデル導入済み・取得なし") : L("Model download: about ", "モデル取得：約") + FormatBytes(selection.ModelBytes);
         var asset = RuntimeRelease.Current;
+        var llamaAsset = LlamaRuntimeDownload.Current;
         ReviewRuntime.text = selection.Mode == "Llama"
             ? (string.IsNullOrEmpty(selection.RuntimeArchivePath) ? "llama.cpp / GGUF" : L("ZIP extraction: ", "ZIP解凍：約") + FormatBytes(selection.RuntimeExpandedBytes))
             : !needsRuntime ? L("Use installed Ollama", "導入済みOllamaを使用")
             : asset == null ? L("Install Ollama from ollama.com/download", "Ollama公式ページから導入")
             : $"Ollama {asset.Version} · {asset.Platform} · {FormatBytes(asset.Bytes)} · GitHub";
+        if (selection.Mode == "Llama" && !string.IsNullOrEmpty(selection.LlamaRuntimeVersion) && llamaAsset != null)
+            ReviewRuntime.text = $"llama.cpp {selection.LlamaRuntimeVersion} · {llamaAsset.Platform} · {FormatBytes(llamaAsset.Bytes)} · GitHub";
         bool sourceReview = selection.ReviewModelTermsAtSource;
         ReviewSource.text = selection.Mode == "Llama" ? L("Keep files in their chosen locations.", "指定した場所にファイルを保管してください。") : L("Sources: Ollama registry/CDN", "取得先：Ollamaの配信サーバー") + "\n" + (needsRuntime && asset != null
             ? L("Keep space for the ZIP and 5 GiB to unpack.", "ZIPと展開用の5 GiBの空きを確保してください。")
             : L("Allow model size + 1 GiB free.", "モデル容量＋1 GiBの空きを確保してください。"));
+        if (selection.Mode == "Llama" && !string.IsNullOrEmpty(selection.LlamaRuntimeVersion))
+            ReviewSource.text = L("CPU runtime from GitHub; GGUF stays in its location.\nKeep ZIP size + 5 GiB free.",
+                "CPU版はGitHubから取得。GGUFは元の場所に保管。\nZIP容量＋5 GiBの空きを確保してください。");
         bool runtimeText = !string.IsNullOrWhiteSpace(selection.ModelTermsText);
         if (sourceReview) ReviewSource.text = termsLoading ? L("Checking this model's terms in Ollama…", "Ollamaでこのモデルの利用条件を確認しています…") : runtimeText ? L("Model terms were supplied by this PC's Ollama.\nRead the full text with the Model terms button.", "このPCのOllamaからモデルの利用条件を取得しました。\n「モデルの利用条件」で全文を確認してください。") : L("No model terms page or text is available.\nManually review the license at the model's original source before agreeing.", "モデルの利用条件ページ・本文を取得できません。\n同意する前に、モデルの入手元でライセンスを手動確認してください。");
         ModelLicenseButton.gameObject.SetActive(!termsLoading && (!sourceReview || runtimeText));

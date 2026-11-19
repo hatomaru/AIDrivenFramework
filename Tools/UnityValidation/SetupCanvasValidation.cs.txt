@@ -138,6 +138,20 @@ public static class SetupCanvasValidation
             string badZip = Path.Combine(fixture, "broken.zip"); File.WriteAllText(badZip, "not a ZIP"); ui.RuntimePath.text = badZip;
             ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
             Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Custom && ui.ErrorText.text.Contains("ZIP") && ui.PrimaryButton.interactable, "Broken ZIP shows an actionable error and allows retry");
+            ui.GetRuntimeButton.onClick.Invoke();
+            Check(string.IsNullOrEmpty(ui.RuntimePath.text) && ui.BackendStatus.text.Contains("同意"), "CPU acquisition is selected without starting a download");
+            ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+            var automaticPlan = (PlayerSetupPlan)typeof(PlayerSetupScreen).GetField("selection", Private).GetValue(ui);
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Consent && automaticPlan.LlamaRuntimeVersion == LlamaRuntimeDownload.Version &&
+                automaticPlan.RuntimeTerms == LlamaRuntimeDownload.TermsUrl, "CPU acquisition records the reviewed release and terms");
+            Check(ui.ReviewRuntime.text.Contains("GitHub") && ui.ReviewRuntime.text.Contains(LlamaRuntimeDownload.Version) &&
+                !ui.ConsentToggle.isOn && !ui.PrimaryButton.interactable && services.Calls == 0, "CPU source, size and release are shown before consent");
+            Check(ui.ReviewRuntime.preferredWidth <= ui.ReviewRuntime.rectTransform.rect.width, "CPU release summary fits the saved Canvas");
+            ui.SetLanguage(false);
+            Check(ui.CustomCopy.preferredHeight <= ui.CustomCopy.rectTransform.rect.height, "English CPU setup instructions fit");
+            ui.SetLanguage(true);
+            Check(ui.CustomCopy.preferredHeight <= ui.CustomCopy.rectTransform.rect.height, "Japanese CPU setup instructions fit");
+            ui.Go(PlayerSetupScreen.Slide.Custom);
             ui.RuntimePath.text = zipPath; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
             Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Consent && !ui.ConsentToggle.isOn && !ui.PrimaryButton.interactable, "Local files reach explicit consent without URL entry");
             Check(ui.ReviewRuntime.text.Contains("ZIP"), "Review shows ZIP extraction size before consent");
