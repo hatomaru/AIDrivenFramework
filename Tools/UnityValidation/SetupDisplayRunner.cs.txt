@@ -1,0 +1,4 @@
+// The scene-authored Canvas offline checks now run in Editor Play Mode.
+// Install SetupCanvasValidation.cs.txt into Assets/Editor and invoke
+// Tools > AIDrivenFW > Canvas Setup > Validate Offline.
+// run.ps1 -DisplayOnly performs this in an isolated host.

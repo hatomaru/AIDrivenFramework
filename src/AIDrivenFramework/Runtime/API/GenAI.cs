@@ -198,7 +198,8 @@ namespace AIDrivenFW.API
                 catch (GenAIExecutionException ex) when (retryAfterInitialization && executor.ProcessExecutor != null && executor.ArgumentsExecutor != null)
                 {
                     Debug.LogWarning($"AI generation failed after {ex.Attempts} attempts. Initializing and retrying once: {ex.Message}");
-                    await AIDrivenInitializer.Initialize(requestToken, this);
+                    if (!await AIDrivenInitializer.Initialize(requestToken, this))
+                        throw; // Respect refusal instead of generating again after setup closes.
                     result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
                 }
 

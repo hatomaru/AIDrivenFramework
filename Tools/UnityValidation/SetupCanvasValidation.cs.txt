@@ -1,0 +1,252 @@
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Runtime.InteropServices;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using AIDrivenFW.Config;
+using AIDrivenFW.Setup;
+using Cysharp.Threading.Tasks;
+using UnityEditor;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using System.Collections.Generic;
+using UnityEditor.TestTools.TestRunner.Api;
+
+// Install in Assets/Editor of the validation host. Uses inert files and injected services only.
+public static class SetupCanvasValidation
+{
+    const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    static int assertions;
+    static readonly string Output = Environment.GetEnvironmentVariable("SETUP_QA_OUTPUT") ?? Path.Combine(Path.GetTempPath(), "FrameworkCanvasProof");
+    static TestRunnerApi unitRunner;
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Validate All Offline")]
+    public static void ValidateAllOffline()
+    {
+        SessionState.SetBool("CanvasValidation.AfterUnits", true); RunUnitChecks();
+    }
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Run Unit Checks")]
+    public static void RunUnitChecks()
+    {
+        Directory.CreateDirectory(Output); unitRunner = ScriptableObject.CreateInstance<TestRunnerApi>();
+        unitRunner.RegisterCallbacks(new UnitResults());
+        unitRunner.Execute(new ExecutionSettings(new Filter { testMode = TestMode.EditMode, assemblyNames = new[] { "AIDrivenFW.Unit.Tests" } }));
+    }
+    sealed class UnitResults : ICallbacks
+    {
+        public void RunStarted(ITestAdaptor testsToRun) { }
+        public void TestStarted(ITestAdaptor test) { }
+        public void TestFinished(ITestResultAdaptor result) { }
+        public void RunFinished(ITestResultAdaptor result)
+        {
+            TestRunnerApi.SaveResultToFile(result, Path.Combine(Output, "unit.xml"));
+            Debug.Log("SETUP UNIT RESULTS: " + result.PassCount + " passed; " + result.FailCount + " failed; " + result.SkipCount + " skipped");
+            if (SessionState.GetBool("CanvasValidation.AfterUnits", false))
+            {
+                SessionState.SetBool("CanvasValidation.AfterUnits", false);
+                if (result.FailCount == 0 && result.PassCount > 0) EditorApplication.delayCall += Start;
+            }
+        }
+    }
+    [MenuItem("Tools/AIDrivenFW/Canvas Setup/Validate Offline")]
+    public static void Start()
+    {
+        if (EditorApplication.isPlaying) throw new InvalidOperationException("Stop Play before validating.");
+        if (!UnityEngine.Object.FindFirstObjectByType<PlayerSetupScreen>())
+        {
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty)
+                throw new InvalidOperationException("Save the current scene before validating.");
+            UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/AIDrivenFW/AISetup/AIDrivenSetup.unity");
+        }
+        SessionState.SetBool("CanvasValidation.Pending", true); EditorApplication.isPlaying = true;
+    }
+    [InitializeOnLoadMethod]
+    static void Register()
+    {
+        EditorApplication.playModeStateChanged += state =>
+        {
+            if (state == PlayModeStateChange.EnteredPlayMode && SessionState.GetBool("CanvasValidation.Pending", false))
+            { SessionState.SetBool("CanvasValidation.Pending", false); Run().Forget(); }
+        };
+    }
+    static void Check(bool ok, string name) { if (!ok) throw new Exception(name); assertions++; Debug.Log("CANVAS CHECK: " + name); }
+    static async UniTask Run()
+    {
+        Directory.CreateDirectory(Output); bool passed = false; string path = Environment.GetEnvironmentVariable("PATH");
+        string language = PlayerPrefs.GetString("AIDrivenFW.Setup.Language", "en"); int motion = PlayerPrefs.GetInt("AIDrivenFW.Setup.ReduceMotion", 0);
+        try
+        {
+            await UniTask.Delay(500, ignoreTimeScale: true); assertions = 0;
+            var ui = UnityEngine.Object.FindFirstObjectByType<PlayerSetupScreen>(); Check(ui && ui.enabled, "Authored scene loaded");
+            Check(ui.Slides.Length == 8 && ui.Browser.Rows.Length == 8, "Eight authored slides and reusable browser rows");
+            foreach (var field in typeof(PlayerSetupScreen).GetFields(BindingFlags.Public | BindingFlags.Instance))
+                if (typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType)) Check(field.GetValue(ui) is UnityEngine.Object o && o, "Assigned: " + field.Name);
+            Check(ui.GetComponentsInChildren<Text>(true).All(t => t.font && t.font.HasCharacter('語') && t.font.HasCharacter('A')), "All labels support Japanese and English");
+            var services = new Fixture(); ui.SetServices(services); ui.SetLanguage(true); ui.Go(PlayerSetupScreen.Slide.Welcome);
+            Check(ui.PrimaryCaption.text == "続ける", "Japanese navigation"); ui.SetLanguage(false); Check(ui.PrimaryCaption.text == "Continue", "English navigation"); ui.SetLanguage(true);
+            ui.ReduceMotionToggle.isOn = false; Check(!ui.ReduceMotionToggle.isOn, "Motion enabled");
+            Check(EventSystem.current && EventSystem.current.currentInputModule, "Active UI input module exists");
+            ClickToggleCaption(ui.ReduceMotionToggle);
+            Check(ui.ReduceMotionToggle.isOn, "Japanese reduce-motion caption checks its toggle");
+            ui.SetLanguage(false);
+            ClickToggleCaption(ui.ReduceMotionToggle);
+            Check(!ui.ReduceMotionToggle.isOn, "English reduce-motion caption unchecks its toggle");
+            ui.SetLanguage(true);
+            Canvas.ForceUpdateCanvases(); var pointer = new PointerEventData(EventSystem.current);
+            pointer.position = RectTransformUtility.WorldToScreenPoint(null, ui.ChangeModelButton.GetComponent<RectTransform>().TransformPoint(ui.ChangeModelButton.GetComponent<RectTransform>().rect.center));
+            var hits = new List<RaycastResult>(); EventSystem.current.RaycastAll(pointer, hits);
+            Check(hits.Count > 0 && hits[0].gameObject.GetComponentInParent<Button>() == ui.ChangeModelButton, "Authored navigation receives pointer raycasts");
+            ExecuteEvents.Execute(ui.ChangeModelButton.gameObject, pointer, ExecuteEvents.pointerClickHandler);
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Runtime, "Pointer handler opens runtime selection"); ui.Go(PlayerSetupScreen.Slide.Welcome);
+            await ModelTermsChecks(ui); ui.ModelLicenseReader = (tag, ct) => UniTask.FromResult(""); ui.Go(PlayerSetupScreen.Slide.Welcome);
+            typeof(PlayerSetupScreen).GetField("runtimeChosen", Private).SetValue(ui, false);
+            var fixture = Path.Combine(Output, "Files"); Directory.CreateDirectory(fixture); Directory.CreateDirectory(Path.Combine(fixture, "Models"));
+            File.WriteAllText(Path.Combine(fixture, "llama-server.exe"), "inert fixture; never execute"); File.WriteAllText(Path.Combine(fixture, "fixture.gguf"), "inert fixture; never load"); File.WriteAllText(Path.Combine(fixture, "other.exe"), "inert fixture");
+            string zipPath = Path.Combine(fixture, "llama-cpu.zip");
+            using (var file = new FileStream(zipPath, FileMode.Create))
+            using (var zip = new ZipArchive(file, ZipArchiveMode.Create))
+            {
+                var pe = new byte[70]; pe[0] = (byte)'M'; pe[1] = (byte)'Z'; pe[60] = 64; pe[64] = (byte)'P'; pe[65] = (byte)'E';
+                ushort machine = RuntimeInformation.ProcessArchitecture == Architecture.X64 ? (ushort)0x8664 : RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? (ushort)0xaa64 : (ushort)0x14c;
+                Array.Copy(BitConverter.GetBytes(machine), 0, pe, 68, 2);
+                using (var data = zip.CreateEntry("runtime/llama-server.exe").Open()) data.Write(pe, 0, pe.Length);
+                using (var data = zip.CreateEntry("runtime/ggml.dll").Open()) data.WriteByte(0);
+                using (var data = zip.CreateEntry("LICENSE").Open()) data.WriteByte(0);
+            }
+            Environment.SetEnvironmentVariable("PATH", fixture + Path.PathSeparator + path);
+            typeof(PlayerSetupScreen).GetField("installedModels", Private).SetValue(ui, new[] { new InstalledModel { name = "qwen3:0.6b", size = 523000000 } });
+            ui.PrimaryButton.onClick.Invoke(); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Runtime, "Both runtimes require an explicit choice");
+            ui.LlamaButton.onClick.Invoke(); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Custom && ui.LlamaFields.activeSelf, "llama.cpp uses authored file form");
+            ui.RuntimePath.text = zipPath; ui.ModelPath.text = Path.Combine(fixture, "fixture.gguf");
+            ui.BrowseRuntimeButton.onClick.Invoke(); var browser = ui.Browser; await WaitBrowser(browser);
+            Check(browser.Rows.Any(r => r.Button.gameObject.activeSelf && r.Name.text == "fixture.gguf" && !r.Button.interactable), "GGUF cannot be chosen as runtime");
+            Check(!browser.Rows.Any(r => r.Button.gameObject.activeSelf && r.Name.text == "other.exe"), "Unrelated executable excluded");
+            Check(browser.Rows.Where(r => r.Button.gameObject.activeSelf).All(r => r.Icon.sprite), "Recognized file types have authored icons");
+            var zipRow = browser.Rows.First(r => r.Button.gameObject.activeSelf && r.Name.text == "llama-cpu.zip");
+            Check(zipRow.Kind.text.Contains("ZIP") && zipRow.Button.interactable, "Runtime ZIP is labeled and selectable"); zipRow.Button.onClick.Invoke();
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Custom && ui.RuntimePath.text == zipPath, "ZIP selection returns to the saved file form");
+            ui.BrowseModelButton.onClick.Invoke(); await WaitBrowser(browser);
+            Check(browser.Rows.Any(r => r.Button.gameObject.activeSelf && r.Name.text == "llama-server.exe" && !r.Button.interactable), "Runtime cannot be chosen as GGUF");
+            browser.ReaderOverride = (p, f, n, ct, progress) => { progress(64); Thread.Sleep(450); return new[] { new SetupFilePicker.Entry { Name = "late.gguf", Path = "late.gguf", Kind = SetupFileKind.Model } }; };
+            browser.OpenButton.onClick.Invoke(); await UniTask.Delay(80); Check(browser.IsLoading && browser.LoadingTrack.activeSelf, "Slow directory shows loading bar and stays interactive");
+            ui.SecondaryButton.onClick.Invoke(); await UniTask.Delay(500); Check(!browser.IsLoading && ui.CurrentSlide == PlayerSetupScreen.Slide.Custom, "Back cancels and stale results stay closed");
+            browser.TimeoutSeconds = .1f; ui.BrowseModelButton.onClick.Invoke(); await UniTask.Delay(250); Check(!browser.IsLoading && browser.Status.text.Contains("時間"), "Slow read times out with recovery message");
+            browser.ReaderOverride = null; browser.TimeoutSeconds = 15; browser.OpenButton.onClick.Invoke(); await WaitBrowser(browser); Check(browser.Rows.Any(r => r.Button.gameObject.activeSelf), "Directory can be retried after timeout");
+            ui.SecondaryButton.onClick.Invoke();
+            string badZip = Path.Combine(fixture, "broken.zip"); File.WriteAllText(badZip, "not a ZIP"); ui.RuntimePath.text = badZip;
+            ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Custom && ui.ErrorText.text.Contains("ZIP") && ui.PrimaryButton.interactable, "Broken ZIP shows an actionable error and allows retry");
+            ui.RuntimePath.text = zipPath; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Consent && !ui.ConsentToggle.isOn && !ui.PrimaryButton.interactable, "Local files reach explicit consent without URL entry");
+            Check(ui.ReviewRuntime.text.Contains("ZIP"), "Review shows ZIP extraction size before consent");
+            var zipPlan = (PlayerSetupPlan)typeof(PlayerSetupScreen).GetField("selection", Private).GetValue(ui);
+            Check(zipPlan.RuntimeArchivePath == zipPath && zipPlan.RuntimeArchiveSha256.Length == 64 && string.IsNullOrEmpty(zipPlan.RuntimePath), "ZIP review records its digest without pretending extraction finished");
+            Check(ui.PrimaryButton.GetComponent<Image>().sprite == ui.ButtonShape, "Disabled consent button uses a neutral surface");
+            Check(Contrast(ui.PrimaryCaption.color, ui.PrimaryButton.colors.disabledColor) >= 4.5, "Disabled consent caption contrast at least 4.5:1");
+            Check(!ui.ModelLicenseButton.gameObject.activeSelf && ui.ConsentCaption.text.Contains("入手元"), "Unknown GGUF requires source review without fabricated terms");
+            Check(services.Calls == 0 && services.Settings == null, "No preparation or commit before consent");
+            ClickToggleCaption(ui.ConsentToggle);
+            Check(ui.ConsentToggle.isOn && ui.PrimaryButton.interactable, "Japanese consent caption enables preparation");
+            ui.SetLanguage(false);
+            ClickToggleCaption(ui.ConsentToggle);
+            Check(!ui.ConsentToggle.isOn && !ui.PrimaryButton.interactable, "English consent caption unchecks consent");
+            ui.SetLanguage(true);
+            ClickToggleCaption(ui.ConsentToggle);
+            ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(180); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Progress, "Consent starts progress slide");
+            Check(ui.StatusTitle.text.Contains("解凍") && ui.DownloadedBytes.text.Contains("解凍済み") && ui.RemainingBytes.text.Contains("残り"), "ZIP progress distinguishes extraction from download");
+            ui.SecondaryButton.onClick.Invoke(); await UniTask.Delay(180); Check(ui.Flow.Stage == SetupStage.Cancelled && services.Settings == null, "Pause prevents saving settings");
+            services = new Fixture { RuntimeFailure = new SetupException(SetupProblem.RuntimeArchive, LlamaArchiveFailure.Changed.ToString()) }; ui.SetServices(services);
+            ui.PrimaryButton.onClick.Invoke(); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Custom, "Paused ZIP setup returns to file review");
+            ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350); ui.ConsentToggle.isOn = true; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(100);
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Result && ui.ResultCopy.text.Contains("ZIPが変更") && services.Settings == null, "Extraction failures are localized and keep settings uncommitted");
+            ui.PrimaryButton.onClick.Invoke(); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Custom && ui.RuntimePath.text == zipPath, "ZIP errors allow selecting or rechecking the source file");
+            ui.ChangeModelButton.onClick.Invoke(); ui.OllamaButton.onClick.Invoke(); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Models, "Ollama opens configured model choices");
+            var choices = PlayerSetupPlan.Choices(); Check(ui.ModelSlots[0].Name.text == choices[0].Model, "Model information comes from config");
+            ui.ModelSlots[0].Button.onClick.Invoke(); ui.PrimaryButton.onClick.Invoke(); Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Consent, "Ollama selection reaches review");
+            services = new Fixture(); ui.SetServices(services); ui.ConsentToggle.isOn = true; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(1350);
+            Check(ui.DownloadedBytes.text.Contains("251") && ui.RemainingBytes.text.Contains("272"), "Download shows 251 MB received and 272 MB remaining");
+            await UniTask.Delay(1700); Check(services.Settings != null && services.Verified && ui.Flow.Stage == SetupStage.Complete, "Only verified selection commits");
+            Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Result && ui.ResultFill.fillAmount == 1, "Completion uses authored result slide");
+            Check(ui.ResultCopy.text.Contains("3秒後") && ui.PrimaryButton.interactable, "Completion starts a visible three-second countdown with a manual action");
+            ui.SetLanguage(false);
+            Check(ui.ResultCopy.text.Contains("in 3 s"), "Language switch preserves the countdown");
+            for (int i = 0; i < 40 && !ui.ResultCopy.text.Contains("in 2 s"); i++) await UniTask.Delay(25);
+            Check(ui.ResultCopy.text.Contains("in 2 s") && ui.PrimaryButton.interactable, "Countdown ticks without completing early");
+            var setupScene = ui.gameObject.scene;
+            var gameScene = UnityEngine.SceneManagement.SceneManager.CreateScene("Setup Countdown Game Fixture");
+            UnityEngine.SceneManagement.SceneManager.SetActiveScene(gameScene);
+            for (int i = 0; i < 120 && setupScene.isLoaded; i++) await UniTask.Delay(25);
+            Check(!setupScene.isLoaded && gameScene.isLoaded, "Countdown closes additive setup and leaves the game scene open");
+            File.WriteAllText(Path.Combine(Output, "result.txt"), "PASS: " + assertions + " Canvas assertions\nNo model acquisition or native inference was performed.\n"); Debug.Log("CANVAS VALIDATION PASS: " + assertions); passed = true;
+        }
+        catch (Exception e) { Debug.LogException(e); File.WriteAllText(Path.Combine(Output, "result.txt"), "FAIL: " + e); }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", path); PlayerPrefs.SetString("AIDrivenFW.Setup.Language", language); PlayerPrefs.SetInt("AIDrivenFW.Setup.ReduceMotion", motion); PlayerPrefs.Save(); EditorApplication.isPlaying = false;
+            if (Application.isBatchMode) EditorApplication.delayCall += () => EditorApplication.Exit(passed ? 0 : 1);
+        }
+    }
+    static void ClickToggleCaption(Toggle toggle)
+    {
+        Canvas.ForceUpdateCanvases();
+        var caption = toggle.transform.Find("Caption").GetComponent<Text>();
+        var rect = caption.rectTransform;
+        var pointer = new PointerEventData(EventSystem.current)
+        {
+            position = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(new Vector2(rect.rect.xMin + 10, rect.rect.center.y))),
+            button = PointerEventData.InputButton.Left
+        };
+        var hits = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointer, hits);
+        Check(hits.Count > 0 && hits[0].gameObject == caption.gameObject, "Caption receives pointer raycast: " + toggle.name);
+        ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler);
+    }
+    static async UniTask WaitBrowser(SetupFilePicker b) { for (int i = 0; b.IsLoading && i < 100; i++) await UniTask.Delay(30); Check(!b.IsLoading, "Directory read finished"); }
+    static async UniTask ModelTermsChecks(PlayerSetupScreen ui)
+    {
+        string requested = null; string terms = "<b>Plain model license</b>\n" + new string('a', 2300) + new string('b', 2400);
+        ui.ModelLicenseReader = (tag, ct) => { requested = tag; return UniTask.FromResult(terms); };
+        ui.ChangeModelButton.onClick.Invoke(); ui.OllamaButton.onClick.Invoke(); ui.CustomModelButton.onClick.Invoke();
+        ui.ModelTag.text = "fixture/custom:1b"; ui.ModelSize.text = "12"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        Check(ui.CurrentSlide == PlayerSetupScreen.Slide.Consent && requested == "fixture/custom:1b", "Metadata request uses the manually selected tag");
+        Check(ui.ModelLicenseButton.gameObject.activeSelf && ui.ReviewSource.text.Contains("Ollama"), "Ollama license text is offered instead of an invented URL");
+        var selection = (PlayerSetupPlan)typeof(PlayerSetupScreen).GetField("selection", Private).GetValue(ui);
+        Check(string.IsNullOrEmpty(selection.ModelTerms) && selection.ModelTermsText == terms, "Custom model does not inherit another model's license URL");
+        ui.ModelLicenseButton.onClick.Invoke(); Check(ui.ModelTermsPanel.activeSelf && !ui.ModelTermsBody.supportRichText && ui.ModelTermsBody.text.StartsWith("<b>"), "License viewer uses authored Canvas controls and plain text");
+        ui.SetLanguage(false); Check(ui.ModelTermsTitle.text.StartsWith("Model terms"), "License viewer title switches to English"); ui.SetLanguage(true);
+        Check(ui.TermsPageCaption.text == "1 / 3" && !ui.PrimaryButton.gameObject.activeSelf, "Long license is paged without setup actions over it");
+        ui.NextTermsButton.onClick.Invoke(); Check(ui.TermsPageCaption.text == "2 / 3", "License page navigation works");
+        ui.NextTermsButton.onClick.Invoke(); Check(!ui.NextTermsButton.interactable && ui.ModelTermsBody.text.EndsWith("bbbb"), "Final license page is accessible");
+        ui.CloseModelTermsButton.onClick.Invoke(); Check(!ui.ModelTermsPanel.activeSelf && ui.Slides[(int)PlayerSetupScreen.Slide.Consent].activeSelf && !ui.ConsentToggle.isOn, "Reading terms does not automatically grant consent");
+        ui.ModelLicenseReader = (tag, ct) => UniTask.FromResult("");
+        ui.Go(PlayerSetupScreen.Slide.Custom); ui.ModelTag.text = "fixture/missing:1b"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        Check(!ui.ModelLicenseButton.gameObject.activeSelf && ui.ReviewSource.text.Contains("手動確認") && ui.ConsentCaption.text.Contains("手動確認"), "Missing model terms show explicit Japanese manual review");
+        Check(ui.ReviewSource.preferredHeight <= ui.ReviewSource.rectTransform.rect.height, "Manual review instructions fit the saved layout");
+        ui.SetLanguage(false); Check(ui.ReviewSource.text.Contains("Manually") && ui.ConsentCaption.text.Contains("manually"), "Missing model terms show English manual review"); ui.SetLanguage(true);
+        var delayed = new UniTaskCompletionSource<string>(); ui.ModelLicenseReader = (tag, ct) => delayed.Task;
+        ui.Go(PlayerSetupScreen.Slide.Custom); ui.ModelTag.text = "fixture/old:1b"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        Check(!ui.PrimaryButton.interactable && !ui.ConsentToggle.interactable, "Pending metadata keeps consent disabled");
+        ui.Go(PlayerSetupScreen.Slide.Custom); ui.ModelLicenseReader = (tag, ct) => UniTask.FromResult("New model terms"); ui.ModelTag.text = "fixture/new:1b"; ui.PrimaryButton.onClick.Invoke(); await UniTask.Delay(350);
+        delayed.TrySetResult("Wrong old model terms"); await UniTask.Delay(80);
+        selection = (PlayerSetupPlan)typeof(PlayerSetupScreen).GetField("selection", Private).GetValue(ui);
+        Check(selection.Model == "fixture/new:1b" && selection.ModelTermsText == "New model terms", "Late metadata cannot replace the new model's terms");
+    }
+    static double Contrast(Color a, Color b)
+    {
+        double Linear(float c) => c <= .04045 ? c / 12.92 : Math.Pow((c + .055) / 1.055, 2.4);
+        double Lum(Color c) => Linear(c.r) * .2126 + Linear(c.g) * .7152 + Linear(c.b) * .0722;
+        return (Math.Max(Lum(a), Lum(b)) + .05) / (Math.Min(Lum(a), Lum(b)) + .05);
+    }
+    sealed class Fixture : IPlayerSetupServices
+    {
+            public int Calls; public bool Verified; public ModelInfo Settings; public SetupException RuntimeFailure;
+            public async UniTask<string> PrepareRuntimeAsync(PlayerSetupPlan p, Action<SetupProgress> report, CancellationToken ct) { Calls++; if (RuntimeFailure != null) throw RuntimeFailure; report(new SetupProgress { Stage = SetupStage.Runtime, Detail = string.IsNullOrEmpty(p.RuntimeArchivePath) ? "" : "extracting archive", CompletedBytes = 50000000, TotalBytes = 100000000 }); await UniTask.Delay(1000, cancellationToken: ct); return p.RuntimePath; }
+        public async UniTask PrepareModelAsync(PlayerSetupPlan p, Action<SetupProgress> report, CancellationToken ct) { Calls++; report(new SetupProgress { Stage = SetupStage.Model, CompletedBytes = 251000000, TotalBytes = 523000000 }); await UniTask.Delay(1500, cancellationToken: ct); }
+        public async UniTask VerifyAsync(PlayerSetupPlan p, CancellationToken ct) { await UniTask.Delay(200, cancellationToken: ct); Verified = true; }
+        public void RecordAttempt(PlayerSetupPlan p, string utc, SetupStage stage) { }
+        public void Commit(ModelInfo settings) { if (!Verified) throw new InvalidOperationException("Verification required"); Settings = settings; }
+        public void Dispose() { }
+    }
+}
