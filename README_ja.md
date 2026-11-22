@@ -108,6 +108,51 @@ var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
 ```
 
+JSON Schemaで出力を制約する場合は、最後のオプションに`StructuredOutputOptions`を渡します。スキーマはJSONまたはYAMLで記述できます。
+
+```csharp
+using AIDrivenFW.API;
+using AIDrivenFW.Core;
+
+const string schema = @"
+type: object
+properties:
+  name:
+    type: string
+  score:
+    type: integer
+required: [name, score]
+";
+
+var result = await genAI.Generate(
+    "キャラクターを1人作成してください。",
+    structuredOutput: StructuredOutputOptions.FromYaml(schema));
+```
+
+YAMLスキーマは生成前にCoreでJSONへ正規化されます。組み込みのllama.cpp ExecutorではJSON SchemaをGBNFへ変換し、Ollama Executorでは`format`フィールドへJSON Schemaを渡します。独自Executorは`IStructuredOutputExecutor`を実装することで対応できます。
+
+組み込みGBNF変換は、構造化生成で一般的に使う`type`、`properties`、`required`、`items`、`enum`、`const`、`oneOf`、`anyOf`、ローカルの`$defs` / `definitions`参照に対応します。未対応のキーワードは `GenAIConfigurationException` になります。オブジェクトの文法は宣言済みのプロパティを生成し、`additionalProperties: false` を指定できます。
+
+各ランタイム向けの変換結果は、直接取得してテストすることもできます。
+
+```csharp
+var source = StructuredOutputOptions.FromJson(jsonSchema);
+string llamaGbnf = StructuredOutputFormatConverter.ToLlamaCppGbnf(source);
+string ollamaFormatJson = StructuredOutputFormatConverter.ToOllamaFormatJson(source);
+```
+
+生成された JSON は `StructuredOutputFormatConverter.ToYaml(result)` で YAML 本文に変換できます。自作型を使う場合は、変換と検証を行う関数を渡します。省略可能な前処理は JSON の構文検査と変換より先に実行されます。
+
+```csharp
+Character character = await genAI.GenerateStructured(
+    "Create one character.",
+    StructuredOutputOptions.FromYaml(schema),
+    converter: ParseCharacter,
+    preprocess: json => json.Trim());
+```
+
+`ParseCharacter` は `Func<string, Character>` とし、必須項目の欠落や型不一致の際に例外を送出します。JSON の構文エラーや変換エラーは `StructuredOutputResponseException` になります。サポートする自作型と項目の規則は変換関数で定義します。
+
 これで準備完了です 🎉
 
 ---

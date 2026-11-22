@@ -48,14 +48,7 @@ internal class Message
     public string content;
 }
 
-[Serializable]
-internal class RequestPayload
-{
-    public Message[] messages;
-    public bool stream;
-}
-
-public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
+public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor, IStructuredOutputExecutor
 {
 
     // HTTPクライアント
@@ -67,6 +60,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
 
     private AIProcess aiProcess;
     private GenAIConfig ownedProcessConfig;
+    private string _gbnfGrammar;
     private string _lastResponse = string.Empty;
     const int checkIntervalMs = 500;
     string AISoftwarePath = "";
@@ -187,8 +181,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
             ? new Message[] { new Message { role = "user", content = prompt } }
             : new Message[] { new Message { role = "system", content = systemPrompt }, new Message { role = "user", content = prompt } };
 
-        var payload = new RequestPayload { messages = messages, stream = stream };
-        string requestJson = JsonUtility.ToJson(payload);
+        string requestJson = BuildRequestJson(messages, stream, _gbnfGrammar);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -226,6 +219,34 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
             UnityEngine.Debug.LogError($"Error during generation: {ex.Message}");
             throw;
         }
+    }
+
+    internal static string BuildRequestJson(Message[] messages, bool stream, string grammar)
+    {
+        var builder = new StringBuilder("{\"messages\":[");
+        for (int i = 0; i < messages.Length; i++)
+        {
+            if (i > 0) builder.Append(',');
+            builder.Append("{\"role\":")
+                .Append(StructuredOutputJson.Quote(messages[i].role))
+                .Append(",\"content\":")
+                .Append(StructuredOutputJson.Quote(messages[i].content))
+                .Append('}');
+        }
+        builder.Append("],\"stream\":").Append(stream ? "true" : "false");
+        if (!string.IsNullOrEmpty(grammar))
+        {
+            builder.Append(",\"grammar\":").Append(StructuredOutputJson.Quote(grammar));
+        }
+        return builder.Append('}').ToString();
+    }
+
+    public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+    {
+        _gbnfGrammar = definition == null
+            ? null
+            : StructuredOutputFormatConverter.ToLlamaCppGbnf(definition);
+        return false;
     }
 
     internal static string ParseResponse(string json)

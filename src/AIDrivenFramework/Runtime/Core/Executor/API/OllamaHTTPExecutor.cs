@@ -23,16 +23,7 @@ internal class OllamaGenerateResponse
     public bool done;
 }
 
-[Serializable]
-internal class OllamaPayload
-{
-    public string model;
-    public string prompt;
-    public string system;
-    public bool stream;
-}
-
-public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
+public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor, IStructuredOutputExecutor
 {
     private static readonly HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
     private const string ServerHost = "127.0.0.1";
@@ -45,6 +36,7 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
     private AIProcess _ollamaProcess;
     private GenAIConfig _ownedServerConfig;
     private bool _serverReady = false;
+    private string _ollamaFormatJson;
     private string _lastResponse = "";
     string AISoftwarePath = "";
 
@@ -200,8 +192,7 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
 
         bool stream = onUpdate != null;
         // Ollama APIに送るペイロードを構築
-        var payload = new OllamaPayload { model = model, prompt = prompt, system = system, stream = stream };
-        string requestJson = JsonUtility.ToJson(payload);
+        string requestJson = BuildRequestJson(model, prompt, system, stream, _ollamaFormatJson);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeoutMs);
@@ -240,6 +231,32 @@ public class OllamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArgument
             UnityEngine.Debug.LogError($"Error during generation: {ex.Message}");
             throw;
         }
+    }
+
+    internal static string BuildRequestJson(
+        string model,
+        string prompt,
+        string system,
+        bool stream,
+        string formatJson)
+    {
+        var builder = new StringBuilder();
+        builder.Append('{')
+            .Append("\"model\":").Append(StructuredOutputJson.Quote(model))
+            .Append(",\"prompt\":").Append(StructuredOutputJson.Quote(prompt))
+            .Append(",\"system\":").Append(StructuredOutputJson.Quote(system))
+            .Append(",\"stream\":").Append(stream ? "true" : "false");
+        if (!string.IsNullOrEmpty(formatJson))
+        {
+            builder.Append(",\"format\":").Append(formatJson);
+        }
+        return builder.Append('}').ToString();
+    }
+
+    public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+    {
+        _ollamaFormatJson = StructuredOutputFormatConverter.ToOllamaFormatJson(definition);
+        return false;
     }
 
     internal static string ParseResponse(string json)

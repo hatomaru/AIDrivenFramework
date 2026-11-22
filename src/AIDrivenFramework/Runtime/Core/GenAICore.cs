@@ -11,6 +11,7 @@ namespace AIDrivenFW.Core
         private const int MaxGenerationAttempts = 3;
         private readonly SemaphoreSlim _generateLock = new(1, 1);
         private readonly AIExecutorContext executor;
+        private readonly StructuredOutputSchemaNormalizer schemaNormalizer = new();
 
         public GenAICore(AIExecutorContext aiExecutor)
         {
@@ -31,7 +32,7 @@ namespace AIDrivenFW.Core
         /// <exception cref="TimeoutException">処理が期限内に完了しなかった場合。</exception>
         /// <exception cref="GenAIConfigurationException">AI生成を開始できない構成不備がある場合。</exception>
         /// <exception cref="GenAIExecutionException">3回の試行後も生成が失敗した場合。</exception>
-        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000)
+        public async UniTask<string> GenerateAsync(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, StructuredOutputOptions structuredOutput = null)
         {
             if (timeoutMs <= 0)
             {
@@ -52,6 +53,14 @@ namespace AIDrivenFW.Core
                 await _generateLock.WaitAsync(operationToken);
                 lockTaken = true;
 
+                var definition = schemaNormalizer.Normalize(structuredOutput);
+                var structuredExecutor = executor.GenerateExecutor as IStructuredOutputExecutor;
+                if (definition != null && structuredExecutor == null)
+                {
+                    throw new GenAIConfigurationException("This backend does not support structured output.");
+                }
+
+                bool restartForSchema = structuredExecutor?.ConfigureStructuredOutput(definition) ?? false;
                 Exception lastException = null;
 
                 for (int attempt = 1; attempt <= MaxGenerationAttempts; attempt++)
@@ -59,7 +68,7 @@ namespace AIDrivenFW.Core
                     try
                     {
                         executorOperationStarted = true;
-                        string result = await executor.GenerateAsync(input, genAIConfig, attempt > 1,
+                        string result = await executor.GenerateAsync(input, genAIConfig, restartForSchema || attempt > 1,
                             onUpdate, progress, operationToken, timeoutMs);
                         operationToken.ThrowIfCancellationRequested();
                         return result;

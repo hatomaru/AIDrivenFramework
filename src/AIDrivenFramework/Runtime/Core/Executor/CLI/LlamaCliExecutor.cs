@@ -7,8 +7,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor
+public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsExecutor, IExtractExecutor, IStructuredOutputExecutor
 {
+    private string gbnfGrammar;
     private AIProcess aiProcess;
     private GenAIConfig ownedConfig;
     const int checkIntervalMs = 100; // 確認の間隔  
@@ -30,6 +31,11 @@ public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsE
             ownedConfig = GenAIConfigLifecycle.CreateOwned();
             genAIConfig = ownedConfig;
             genAIConfig.arguments = SetDefaultArguments();
+        }
+        else if (!string.IsNullOrEmpty(gbnfGrammar))
+        {
+            ownedConfig = UnityEngine.Object.Instantiate(genAIConfig);
+            genAIConfig = ownedConfig;
         }
         else if (genAIConfig.arguments == AIDrivenConfig.autoDetect)
         {
@@ -253,10 +259,10 @@ public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsE
 
             if (!inGeneration)
             {
-                if (line.StartsWith(">"))
+                if (line == ">") continue;
+                if (line.StartsWith("> ", StringComparison.Ordinal))
                 {
-                    inGeneration = true;
-                    continue;
+                    line = line.Substring(2);
                 }
                 inGeneration = true;
             }
@@ -348,7 +354,34 @@ public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsE
         {
             raw = SetDefaultArguments();
         }
-        return BuildArguments(raw, genAIConfig);
+        return AppendGrammarArgument(BuildArguments(raw, genAIConfig), gbnfGrammar);
+    }
+
+    public bool ConfigureStructuredOutput(StructuredOutputDefinition definition)
+    {
+        string nextGrammar = definition == null
+            ? null
+            : StructuredOutputFormatConverter.ToLlamaCppGbnf(definition);
+        bool changed = !string.Equals(gbnfGrammar, nextGrammar, StringComparison.Ordinal);
+        gbnfGrammar = nextGrammar;
+        return changed;
+    }
+
+    internal static string QuoteProcessArgument(string value)
+    {
+        return "\"" + (value ?? string.Empty)
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"") + "\"";
+    }
+
+    internal static string AppendGrammarArgument(string arguments, string grammar)
+    {
+        if (string.IsNullOrEmpty(grammar))
+        {
+            return arguments;
+        }
+
+        return arguments + " --grammar " + QuoteProcessArgument(grammar);
     }
 
     internal static string BuildArguments(string raw, GenAIConfig genAIConfig)

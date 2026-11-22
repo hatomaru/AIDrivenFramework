@@ -102,6 +102,51 @@ var result = await genAI.Generate("Hello AI");
 Debug.Log(result);
 ```
 
+To constrain the response with a JSON Schema, pass `StructuredOutputOptions` as the final option. The schema source can be JSON or YAML:
+
+```csharp
+using AIDrivenFW.API;
+using AIDrivenFW.Core;
+
+const string schema = @"
+type: object
+properties:
+  name:
+    type: string
+  score:
+    type: integer
+required: [name, score]
+";
+
+var result = await genAI.Generate(
+    "Create one character.",
+    structuredOutput: StructuredOutputOptions.FromYaml(schema));
+```
+
+YAML schemas are normalized to JSON in Core before generation. Built-in llama.cpp executors convert the JSON Schema to GBNF; the Ollama executor sends the JSON Schema through its `format` field. Custom executors can opt in by implementing `IStructuredOutputExecutor`.
+
+The built-in GBNF converter supports the common JSON Schema subset used for structured generation: `type`, `properties`, `required`, `items`, `enum`, `const`, `oneOf`, `anyOf`, and local `$defs` / `definitions` references. Unsupported keywords raise a `GenAIConfigurationException`. Object grammars emit declared properties and accept `additionalProperties: false`.
+
+Provider-specific formats can also be inspected or tested directly:
+
+```csharp
+var source = StructuredOutputOptions.FromJson(jsonSchema);
+string llamaGbnf = StructuredOutputFormatConverter.ToLlamaCppGbnf(source);
+string ollamaFormatJson = StructuredOutputFormatConverter.ToOllamaFormatJson(source);
+```
+
+Convert a generated JSON response to a YAML document with `StructuredOutputFormatConverter.ToYaml(result)`. For a custom result type, supply your own parser and validation. The optional preprocessing step runs before JSON parsing and conversion.
+
+```csharp
+Character character = await genAI.GenerateStructured(
+    "Create one character.",
+    StructuredOutputOptions.FromYaml(schema),
+    converter: ParseCharacter,
+    preprocess: json => json.Trim());
+```
+
+Define `ParseCharacter` as a `Func<string, Character>` that throws when a required field is missing or has the wrong type. The API checks JSON syntax and reports parsing or conversion errors as `StructuredOutputResponseException`. The converter defines the supported DTO types and field rules.
+
 You're all set 🎉
 
 ---
