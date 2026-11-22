@@ -7,7 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Rebuilt the optional player setup scene in English and Japanese with one purpose per slide, a consent-first local AI flow, short transitions, model choices, installed-model selection, existing GGUF support, recovery guidance and reduced motion.
 - Added overall setup progress based on completed stages and downloaded model layers, with 100% reserved for verified completion, plus automated contrast checks for text and control states.
-- Added pinned, SHA-256 verified Windows x64 Ollama acquisition, consent/attempt records, real generation before atomic settings commit, and a deterministic UnityPackage exporter with reviewable scene sources.
+- Added pinned, SHA-256 verified Ollama and CPU llama.cpp runtime acquisition after consent on Windows x64 and ARM64. Setup displays the runtime version, download size, source and terms before acquisition.
+- Added consent and attempt records, real generation before atomic settings commit, and a deterministic UnityPackage exporter with reviewable scene sources.
 - Added explicit runtime selection when Ollama and llama.cpp are both available, config-driven model names/sizes/sources/licenses, Windows file selection for existing GGUF/runtime files, and downloaded/remaining capacity per preparation step.
 
 ### Fixed
