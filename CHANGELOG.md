@@ -3,14 +3,21 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-
 ### Added
+- Added request-level structured output control using JSON Schema sources written in JSON or YAML.
+- Added Core-side YAML-to-JSON Schema normalization before generation.
+- Added JSON Schema-to-GBNF conversion for llama.cpp CLI and server executors, with configuration errors for unsupported keywords.
+- Added native JSON Schema forwarding through Ollama's `format` request field.
+- Added `StructuredOutputFormatConverter` for explicitly converting JSON/YAML schema sources to llama.cpp GBNF or Ollama format JSON.
+- Added conversion of generated JSON responses to YAML documents.
+- Added GenerateStructured<T> with caller-supplied response preprocessing and conversion.
 - Rebuilt the optional player setup scene in English and Japanese with one purpose per slide, a consent-first local AI flow, short transitions, model choices, installed-model selection, existing GGUF support, recovery guidance and reduced motion.
 - Added overall setup progress based on completed stages and downloaded model layers, with 100% reserved for verified completion, plus automated contrast checks for text and control states.
 - Added pinned, SHA-256 verified Windows x64 Ollama acquisition, consent/attempt records, real generation before atomic settings commit, and a deterministic UnityPackage exporter with reviewable scene sources.
 - Added explicit runtime selection when Ollama and llama.cpp are both available, config-driven model names/sizes/sources/licenses, Windows file selection for existing GGUF/runtime files, and downloaded/remaining capacity per preparation step.
 
 ### Fixed
+- Preserved llama.cpp CLI responses that start on the prompt line.
 - Declining additive setup now returns false to the game. First-run readiness no longer launches local AI before consent; verified settings use writable player storage with legacy read compatibility.
 - Restored saved model selection and Japanese localization in retained optional helpers, and corrected setup-related owned ScriptableObject lifetimes.
 - Smoothed the gradient icon's edges and clear model-license choices when changing a GGUF file, instead of inheriting another model's terms.

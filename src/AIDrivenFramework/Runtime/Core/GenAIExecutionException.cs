@@ -18,6 +18,11 @@ namespace AIDrivenFW.Core
             : base(message)
         {
         }
+
+        public GenAIConfigurationException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
     }
 
     /// <summary>
@@ -31,6 +36,15 @@ namespace AIDrivenFW.Core
         }
 
         public GenAIRetryableException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
+
+    /// <summary>Generated structured output could not be read or converted.</summary>
+    public sealed class StructuredOutputResponseException : FormatException
+    {
+        public StructuredOutputResponseException(string message, Exception innerException)
             : base(message, innerException)
         {
         }

@@ -168,7 +168,7 @@ namespace AIDrivenFW.API
         /// 生成中に<see cref="SetExecutor"/>または<see cref="KillProcess"/>を呼び出した場合の動作は保証されません。
         /// </para>
         /// </remarks>
-        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, bool retryAfterInitialization = true)
+        public async UniTask<string> Generate(string input, GenAIConfig genAIConfig = null, Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default, int timeoutMs = 120000, bool retryAfterInitialization = true, StructuredOutputOptions structuredOutput = null)
         {
             if (timeoutMs <= 0)
             {
@@ -193,14 +193,14 @@ namespace AIDrivenFW.API
                 string result;
                 try
                 {
-                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
+                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs, structuredOutput);
                 }
                 catch (GenAIExecutionException ex) when (retryAfterInitialization && executor.ProcessExecutor != null && executor.ArgumentsExecutor != null)
                 {
                     Debug.LogWarning($"AI generation failed after {ex.Attempts} attempts. Initializing and retrying once: {ex.Message}");
                     if (!await AIDrivenInitializer.Initialize(requestToken, this))
                         throw; // Respect refusal instead of generating again after setup closes.
-                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs);
+                    result = await activeCore.GenerateAsync(input, genAIConfig, onUpdate, progress, requestToken, timeoutMs, structuredOutput);
                 }
 
                 requestToken.ThrowIfCancellationRequested();
@@ -218,13 +218,28 @@ namespace AIDrivenFW.API
             }
         }
 
+        /// <summary>Generates JSON and converts it to a caller-defined result type.</summary>
+        /// <remarks>The converter validates fields required by the result type.</remarks>
+        public async UniTask<T> GenerateStructured<T>(string input, StructuredOutputOptions options,
+            Func<string, T> converter, Func<string, string> preprocess = null,
+            GenAIConfig genAIConfig = null, CancellationToken ct = default, int timeoutMs = 120000)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            if (converter == null) throw new ArgumentNullException(nameof(converter));
+
+            string response = await Generate(input, genAIConfig, ct: ct, timeoutMs: timeoutMs,
+                structuredOutput: options);
+            ct.ThrowIfCancellationRequested();
+            return StructuredOutputFormatConverter.ConvertResponse(response, converter, preprocess);
+        }
+
         /// <summary>
         /// Validates and snapshots a custom serialized request once, before any backend call.
         /// The resulting string is forwarded unchanged; the executor defines its wire format.
         /// </summary>
         public UniTask<string> GenerateInput(IExecutorInput input, GenAIConfig genAIConfig = null,
             Action<string> onUpdate = null, IProgress<float> progress = null, CancellationToken ct = default,
-            int timeoutMs = 120000, bool retryAfterInitialization = true)
+            int timeoutMs = 120000, bool retryAfterInitialization = true, StructuredOutputOptions structuredOutput = null)
         {
             if (timeoutMs <= 0) throw new ArgumentOutOfRangeException(nameof(timeoutMs));
             ct.ThrowIfCancellationRequested();
@@ -232,7 +247,7 @@ namespace AIDrivenFW.API
             input.Validate();
             string serialized = input.Serialize() ?? throw new ArgumentException("Input serialization returned null.", nameof(input));
             ct.ThrowIfCancellationRequested();
-            return Generate(serialized, genAIConfig, onUpdate, progress, ct, timeoutMs, retryAfterInitialization);
+            return Generate(serialized, genAIConfig, onUpdate, progress, ct, timeoutMs, retryAfterInitialization, structuredOutput);
         }
 
         /// <summary>
