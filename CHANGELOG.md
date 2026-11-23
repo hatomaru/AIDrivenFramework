@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+- Added a Setup menu entry with llama.cpp backend selection, dependency diagnostics, configuration asset creation, and Play Mode test generation.
 - Added request-level structured output control using JSON Schema sources written in JSON or YAML.
 - Added Core-side YAML-to-JSON Schema normalization before generation.
 - Added JSON Schema-to-GBNF conversion for llama.cpp CLI and server executors, with configuration errors for unsupported keywords.
@@ -17,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - Added explicit runtime selection when Ollama and llama.cpp are both available, config-driven model names/sizes/sources/licenses, Windows file selection for existing GGUF/runtime files, and downloaded/remaining capacity per preparation step.
 
 ### Fixed
+- Resolved optional UnityPackages from both package and Assets checkouts, and imported the required AISetup scene before the Example Scene.
 - Preserved llama.cpp CLI responses that start on the prompt line.
 - Declining additive setup now returns false to the game. First-run readiness no longer launches local AI before consent; verified settings use writable player storage with legacy read compatibility.
 - Restored saved model selection and Japanese localization in retained optional helpers, and corrected setup-related owned ScriptableObject lifetimes.

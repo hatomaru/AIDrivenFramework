@@ -18,8 +18,13 @@ public class LlamaCliExecutor : IProcessExecutor, IGenerateExecutor, IArgumentsE
 
     public LlamaCliExecutor()
     {
+        AISoftwarePath = FindExecutable();
+    }
+
+    public static string FindExecutable()
+    {
         string baseDir = Path.Combine(UnityEngine.Application.persistentDataPath, AIDrivenConfig.Instance.BaseFilePath);
-        AISoftwarePath = FindRunFile(baseDir);
+        return FindRunFile(baseDir);
     }
 
     public async UniTask StartProcessAsync(CancellationToken ct, GenAIConfig genAIConfig = null, IProgress<float> progress = null, int timeoutMs = 120000)
