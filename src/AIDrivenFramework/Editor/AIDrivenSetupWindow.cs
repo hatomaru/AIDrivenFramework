@@ -1,3 +1,7 @@
+using AIDrivenFW.API;
+using AIDrivenFW.Core;
+using System.Threading;
+using AIDrivenFW.Config;
 using UnityEditor;
 using UnityEngine;
 using System;
@@ -12,15 +16,14 @@ public class AIDrivenSetupWindow : EditorWindow
 
     // ===== UnityPackage paths =====
     private const string EXAMPLE_PACKAGE =
-        "Packages/com.hatomaru.ai.framework/Editor/Packages/AIDriven_Example.unitypackage";
+        "Packages/AIDriven_Example.unitypackage";
 
     private const string AISetup_PACKAGE =
-        "Packages/com.hatomaru.ai.framework/Editor/Packages/AIDriven_AISetup.unitypackage";
+        "Packages/AIDriven_AISetup.unitypackage";
 
     // ===== Toggle states =====
     bool exampleSamples = true;
     bool AISetup = false;
-    bool installDefaultSettings = false;
 
     // ===== UI State =====
     bool setupCompleted = false;
@@ -37,6 +40,21 @@ public class AIDrivenSetupWindow : EditorWindow
     string currentImportedTempPath;
     string currentExpectedPackageName;
 
+    [SerializeField] GenAIConfig developerConfig;
+    [SerializeField] DeveloperBackend developerBackend;
+    CancellationTokenSource generationCancellation;
+    string generationResult;
+    MessageType generationResultType;
+
+    enum DeveloperBackend
+    {
+        [InspectorName("llama.cpp Server (Recommended)")]
+        LlamaServer,
+        [InspectorName("llama.cpp CLI")]
+        LlamaCli
+    }
+
+    [MenuItem("Tools/AIDrivenFW/Setup")]
     [MenuItem("Tools/AIDrivenFW/Optional Packages")]
     static void Open()
     {
@@ -46,6 +64,8 @@ public class AIDrivenSetupWindow : EditorWindow
     void OnGUI()
     {
         GUILayout.Space(8);
+        DrawDeveloperConfig();
+        GUILayout.Space(12);
         GUILayout.Label("Optional Components", EditorStyles.boldLabel);
         GUILayout.Space(4);
 
@@ -59,9 +79,12 @@ public class AIDrivenSetupWindow : EditorWindow
             AISetup
         );
 
+        if (exampleSamples && !AISetup && !HasSetupScene())
+            EditorGUILayout.HelpBox("The Example Scene requires AISetup. AISetup will be imported first.", MessageType.Info);
+
         GUILayout.Space(12);
 
-        GUI.enabled = !isImporting && (exampleSamples || AISetup || installDefaultSettings);
+        GUI.enabled = !isImporting && (exampleSamples || AISetup);
 
         if (GUILayout.Button("Install Selected", GUILayout.Height(28)))
         {
@@ -74,6 +97,135 @@ public class AIDrivenSetupWindow : EditorWindow
         DrawResultMessage();
     }
 
+    void DrawDeveloperConfig()
+    {
+        GUILayout.Label("Generation Configuration", EditorStyles.boldLabel);
+        developerBackend = (DeveloperBackend)EditorGUILayout.EnumPopup("Backend", developerBackend);
+        EditorGUILayout.HelpBox(
+            "Install the llama.cpp runtime and a GGUF model. Use the AISetup scene to prepare them, " +
+            "or select an existing configuration below.",
+            MessageType.Info);
+
+        developerConfig = (GenAIConfig)EditorGUILayout.ObjectField(
+            "Configuration", developerConfig, typeof(GenAIConfig), false);
+        if (developerConfig == null)
+        {
+            if (GUILayout.Button("Create Configuration"))
+                CreateDeveloperConfig();
+        }
+        else if (GUILayout.Button("Open Configuration in Inspector"))
+        {
+            Selection.activeObject = developerConfig;
+        }
+
+        var dependencyProblem = GetDependencyProblem();
+        if (dependencyProblem != null)
+            EditorGUILayout.HelpBox(dependencyProblem, MessageType.Warning);
+        else if (!EditorApplication.isPlaying)
+            EditorGUILayout.HelpBox("Enter Play Mode to run test generation.", MessageType.Info);
+
+        if (generationCancellation != null)
+        {
+            if (GUILayout.Button("Cancel Test Generation"))
+                generationCancellation.Cancel();
+        }
+        else
+        {
+            using (new EditorGUI.DisabledScope(dependencyProblem != null || !EditorApplication.isPlaying))
+            {
+                if (GUILayout.Button("Run Test Generation"))
+                    RunTestGeneration();
+            }
+        }
+
+        if (!string.IsNullOrEmpty(generationResult))
+            EditorGUILayout.HelpBox(generationResult, generationResultType);
+    }
+
+    string GetDependencyProblem()
+    {
+        try
+        {
+            var executable = developerBackend == DeveloperBackend.LlamaCli
+                ? LlamaCliExecutor.FindExecutable()
+                : !string.IsNullOrWhiteSpace(developerConfig?.aiSoftwarePath)
+                    ? developerConfig.aiSoftwarePath
+                    : LlamaHTTPExecutor.FindServerExecutable();
+            if (!File.Exists(executable))
+                return $"Install the selected llama.cpp executable. Expected: {executable}";
+
+            ModelRepository.GetRequiredModelExecutablePath(developerConfig);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    async void RunTestGeneration()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Application.exitCancellationToken);
+        generationCancellation = cancellation;
+        generationResult = "Generating a test response…";
+        generationResultType = MessageType.Info;
+        GenAI ai = null;
+        GenAIConfig config = null;
+
+        try
+        {
+            if (developerConfig != null)
+                config = Instantiate(developerConfig);
+            IGenerateExecutor executor = developerBackend == DeveloperBackend.LlamaCli
+                ? new LlamaCliExecutor()
+                : new LlamaHTTPExecutor();
+            ai = new GenAI(executor);
+            var response = await ai.Generate("Reply with a short greeting.", config,
+                ct: cancellation.Token, timeoutMs: 60000, retryAfterInitialization: false);
+            generationResult = string.IsNullOrWhiteSpace(response) ? "The model returned an empty response." : response.Trim();
+            generationResultType = string.IsNullOrWhiteSpace(response) ? MessageType.Warning : MessageType.Info;
+        }
+        catch (OperationCanceledException)
+        {
+            generationResult = "Test generation canceled.";
+        }
+        catch (Exception ex)
+        {
+            generationResult = ex.Message;
+            generationResultType = MessageType.Error;
+        }
+        finally
+        {
+            try
+            {
+                ai?.KillProcess();
+            }
+            finally
+            {
+                if (config != null)
+                    DestroyImmediate(config);
+                generationCancellation = null;
+                if (this != null)
+                    Repaint();
+            }
+        }
+    }
+
+    void CreateDeveloperConfig()
+    {
+        var path = EditorUtility.SaveFilePanelInProject(
+            "Create Generation Configuration", "GenAIConfig", "asset",
+            "Choose a location for the new configuration.");
+        if (string.IsNullOrEmpty(path))
+            return;
+
+        var config = CreateInstance<GenAIConfig>();
+        AssetDatabase.CreateAsset(config, AssetDatabase.GenerateUniqueAssetPath(path));
+        AssetDatabase.SaveAssets();
+        developerConfig = config;
+        Selection.activeObject = config;
+    }
+
     void InstallSelectedPackages()
     {
         if (isImporting)
@@ -82,13 +234,13 @@ public class AIDrivenSetupWindow : EditorWindow
         setupCompleted = false;
 
         importQueue.Clear();
-        shouldAddAISetupSceneToBuild = AISetup;
+        shouldAddAISetupSceneToBuild = AISetup || exampleSamples;
+
+        if (AISetup || (exampleSamples && !HasSetupScene()))
+            importQueue.Enqueue(AISetup_PACKAGE);
 
         if (exampleSamples)
             importQueue.Enqueue(EXAMPLE_PACKAGE);
-
-        if (AISetup)
-            importQueue.Enqueue(AISetup_PACKAGE);
 
         if (importQueue.Count == 0)
             return;
@@ -131,7 +283,15 @@ public class AIDrivenSetupWindow : EditorWindow
             return;
         }
 
-        var path = importQueue.Dequeue();
+        var package = importQueue.Dequeue();
+        if (package == EXAMPLE_PACKAGE && !HasSetupScene())
+        {
+            Debug.LogError("Import the AIDriven Setup scene before importing the Example Scene.");
+            EndImportQueue(success: false);
+            return;
+        }
+
+        var path = ResolvePackagePath(package);
         currentExpectedPackageName = NormalizePackageName(path);
         if (string.IsNullOrEmpty(currentExpectedPackageName))
         {
@@ -141,6 +301,24 @@ public class AIDrivenSetupWindow : EditorWindow
         }
 
         ImportUnityPackage(path);
+    }
+
+    static bool HasSetupScene()
+    {
+        return AssetDatabase.LoadAssetAtPath<SceneAsset>(AISETUP_SCENE_PATH) != null;
+    }
+
+    string ResolvePackagePath(string relativePath)
+    {
+        var scriptPath = AssetDatabase.GetAssetPath(MonoScript.FromScriptableObject(this));
+        var editorDirectory = Path.GetDirectoryName(scriptPath);
+        var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(scriptPath);
+        if (package == null)
+            return Path.Combine(editorDirectory, relativePath);
+
+        var packageRelativeDirectory = editorDirectory.Replace('\\', '/')
+            .Substring(package.assetPath.Length).TrimStart('/');
+        return Path.Combine(package.resolvedPath, packageRelativeDirectory, relativePath);
     }
 
     void OnImportPackageCompleted(string packageName)
@@ -229,7 +407,13 @@ public class AIDrivenSetupWindow : EditorWindow
         try
         {
             if (success && shouldAddAISetupSceneToBuild)
-                AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
+            {
+                success = HasSetupScene();
+                if (success)
+                    AddSceneToBuildSettingsIfNeeded(AISETUP_SCENE_PATH);
+                else
+                    Debug.LogError("The AIDriven Setup scene was not imported.");
+            }
 
             setupCompleted = success;
         }
@@ -254,6 +438,7 @@ public class AIDrivenSetupWindow : EditorWindow
 
     void OnDisable()
     {
+        generationCancellation?.Cancel();
         if (isImporting || importCallbacksRegistered || reloadAssembliesLocked ||
             !string.IsNullOrEmpty(currentImportSessionDir) ||
             !string.IsNullOrEmpty(currentExpectedPackageName))

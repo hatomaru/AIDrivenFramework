@@ -71,7 +71,7 @@ public class LlamaHTTPExecutor : IProcessExecutor, IGenerateExecutor, IArguments
         AISoftwarePath = FindServerExecutable();
     }
 
-    private static string FindServerExecutable()
+    public static string FindServerExecutable()
     {
         var saved = ModelInfo.LoadFromFile();
         if (saved?.Mode == "Llama" && File.Exists(saved.RuntimePath)) return saved.RuntimePath;
